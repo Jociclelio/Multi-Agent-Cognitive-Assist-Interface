@@ -1,0 +1,14 @@
+# Base
+langchain
+langchain-community
+langchain-openai
+langchain-ollama
+langchain-google-genai
+langgraph
+langsmith
+pydantic
+python-dotenv
+openai
+
+# Jupyter / experimentos
+jupyter

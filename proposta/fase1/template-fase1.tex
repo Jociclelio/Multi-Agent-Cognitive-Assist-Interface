@@ -1,0 +1,137 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, tmargin=3cm, lmargin=2.5cm, rmargin=2.5cm, bmargin=3cm]{geometry}
+\usepackage{hyperref}
+
+\usepackage[brazilian]{babel} % Remover linha em caso de escrita em inglês
+\usepackage[fixlanguage]{babelbib} % Remover linha em caso de escrita em inglês
+
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=blue,
+    citecolor=black,
+}
+
+\usepackage{natbib} % to cite references by surname and year
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\pagestyle{fancy} % Ativar o estilo fancy
+\fancyhf{} % Limpar cabeçalhos e rodapés
+\renewcommand{\headrulewidth}{0pt} % Remover a linha do cabeçalho
+\fancyfoot[C]{IC/UNICAMP \\ 2026 }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONFIGURAÇÃO DA PRIMEIRA PÁGINA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+\vspace{5mm}
+\hrule
+
+\vspace{3mm}
+
+\begin{center}
+    {\large\textbf{INSTITUTO DE COMPUTAÇÃO - UNICAMP}} \\
+    \vspace{3mm}
+    {\large\textbf{MO810A/MC959A - Sistemas Multiagentes com Modelos de Linguagem}} \\
+    \vspace{3mm}
+    {\large\textbf{Prof. Dr. Julio Cesar dos Reis}}
+\end{center}
+
+\vspace{3mm}
+\hrule
+
+\vspace{2.5cm}
+\begin{flushright}
+    \Large{\textbf{Fase 1 - Proposta}} \\
+    \vspace{1cm}
+    \textit{
+        $<$Título do projeto$>$ \\
+    }
+    \vspace{5cm}
+    $<$Aluno(a)$>$ - $<$RA Aluno(a)$>$ \\
+    $<$Aluno(b)$>$ - $<$RA Aluno(b)$>$
+\end{flushright}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\newpage
+\pagestyle{fancy} % 2. Ativar o estilo fancy
+\fancyhf{} % 3. Limpar cabeçalhos e rodapés
+\renewcommand{\headrulewidth}{0pt} % Remover a linha do cabeçalho
+
+\fancyfoot[R]{\thepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       INÍCIO DAS SEÇÕES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Cenário e Contexto}
+\label{sec:contexto}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Apresente o domínio ou a área em que o estudo se insere (ex.: IA aplicada à educação, sistemas distribuídos, interação humano-computador, redes de computadores, engenharia de software). Descreva o ambiente ou a situação em que o problema ocorre (ex.: instituições, usuários, sistemas, dados, processos, fluxos de trabalho). Descreva o estado atual do tema, indicando as linhas de trabalho e os desafios registrados na área.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Motivação para o Tema}
+\label{sec:motivacao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Indique os critérios que levaram à escolha do tema e a sua relevância científica, tecnológica ou social. Descreva o impacto esperado da pesquisa, identificando quem é beneficiado e por qual mecanismo.$>$}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Caracterização do Problema}
+\label{sec:problema}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Descreva o problema a ser investigado: o que permanece sem solução ou sem explicação. Apresente as evidências que sustentam a existência dessa lacuna, na forma de referências, dados ou observações. Descreva as consequências práticas e científicas da ausência de solução. Delimite o escopo do problema, indicando o que é abordado no projeto e o que fica fora. Não descreva a solução nesta seção.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Proposta de Solução Conceitual}
+\label{sec:solucao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Apresente uma proposta de solução para o problema caracterizado na Seção \ref{sec:problema}. Descreva quais técnicas e agentes baseados em modelos de linguagem são empregados e qual a contribuição de cada um para a solução, sem detalhes de implementação.$>$}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Posicionamento em Relação ao Estado da Arte}
+\label{sec:estado_da_arte}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Relacione a proposta aos artigos lidos. A lista de artigos de base está em \href{https://juliodosreis.com/awesome-agenticsystems/}{Awesome Agentic Systems}. A seleção é parcial: use os artigos aplicáveis ao projeto e acrescente outros fora da lista quando necessário. Para cada artigo selecionado, indique o critério de seleção, o que foi extraído dele e quais adaptações o método exige para tratar o problema descrito na Seção \ref{sec:problema}.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Apêndice}
+\label{sec:apendice}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textit{$<$Use se necessário. $>$}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%          BIBLIOGRAFIA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\bibliographystyle{aasjournal}
+\bibliography{references}{}
+
+
+
+\end{document}

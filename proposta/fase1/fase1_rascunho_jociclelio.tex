@@ -1,0 +1,179 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, tmargin=3cm, lmargin=2.5cm, rmargin=2.5cm, bmargin=3cm]{geometry}
+\usepackage{hyperref}
+
+\usepackage[brazilian]{babel}
+\usepackage[fixlanguage]{babelbib}
+
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=blue,
+    citecolor=black,
+}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{IC/UNICAMP \\ 2026 }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONFIGURAÇÃO DA PRIMEIRA PÁGINA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+\vspace{5mm}
+\hrule
+
+\vspace{3mm}
+
+\begin{center}
+    {\large\textbf{INSTITUTO DE COMPUTAÇÃO - UNICAMP}} \\
+    \vspace{3mm}
+    {\large\textbf{MO810A/MC959A - Sistemas Multiagentes com Modelos de Linguagem}} \\
+    \vspace{3mm}
+    {\large\textbf{Prof. Dr. Julio Cesar dos Reis}}
+\end{center}
+
+\vspace{3mm}
+\hrule
+
+\vspace{2.5cm}
+\begin{flushright}
+    \Large{\textbf{Fase 1 - Proposta}} \\
+    \vspace{1cm}
+    \textit{
+        Sistema Multiagente Pedagógico Local-First para Gestão Longitudinal de Estudos com LangGraph e LLM Local (Bonsai 27B) \\
+    }
+    \vspace{5cm}
+    $<$Aluno(a) - Nome Completo$>$ - $<$RA$>$ \\
+    $<$Aluno(b) - Nome Completo$>$ - $<$RA$>$
+\end{flushright}
+
+
+\newpage
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+
+\fancyfoot[R]{\thepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       INÍCIO DAS SEÇÕES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Cenário e Contexto}
+\label{sec:contexto}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Este projeto insere-se no domínio de Sistemas Multiagentes com Modelos de Linguagem (LLMs) aplicados à educação. O ambiente considerado é o de estudantes de graduação e ensino médio/técnico que precisam gerenciar múltiplas disciplinas ao longo de um semestre ou ano letivo, conciliando carga horária formal com rotinas pessoais como hobbies, prática esportiva, deslocamentos e outras atividades.
+
+O fluxo de trabalho típico do estudante envolve: (i) receber o Plano de Desenvolvimento da Disciplina (PDD) e o cronograma de avaliações; (ii) organizar um plano de estudos que cubra os tópicos previstos; (iii) acompanhar prazos e conteúdos foco de cada avaliação; e (iv) buscar materiais complementares (textos, vídeos, exercícios) e adaptá-los às suas dificuldades e preferências de aprendizado.
+
+O estado atual da área apresenta avanços em agentes LLM com memória, planejamento e uso de ferramentas, discutidos em disciplinas como MO810/MC959A, com frameworks como LangGraph para orquestração baseada em grafos, Model Context Protocol (MCP) para padronização de integração com ferramentas/dados e Agent-to-Agent (A2A) para interoperabilidade. Há também linhas de trabalho em memória de longo prazo (episódica, semântica e reflexiva), skills reutilizáveis e Deep Agents para tarefas de longa duração. Contudo, a maioria das soluções de tutoria com LLMs ainda é dependente de APIs em nuvem, stateless entre sessões e com gerenciamento de contexto limitado a janelas fixas, o que dificulta acompanhamento longitudinal, personalização por perfil de mídia (texto, áudio, flashcards, pomodoro, gamificação) e integração com a agenda real do estudante (ex.: Google Agenda). Adicionalmente, o uso de LLMs locais capazes de operar offline, com privacidade e sem custo recorrente, permanece pouco explorado em arquiteturas multiagentes educacionais, apesar de seu potencial para democratização do acesso.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Motivação para o Tema}
+\label{sec:motivacao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+A escolha do tema fundamenta-se em critérios de relevância científica, tecnológica e social, alinhados aos Objetivos de Desenvolvimento Sustentável (ODS) da ONU. O projeto ancora-se primariamente no \textbf{ODS 4 -- Educação de Qualidade}, ao propor tutoria personalizada, contínua e adaptativa que atua como pedagogo engajado: não apenas entrega conteúdo, mas descobre, a partir do perfil do aluno, como engajá-lo e em qual formato (texto, áudio, vídeo curado, flashcards, pomodoro, gamificação).
+
+A dimensão de execução local com o modelo Bonsai 27B conecta-se diretamente ao \textbf{ODS 10 -- Redução das Desigualdades} e ao \textbf{ODS 9 -- Indústria, Inovação e Infraestrutura}. Ao não exigir API externa, o sistema reduz barreiras de custo, conectividade e privacidade, viabilizando uso em escolas públicas, regiões com internet instável e contextos onde dados do estudante não devem sair do dispositivo. Trata-se de contribuição de infraestrutura: otimizar uso de contexto e memória para viabilizar LLM de 27B em hardware consumer é condição para democratizar agentes educacionais. Essa é a justificativa explícita de ODS 9/10 solicitada na Fase 1.
+
+Tecnologicamente, a motivação é investigar gestão de contexto em três níveis de granularidade -- dentro da sessão (janela de contexto), entre sessões (memória longitudinal) e por tarefa/skill (instrução mínima) -- usando exclusivamente as tecnologias trabalhadas na disciplina (LangGraph, MCP, A2A, skills e memória).
+
+O impacto esperado é: (i) para o estudante, melhor organização temporal (alertas antecipados de avaliações com conteúdos foco), curadoria de materiais pertinentes sem sobrecarga e trilhas adaptadas à sua dificuldade e mídia preferida; (ii) para a área, evidências sobre quanto de instrução/skill é mínimo necessário para manter desempenho em LLM local, e sobre arquiteturas de memória e compressão de contexto que sustentam acompanhamento por um semestre inteiro. O mecanismo de benefício é a orquestração multiagente que separa responsabilidades (curadoria, planejamento, tutoria, memória) e colabora via protocolos padronizados.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Caracterização do Problema}
+\label{sec:problema}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Apesar dos avanços em agentes LLM, persistem lacunas para tutoria educacional longitudinal:
+
+\textbf{(a) Janela de contexto limitada em interações longas.} Sessões de estudo extended (revisão de PDDs extensos, pomodoros encadeados, tutoria socrática) facilmente ultrapassam 32k--64k tokens. Soluções ingênuas truncam histórico e perdem informações críticas (ex.: erros recorrentes do aluno). Falta um mecanismo de compressão contínua que preserve fidelidade sem interromper o fluxo de geração (decode).
+
+\textbf{(b) Ausência de memória longitudinal entre sessões.} Tutores atuais não retêm de forma estruturada o progresso por tópico, dificuldades mapeadas, preferências de mídia e evolução do aluno ao longo de semanas. Sem memória episódica e semântica organizada, cada sessão recomeça do zero, impedindo personalização e acompanhamento de avaliações futuras. Evidências na literatura de Generative Agents e MemGPT mostram que memória hierárquica é necessária, mas sua integração com orquestração LangGraph e recuperação seletiva ainda é desafio aberto, sobretudo com LLM local.
+
+\textbf{(c) Excesso de instrução e custo de contexto.} Para garantir desempenho, prompts e skills tendem a ser inflados com instruções máximas, o que é incompatível com execução local (VRAM/latência) e com janelas limitadas. Não há critério estabelecido para determinar o mínimo de instrução/skill necessário por tarefa pedagógica (ex.: gerar flashcards vs. explicar conceito em áudio) sem queda de qualidade.
+
+\textbf{(d) Desconexão com a rotina real e com curadoria de conteúdo existente.} O estudante precisa que o sistema conheça sua rotina (hobbies, academia, transporte) e gerencie sua agenda (ex.: Google Agenda) com antecedência, além de recomendar vídeos/textos já existentes e classificar sua pertinência, em vez de gerar vídeos sintéticos redundantes. A integração padronizada via MCP com agenda e fontes externas, e a coordenação A2A entre agentes de curadoria, planejamento e tutoria, ainda carecem de instanciação concreta no domínio educacional.
+
+\textbf{Consequências da ausência de solução:} sobrecarga cognitiva, perda de prazos, estudo despersonalizado e baixa retenção; dependência de soluções em nuvem com custo, latência e exposição de dados sensíveis; e inviabilidade de tutoria contínua em hardware local.
+
+\textbf{Escopo do projeto:} aborda (i) ingestão de PDD/cronograma e construção de base de conhecimento por disciplina com classificação de vídeos existentes; (ii) planejamento integrado à rotina e à agenda via MCP; (iii) tutoria adaptativa por perfil de mídia e dificuldade; (iv) memória longitudinal organizada por um sub-agente bibliotecário; (v) otimização de contexto via compressão contínua e instrução mínima com skills. \textbf{Fora de escopo:} geração de vídeos com IA, substituição do PDD oficial, integração com sistemas acadêmicos fechados sem API, e avaliação somativa com alunos reais em larga escala (Fase 4 será experimental controlada com métricas de desempenho, eficiência e colaboração).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Proposta de Solução Conceitual}
+\label{sec:solucao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Propõe-se um sistema multiagente orquestrado por \textbf{LangGraph} (StateGraph), executando inteiramente sobre LLM local \textbf{Bonsai 27B}, sem dependência de API externa. A orquestração em grafo substitui a necessidade inicial de pi agent, que fica como trabalho futuro opcional para execução em background. A comunicação entre agentes usa \textbf{A2A} quando há delegação, e a integração com ferramentas/dados usa \textbf{MCP}.
+
+A arquitetura conceitual compõe cinco agentes especializados mais um mecanismo de gestão de contexto:
+
+\textbf{1. Agente Curador de Conhecimento.} Recebe PDD e cronograma do semestre (PDFs convertidos com markitdown). Extrai tópicos, competências e datas de avaliação. Para cada tópico, pesquisa fontes textuais e vídeos existentes, classifica pertinência (relevância ao tópico, nível, atualidade) e indexa em base vetorial local por disciplina. Não gera vídeos com IA; apenas cura e ranqueia o que já existe. Contribui com a base que alimenta planejamento e tutoria.
+
+\textbf{2. Agente Planejador de Rotina e Agenda.} Recebe a rotina do estudante (hobbies, academia, deslocamentos) e acessa a agenda via MCP (ex.: Google Calendar). Aloca blocos de estudo respeitando restrições reais, programa alertas com antecedência para avaliações indicando conteúdos foco, e aplica princípios de repetição espaçada e pomodoro. Coordena-se via A2A com o Curador para priorizar tópicos de provas iminentes e com o Bibliotecário para evitar sobrecarga em tópicos já dominados.
+
+\textbf{3. Agente Tutor Adaptativo (Pedagogo).} É a interface principal com o estudante. Detecta dificuldades a partir de quizzes, tempo de resposta e solicitações explícitas, e adapta a explicação ao formato mais efetivo para o perfil (texto conciso, áudio via TTS local, flashcards, gamificação). Emprega biblioteca de \textit{skills} reutilizáveis e evolutivas (ex.: \texttt{explicar\_conceito[formato]}, \texttt{gerar\_flashcards}, \texttt{gerar\_quiz\_socratico}) e seleciona a instrução mínima necessária para cada tarefa, reduzindo tokens sem perda de qualidade. Encaminha dúvidas complexas ao Curador e consulta o Bibliotecário para personalizar.
+
+\textbf{4. Agente Bibliotecário (Memória de Longo Prazo).} Implementa memória episódica (sessões), semântica (perfil, preferências de mídia) e reflexiva, conforme tópicos da disciplina. Opera em dois modos: (i) assíncrono/passivo, observando em paralelo as interações do Tutor e decidindo o que persistir; (ii) síncrono/bloqueante, via tools \texttt{consultar\_memoria} e \texttt{salvar\_memoria} expostas por MCP e invocadas pelo Tutor. O texto recuperado é injetado no contexto do Tutor após tool call. Garante continuidade entre sessões ao longo do semestre.
+
+\textbf{5. Mecanismo de Compressão Contínua de Contexto.} Sub-grafo do LangGraph acoplado ao Tutor. Quando o uso de contexto ultrapassa limiar configurável (ex.: 32k em janela de 64k), dispara em paralelo um nó compactador que sumariza o trecho antigo preservando fatos pedagógicos (dificuldades, objetivos). Ao atingir o limite, o estado do grafo substitui o trecho original pela versão compactada e o decode continua sem interrupção. Viabiliza sessões longas com Bonsai 27B em hardware local.
+
+Cada agente contribui para um nível de gestão de contexto: o mecanismo de compressão atua dentro da sessão; o Bibliotecário atua entre sessões; e a seleção de instrução mínima atua por tarefa/skill. O conjunto entrega tutoria longitudinal, privada e eficiente, alinhada aos ODS 4, 9 e 10.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Posicionamento em Relação ao Estado da Arte}
+\label{sec:estado_da_arte}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+A proposta fundamenta-se na lista \textit{Awesome Agentic Systems} (\url{https://juliodosreis.com/awesome-agenticsystems/}) e em literatura correlata de conferências como ICML, NeurIPS, AAMAS, ICLR, AAAI e IJCAI.
+
+\textbf{Critério de seleção:} foram priorizados trabalhos sobre orquestração com grafos, protocolos de interoperabilidade, memória e skills, por serem diretamente exigidos no programa da disciplina e necessários ao problema caracterizado na Seção \ref{sec:problema}.
+
+\textit{LangGraph + MCP + A2A.} A escolha de LangGraph como orquestrador segue a ênfase da disciplina em workflows agênticos baseados em grafos de execução. MCP padroniza o acesso do Planejador à agenda e do Curador a bases externas; A2A permite delegação entre Curador, Planejador e Tutor. O que se extrai é o padrão de tools como nós do grafo. Adaptação: instanciar tools específicas do domínio educacional (PDD parser, classificador de vídeo, Google Calendar) e modelar o estado do grafo para carregar perfil do aluno e progresso por tópico, algo não coberto nos exemplos genéricos.
+
+\textit{MemGPT / Generative Agents / A-Mem (memória).} Fundamentam o Bibliotecário. MemGPT introduz hierarquia de memória e paginação entre contexto e armazenamento externo; Generative Agents e A-Mem mostram memória episódica/semântica com recuperação por relevância. Extrai-se a separação entre memória de trabalho e memória de longo prazo. Adaptação: operar 100\% local com Bonsai 27B, com políticas de retenção pedagógica (o que vale persistir: dificuldade por tópico, mídia preferida, não todo o chat) e injeção seletiva via tool call para não inflar contexto -- alinhado ao requisito de instrução mínima.
+
+\textit{StreamingLLM / Context Compression.} Fundamentam o mecanismo de compressão contínua. StreamingLLM e técnicas de sliding window + summary buffer mostram como manter decode sem truncamento catastrófico. Extrai-se a ideia de limiar e sumarização paralela. Adaptação: sumarização orientada a fatos pedagógicos (preservar erros do aluno e objetivos da sessão) e execução como nó paralelo do LangGraph, sem depender de pi agent.
+
+\textit{Voyager / AutoSkill / EvoSkills / SkillAxe / GEPA (skills evolutivas e instrução mínima).} Voyager introduziu biblioteca de skills que evolui com experiência; trabalhos subsequentes (AutoSkill, EvoSkills, SkillAxe) refinam geração e avaliação de skills. GEPA inspira busca por prompt/skill mínimo via bisseção até queda de desempenho. Extrai-se o ciclo gerar--avaliar--refinar skills. Adaptação: skills pedagógicas (flashcard, quiz socrático, explicação em áudio) avaliadas por métricas educacionais (acerto em quiz, tempo até domínio) e por eficiência (tokens), buscando o mínimo que mantém qualidade com Bonsai 27B.
+
+Em conjunto, a proposta diferencia-se por combinar esses três eixos (compressão intra-sessão, memória entre sessões, skills mínimas por tarefa) em um único sistema educacional local-first, com avaliação experimental prevista em métricas de desempenho, qualidade, colaboração, eficiência e robustez, conforme PDD da disciplina.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Apêndice}
+\label{sec:apendice}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textbf{Fluxo ilustrativo (sem detalhes de implementação):} (1) Aluno fornece PDDs + cronograma + rotina; (2) Curador constrói base por disciplina e ranqueia vídeos; (3) Planejador popula agenda com blocos e alertas; (4) Tutor conduz estudos adaptando mídia; (5) Bibliotecário persiste perfil e progresso; (6) Mecanismo de compressão sustenta sessões longas. Avaliação Fase 4 prevista: QA sobre conteúdo compactado vs. original, recall do Bibliotecário, tokens economizados com instrução mínima, e ganho de aprendizado com mídia adaptada vs. baseline genérico.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     DECLARAÇÃO DE USO DE IA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Declaração de uso de IA generativa no processo de elaboração}
+\addcontentsline{toc}{section}{Declaração de uso de IA generativa no processo de elaboração}
+
+Durante a preparação deste trabalho, os autores utilizaram \textbf{Claude Haiku 4.5} e \textbf{Muse Spark 1.2 Free} para brainstorming, estruturação da proposta, organização das seções conforme o template da Fase 1 e aprimoramento da clareza linguística. Após o uso dessas ferramentas, os autores revisaram e editaram o conteúdo conforme necessário e assumem total responsabilidade pelo conteúdo do trabalho submetido. As ferramentas de IA não são citadas como autoras ou coautoras.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%          BIBLIOGRAFIA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\bibliographystyle{aasjournal}
+\bibliography{references}{}
+
+\end{document}

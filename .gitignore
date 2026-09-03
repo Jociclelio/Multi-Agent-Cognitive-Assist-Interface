@@ -1,0 +1,29 @@
+# Ambiente
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ZIP temporário
+*.zip

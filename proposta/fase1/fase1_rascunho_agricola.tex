@@ -1,0 +1,188 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, tmargin=3cm, lmargin=2.5cm, rmargin=2.5cm, bmargin=3cm]{geometry}
+\usepackage{hyperref}
+
+\usepackage[brazilian]{babel} % Remover linha em caso de escrita em inglês
+\usepackage[fixlanguage]{babelbib} % Remover linha em caso de escrita em inglês
+
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=blue,
+    citecolor=black,
+}
+
+\usepackage{natbib} % to cite references by surname and year
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\pagestyle{fancy} % Ativar o estilo fancy
+\fancyhf{} % Limpar cabeçalhos e rodapés
+\renewcommand{\headrulewidth}{0pt} % Remover a linha do cabeçalho
+\fancyfoot[C]{IC/UNICAMP \\ 2026 }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONFIGURAÇÃO DA PRIMEIRA PÁGINA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+\vspace{5mm}
+\hrule
+
+\vspace{3mm}
+
+\begin{center}
+    {\large\textbf{INSTITUTO DE COMPUTAÇÃO - UNICAMP}} \\
+    \vspace{3mm}
+    {\large\textbf{MO810A/MC959A - Sistemas Multiagentes com Modelos de Linguagem}} \\
+    \vspace{3mm}
+    {\large\textbf{Prof. Dr. Julio Cesar dos Reis}}
+\end{center}
+
+\vspace{3mm}
+\hrule
+
+\vspace{2.5cm}
+\begin{flushright}
+    \Large{\textbf{Fase 1 - Proposta}} \\
+    \vspace{1cm}
+    \textit{
+        Sistema Multiagente Adaptativo Baseado em LLMs para Assistência Ativa de Aprendizagem e Gerenciamento de Rotina de Estudos \\
+    }
+    \vspace{5cm}
+    Rafael Attilio Agricola - 249245 \\
+    $<$Aluno(b)$>$ - $<$RA Aluno(b)$>$
+\end{flushright}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\newpage
+\pagestyle{fancy} % 2. Ativar o estilo fancy
+\fancyhf{} % 3. Limpar cabeçalhos e rodapés
+\renewcommand{\headrulewidth}{0pt} % Remover a linha do cabeçalho
+
+\fancyfoot[R]{\thepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       INÍCIO DAS SEÇÕES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Cenário e Contexto}
+\label{sec:contexto}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+O projeto insere-se no domínio de Inteligência Artificial Aplicada à Educação (EdTech), com foco em Sistemas Multiagentes baseados em Modelos de Linguagem (LLM-MAS). O ambiente de aplicação compreende estudantes do ensino superior e secundário inseridos em rotinas acadêmicas de alta carga cognitiva, caracterizadas pela heterogeneidade de disciplinas, volumes extensos de materiais didáticos não estruturados (PDFs, notas de aula) e restrições severas de tempo.
+
+O estado atual da área reflete uma transição de assistentes conversacionais monocamada (Baseados em RAG simples) para ecossistemas multiagentes especializados em orquestração de tarefas complexas. O principal desafio da área reside em conciliar, de forma autônoma e personalizada, dois eixos do suporte educacional: a otimização logística (planejamento temporal de estudos sob restrições) e a facilitação pedagógica ativa (orientação metodológica focada no desenvolvimento do raciocínio crítico do estudante).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Motivação para o Tema}
+\label{sec:motivacao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+A escolha do tema fundamenta-se na busca por democratizar o acesso a uma tutoria educacional de alta qualidade e adaptativa, alinhando-se diretamente ao \textbf{Objetivo de Desenvolvimento Sustentável 4 (ODS 4: Educação de Qualidade)} da ONU, especificamente no fomento à aprendizagem autônoma e ao desenvolvimento de competências cognitivas avançadas.
+
+Científica e tecnologicamente, a pesquisa justifica-se pela necessidade de mitigar as limitações de modelos de linguagem únicos, tais como respostas passivas (entrega direta da solução sem engajamento reflexivo) e falhas de raciocínio na otimização de agendas sob múltiplas restrições. Socialmente, o sistema beneficia estudantes ao reduzir a sobrecarga cognitiva na gestão do tempo e ao promover a retenção do conhecimento através de métodos pedagógicos consagrados (como o método socrático e a Técnica de Feynman).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Caracterização do Problema}
+\label{sec:problema}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+O problema investigado consiste na falta de sistemas integrados capazes de realizar, simultaneamente e de forma adaptativa: (i) a mediação pedagógica ativa (não passiva) sobre conteúdos educacionais complexos e (ii) a otimização dinâmica do cronograma de estudos em função do progresso cognitivo real do estudante.
+
+\textbf{Evidências da Lacuna:}
+Modelos de linguagem convencionais atuam predominantemente de forma reativa e solucionadora, entregando respostas diretas aos questionamentos dos alunos. Literatura recente em IA educacional demonstra que essa abordagem gera ilusão de competência e reduz o engajamento metacognitivo. Além disso, assistentes de agendamento existentes operam com alocações rígidas, desconectadas do nível de dificuldade percebido pelo aluno ou das lacunas de aprendizado identificadas durante os estudos.
+
+\textbf{Consequências:}
+A ausência de uma solução resulta em baixas taxas de retenção de conteúdo, gestão ineficiente do tempo de estudo e dependência de suporte humano de alto custo para tutoria individualizada.
+
+\textbf{Delimitação do Escopo:}
+\begin{itemize}
+\item \textbf{Dentro do Escopo:}
+\begin{itemize}
+\item Recuperação, sintetização e estruturação didática de materiais fornecidos pelo usuário (PDFs) e fontes web confiáveis;
+\item Mediação pedagógica socrática interativa e verificação de aprendizagem via Técnica de Feynman;
+\item Resolução de restrições de horários e geração automatizada de planilhas e cronogramas semanais de estudo;
+\item Monitoramento metacognitivo do progresso do aluno para acionar re-planejamentos dinâmicos na agenda.
+\end{itemize}
+\item \textbf{Fora do Escopo:}
+\begin{itemize}
+\item Avaliação sumativa oficial ou atribuição de notas institucionais;
+\item Sintetização multimodal de voz/vídeo em tempo real (o foco restringe-se a interfaces textuais/estruturadas e gráficos didáticos);
+\item Integração direta com Sistemas de Gestão de Aprendizagem (LMS) institucionais (e.g., Moodle, Canvas).
+\end{itemize}
+\end{itemize}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Proposta de Solução Conceitual}
+\label{sec:solucao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+A proposta consiste na arquitetura multiagente \textbf{EduAgent-OS}, composta por cinco agentes LLM especializados, orquestrados em um fluxo cooperativo de ciclo fechado (\textit{closed-loop}):
+
+\begin{enumerate}
+\item \textbf{Agente Orquestrador (Manager Agent):} Atua como a interface central com o estudante. Interpreta intenções (dúvidas pontuais, solicitações de agendamento ou sessões de estudo), roteia subtarefas e mantém o estado global do contexto do usuário.
+\item \textbf{Agente Curador de Conteúdo (RAG \& Knowledge Agent):} Responsável pela ingestão, indexação e busca semântica em documentos PDF e fontes externas. Constrói resumos didáticos e extrai "Trilhas de Raciocínio" (\textit{Socratic Steps}) para guiar as explicações.
+\item \textbf{Agente Tutor Socratico (Pedagogical Tutor Agent):} Conduz a interação socrática e a aplicação da Técnica de Feynman. Não fornece respostas diretas; em vez disso, formula perguntas encadeadas que induzem o aluno a identificar lacunas e construir a lógica por conta própria.
+\item \textbf{Agente Otimizador de Cronograma (Constraint Scheduler Agent):} Recebe as restrições de tempo do aluno (atividades fixas, dias disponíveis, disciplinas) e invoca ferramentas determinísticas de otimização para gerar e atualizar planilhas de estudo viáveis e sem sobreposição.
+\item \textbf{Agente Monitor Metacognitivo (Assessment Agent):} Analisa as respostas do aluno durante o diálogo socrático, avaliando o grau de domínio sobre cada tópico. Caso identifique falhas graves de retenção, solicita automaticamente ao Agente Otimizador o reajuste da carga horária daquela disciplina no cronograma semanal.
+\end{enumerate}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Posicionamento em Relação ao Estado da Arte}
+\label{sec:estado_da_arte}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Posicionamento em Relação ao Estado da Arte}
+
+A proposta fundamenta-se e expande os seguintes trabalhos e paradigmas da literatura recente de sistemas multiagentes e IA na educação:
+
+\begin{itemize}
+    \item \textbf{MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework \cite{hong2024metagpt}:}
+    \begin{itemize}
+        \item \textit{Critério de Seleção:} Trabalho seminal na definição de Procedimentos Operacionais Padrão (SOPs) para coordenação multiagente, garantindo especialização e reduzindo ruído de comunicação.
+        \item \textit{Extração:} O conceito de fluxo de trabalho baseado em papéis bem delimitados e troca de mensagens estruturadas por esquemas rígidos.
+        \item \textit{Adaptação:} Adaptação dos SOPs (originalmente voltados a desenvolvimento de software) para o pipeline pedagógico: \textit{Triagem e RAG (Curador) $\rightarrow$ Formulação de Passos (Tutor) $\rightarrow$ Otimização Temporal (Otimizador)}.
+    \end{itemize}
+
+    \item \textbf{Large Language Model Agents: A Comprehensive Survey \cite{lei2025agentsurvey}:}
+    \begin{itemize}
+        \item \textit{Critério de Seleção:} Mapeamento abrangente do estado da arte sobre arquiteturas de agentes LLM, cobrindo memória, planejamento e auto-reflexão.
+        \item \textit{Extração:} Estruturação taxonômica para definição dos módulos de memória (curto/longo prazo) e mecanismos de metacognição.
+        \item \textit{Adaptação:} Diretrizes aplicadas ao desenho do \textit{Agente Monitor Metacognitivo} e ao controle do contexto no \textit{Agente Orquestrador}.
+    \end{itemize}
+
+    \item \textbf{Plataformas Socráticas com Trajetórias Ocultas \cite{he2025medtutorr1,liu2024socraticlm}:}
+    \begin{itemize}
+        \item \textit{Critério de Seleção:} Estado da arte em tutoria conversacional utilizando \textit{Socratic Steps} e aprendizado por reforço para alinhamento pedagógico.
+        \item \textit{Extração:} Conceito de decompor a resposta em passos socráticos intermediários mantidos no \textit{backend} do agente tutor, revelados progressivamente.
+        \item \textit{Adaptação:} Expansão da técnica para suportar ingestão dinâmica de PDFs heterogêneos fornecidos pelo próprio estudante via RAG híbrido, em vez de depender apenas de bases de conhecimento estáticas.
+    \end{itemize}
+
+    \item \textbf{MultiTutor \cite{sun2025multitutor}:}
+    \begin{itemize}
+        \item \textit{Critério de Seleção:} Referência na decomposição de tarefas educacionais em agentes especializados (Pesquisador, Scaffolder, Recomendador) para evitar perda de contexto.
+        \item \textit{Extração:} Estratégia de especialização de papéis direcionada especificamente ao domínio educacional.
+        \item \textit{Adaptação:} O \textit{MultiTutor} foca em resumos e explicações multimodais estáticas; o \textit{EduAgent-OS} conecta essa especialização à interatividade em tempo real e ao agendamento dinâmico.
+    \end{itemize}
+
+    \item \textbf{TORA: Tool-Integrated Reasoning Agents \cite{guo2024tora}:}
+    \begin{itemize}
+        \item \textit{Critério de Seleção:} Demonstração do desacoplamento entre raciocínio probabilístico (LLM) e execução determinística via ferramentas externas (\textit{Tool Use}).
+        \item \textit{Extração:} Paradigma de delegação de tarefas computacionais a executores de código e algoritmos dedicados.
+        \item \textit{Adaptação:} Aplicação no \textit{Agente Otimizador de Cronograma}, garantindo que o planejamento de horários seja feito via solucionador determinístico de restrições (CSP), eliminando alucinações temporais.
+    \end{itemize}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%          BIBLIOGRAFIA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\bibliographystyle{aasjournal}
+\bibliography{references}
+
+
+
+\end{document}
