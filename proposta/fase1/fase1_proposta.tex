@@ -1,0 +1,198 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper,tmargin=3cm,lmargin=2.5cm,rmargin=2.5cm,bmargin=3cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage[authoryear,round]{natbib}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black}
+\setlength{\emergencystretch}{2em}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{IC/UNICAMP \\ 2026}
+
+% Arquivo autocontido: as referências estão ao final, sem dependência de BibTeX.
+% Preencher os dados do segundo integrante antes da submissão.
+\newcommand{\segundoautor}{[Nome completo do segundo integrante]}
+\newcommand{\segundora}{[RA]}
+
+\begin{document}
+
+\vspace*{5mm}
+\hrule
+\vspace{3mm}
+\begin{center}
+    {\large\textbf{INSTITUTO DE COMPUTAÇÃO -- UNICAMP}} \\
+    \vspace{3mm}
+    {\large\textbf{MO810A/MC959A -- Sistemas Multiagentes com Modelos de Linguagem}} \\
+    \vspace{3mm}
+    {\large\textbf{Prof. Dr. Julio Cesar dos Reis}}
+\end{center}
+\vspace{3mm}
+\hrule
+\vspace{2.5cm}
+\begin{flushright}
+    {\Large\textbf{Fase 1 -- Proposta}} \\
+    \vspace{1cm}
+    {\Large\textit{EduAgent-OS: Sistema Multiagente Local para Tutoria Ativa e Gestão Longitudinal de Estudos}} \\
+    \vspace{4cm}
+    Rafael Attilio Agricola -- 249245 \\
+    \segundoautor{} -- \segundora
+\end{flushright}
+
+\newpage
+\fancyhf{}
+\fancyfoot[R]{\thepage}
+
+\section{Cenário e Contexto}
+\label{sec:contexto}
+
+O projeto insere-se no domínio de inteligência artificial aplicada à educação, com foco em sistemas multiagentes baseados em modelos de linguagem (LLMs). Considera-se o cotidiano de estudantes que precisam conciliar múltiplas disciplinas, materiais didáticos extensos, avaliações e compromissos pessoais ao longo de um período letivo. O público potencial inclui estudantes de graduação e do ensino médio/técnico; o recorte inicial do protótipo será o acompanhamento de disciplinas de graduação.
+
+Nesse cenário, o estudante recebe planos de desenvolvimento de disciplinas (PDDs), cronogramas e materiais como PDFs e notas de aula. Precisa transformar essas informações em uma rotina viável, identificar o conteúdo prioritário para cada avaliação e selecionar recursos de apoio. Durante o estudo, novas dificuldades podem tornar insuficiente o planejamento original: um tópico exige mais prática, uma revisão precisa ser antecipada ou uma sessão não é concluída.
+
+A literatura oferece elementos para apoiar esse processo. O MultiTutor explora agentes especializados para suporte educacional personalizado \citep{sun2025multitutor}; o MetaGPT organiza a cooperação por papéis e procedimentos estruturados \citep{hong2024metagpt}; e o MemGPT investiga continuidade conversacional por meio de uma hierarquia de memória \citep{packer2023memgpt}. Esses resultados motivam investigar sua articulação em um assistente que conecte conteúdo, interação pedagógica, memória entre sessões e planejamento temporal, considerando os limites computacionais da execução local.
+
+\section{Motivação para o Tema}
+\label{sec:motivacao}
+
+A proposta fundamenta-se principalmente no \textbf{ODS 4 -- Educação de Qualidade}, ao buscar apoio à aprendizagem autônoma por meio de tutoria ativa e organização personalizada dos estudos. O mecanismo esperado de benefício é aproximar o planejamento daquilo que o estudante efetivamente demonstra compreender: dificuldades identificadas durante uma sessão devem orientar tanto as próximas atividades quanto a distribuição do tempo disponível.
+
+Do ponto de vista científico, interessa investigar se a especialização de agentes e a memória longitudinal melhoram a consistência desse acompanhamento em relação a um assistente único. Também importa compreender o compromisso entre qualidade das respostas, fidelidade da memória e custo de contexto. Do ponto de vista tecnológico, o projeto articula orquestração, uso de ferramentas, recuperação de informação e gerenciamento de estado, em consonância com os temas da disciplina.
+
+A execução local busca reduzir a dependência de serviços de inferência pagos e permitir continuidade com materiais já disponíveis quando não houver conexão. Essa orientação possui relação complementar com os \textbf{ODS 9 -- Indústria, Inovação e Infraestrutura} e \textbf{10 -- Redução das Desigualdades}. Entretanto, sua contribuição para acesso depende dos requisitos de hardware e do desempenho observado, que deverão ser caracterizados experimentalmente. O benefício esperado para o estudante é um apoio mais contínuo à organização e à reflexão sobre suas dificuldades, sem pressupor antecipadamente ganhos de aprendizagem.
+
+\section{Caracterização do Problema}
+\label{sec:problema}
+
+O problema investigado é a dificuldade de manter um acompanhamento de estudos que integre, ao longo de múltiplas sessões, \textbf{mediação pedagógica ativa, histórico de aprendizagem e adaptação de cronogramas sob restrições reais de tempo}. Uma resposta correta a uma dúvida isolada não assegura que o estudante compreendeu o tópico, nem informa, por si só, como o restante do plano de estudos deve mudar.
+
+A lacuna abordada possui três dimensões relacionadas:
+\begin{enumerate}
+    \item \textbf{Integração entre tutoria e rotina.} O MultiTutor evidencia o potencial da especialização de agentes para explicações, recursos e atividades educacionais \citep{sun2025multitutor}. A questão deste projeto é conectar esse suporte a decisões sobre tempo de estudo, prazos e revisões, utilizando evidências produzidas nas próprias interações.
+    \item \textbf{Continuidade e fidelidade do histórico.} O MemGPT caracteriza as limitações de janelas de contexto em conversas extensas e apresenta gerenciamento hierárquico de memória \citep{packer2023memgpt}. No cenário educacional, permanece necessário determinar quais fatos recuperar e preservar, distinguindo respostas observadas, dificuldades recorrentes e estimativas de domínio que podem mudar com o tempo.
+    \item \textbf{Qualidade sob orçamento computacional limitado.} Acumular documentos, histórico e instruções de todos os agentes amplia o contexto processado. A reutilização seletiva de habilidades, explorada em outro domínio pelo Voyager \citep{wang2023voyager}, motiva investigar quanto de instrução é necessário para cada tarefa pedagógica e qual informação pode ser compactada sem comprometer a continuidade.
+\end{enumerate}
+
+Esses trabalhos sustentam os desafios componentes, mas não demonstram, por si só, a eficácia de sua integração no cenário proposto. A ausência dessa integração pode levar à repetição de diagnósticos, recomendações incompatíveis com o tempo disponível e perda de informações relevantes entre sessões. Cientificamente, dificulta distinguir o benefício da colaboração entre agentes do efeito de apenas aumentar o número de chamadas ao modelo.
+
+\paragraph{Questão de pesquisa.}
+Em que medida uma arquitetura multiagente com memória longitudinal e gestão seletiva de contexto consegue integrar tutoria ativa e replanejamento de estudos, mantendo qualidade pedagógica e viabilidade temporal com recursos locais limitados?
+
+\paragraph{Delimitação do escopo.}
+Serão abordados materiais textuais e PDFs fornecidos pelo estudante, extração de tópicos e prazos, curadoria complementar de textos e vídeos existentes, sessões textuais de tutoria, exercícios e flashcards, acompanhamento por tópico e planejamento semanal ao longo de múltiplas sessões. O planejamento considerará avaliações, compromissos fixos, disponibilidade e atividades pessoais. A execução local abrangerá a inferência, a memória e a base de materiais; busca na web e sincronização com agenda externa dependerão de conexão.
+
+Ficam fora do escopo a atribuição de notas institucionais, a substituição do PDD oficial, a geração de vídeos, o treinamento de um modelo fundacional e a integração com sistemas acadêmicos fechados. Síntese de voz e gamificação são extensões posteriores ao núcleo textual. A avaliação inicial será controlada, com sequências de sessões e cenários de estudo, sem pretensão de comprovar impacto educacional em larga escala ou acompanhamento real de um semestre inteiro.
+
+\section{Proposta de Solução Conceitual}
+\label{sec:solucao}
+
+Propõe-se o \textbf{EduAgent-OS}, um sistema multiagente de orientação \textit{local-first}, com orquestração em LangGraph e inferência local utilizando o \textbf{Bonsai 2}. Seu objetivo geral é integrar tutoria ativa, memória longitudinal e planejamento adaptativo em um ciclo no qual as evidências de cada sessão orientem as próximas ações pedagógicas e temporais.
+
+\paragraph{Objetivos específicos.}
+Organizar conteúdos e prazos por disciplina; conduzir atividades que solicitem participação e explicação do estudante; manter um histórico recuperável de progresso; gerar cronogramas compatíveis com as restrições informadas; e investigar a redução do contexto por recuperação seletiva, compactação e instruções específicas por tarefa.
+
+\subsection{Agentes e coordenação}
+
+A arquitetura compreende \textbf{cinco agentes especializados}, coordenados por uma camada de orquestração em grafo. Essa camada assume o papel de gerenciamento do fluxo: encaminha solicitações, acompanha o estado da sessão e aciona os agentes necessários. Os agentes podem compartilhar o mesmo LLM local, diferenciando-se por objetivos, ferramentas e informações acessadas.
+
+\begin{enumerate}
+    \item \textbf{Curador de Conhecimento.} Recebe PDDs, cronogramas e materiais, identifica tópicos e datas e organiza uma base local por disciplina. Utiliza recuperação aumentada por geração (RAG) para fornecer trechos e referências ao Tutor. Quando houver conexão, poderá selecionar textos e vídeos existentes segundo pertinência ao tópico e nível de dificuldade. As fontes acompanham o conteúdo recuperado para permitir sua conferência.
+
+    \item \textbf{Tutor Adaptativo.} Conduz a interação com o estudante, utilizando perguntas socráticas, pistas graduais, exercícios e explicações em linguagem acessível. Emprega a explicação com palavras próprias, inspirada na Técnica de Feynman, para estimular a explicitação do entendimento. Ajusta o apoio às respostas observadas e às preferências declaradas, sem tratar preferência de formato como prova de maior eficácia. Uma biblioteca de \textit{skills} oferece instruções específicas para explicar conceitos, gerar flashcards e conduzir pequenos questionários.
+
+    \item \textbf{Monitor de Aprendizagem.} Analisa respostas a exercícios e explicações do estudante com critérios explícitos por tópico. Produz estimativas de domínio acompanhadas das evidências e de sua incerteza, identifica dificuldades recorrentes e recomenda revisões. Encaminha os registros ao Bibliotecário e solicita replanejamento quando houver necessidade de reforço ou mudança de prioridade. Sua avaliação é formativa, sem caráter de nota oficial.
+
+    \item \textbf{Planejador de Rotina e Agenda.} Combina tópicos, prazos, disponibilidade e indicações do Monitor para propor blocos de estudo e revisão. O LLM interpreta prioridades e explica as escolhas; uma ferramenta determinística de resolução de restrições verifica disponibilidade, duração e sobreposições. Se as exigências forem incompatíveis, o sistema explicita o conflito e solicita a revisão das restrições. Produz cronogramas exportáveis e poderá sincronizá-los com uma agenda externa, como Google Agenda, por integração via MCP.
+
+    \item \textbf{Bibliotecário de Memória.} Organiza registros episódicos das sessões, informações semânticas sobre perfil e conteúdos e sínteses reflexivas sobre dificuldades e estratégias utilizadas. Recupera apenas informações pertinentes à tarefa atual, preservando origem e ordem temporal. Atualiza o histórico após as sessões e atende consultas explícitas dos demais agentes, de modo que uma estimativa antiga não seja confundida com o estado atual do estudante.
+\end{enumerate}
+
+A cooperação ocorre pela troca de informações estruturadas sobre disciplina, tópico, fontes, evidências, prioridade e ação solicitada. O grafo define as dependências entre essas etapas e mantém um estado compartilhado consistente. O \textit{Model Context Protocol} (MCP) padroniza o acesso a ferramentas e dados; o protocolo \textit{Agent-to-Agent} (A2A) será explorado na delegação entre componentes expostos como serviços, sem exigir que toda transição interna do grafo seja uma chamada remota.
+
+\subsection{Gestão de contexto e memória}
+
+O sistema organiza o contexto em três níveis complementares. \textbf{Dentro da sessão}, preserva as interações recentes e compacta trechos antigos em sínteses orientadas a objetivos, conceitos discutidos e dificuldades observadas. A compactação é acionada por um orçamento configurável e incorporada entre chamadas ao modelo, sem pressupor alteração do contexto durante uma geração em andamento. Os registros originais permanecem recuperáveis para conferir ou complementar as sínteses.
+
+\textbf{Entre sessões}, o Bibliotecário recupera o histórico relevante por disciplina e tópico. \textbf{Por tarefa}, o Tutor carrega somente as instruções e ferramentas da habilidade necessária. A busca por instruções mais enxutas será tratada como hipótese experimental: diferentes versões serão comparadas quanto à qualidade e ao consumo de tokens, em vez de assumir que uma redução preserve automaticamente o desempenho.
+
+\subsection{Fluxo de funcionamento e resultados esperados}
+
+O funcionamento previsto segue um ciclo de seis etapas:
+\begin{enumerate}
+    \item O estudante fornece materiais, avaliações, disponibilidade e compromissos; o Curador organiza o conteúdo e os prazos.
+    \item O Planejador consulta o histórico disponível e propõe uma agenda de estudos compatível com as restrições.
+    \item No início de cada sessão, o Bibliotecário recupera dificuldades e objetivos pertinentes, e o Curador disponibiliza os trechos de apoio.
+    \item O Tutor conduz atividades e solicita respostas ou explicações; o Monitor registra evidências de compreensão e necessidades de revisão.
+    \item O Bibliotecário consolida o progresso; quando necessário, o Planejador redistribui blocos futuros respeitando os compromissos existentes.
+    \item O sistema apresenta a atualização ao estudante e utiliza o novo estado para orientar a sessão seguinte.
+\end{enumerate}
+
+Por exemplo, se o estudante apresentar dificuldade em um tópico próximo de uma avaliação, o Monitor recomenda reforço, o Bibliotecário registra a evidência e o Planejador procura um bloco disponível. O Tutor retoma esse tópico na sessão seguinte com uma atividade apropriada. Se não houver tempo suficiente, o sistema apresenta a incompatibilidade, em vez de produzir um cronograma inviável.
+
+Espera-se obter um protótipo capaz de demonstrar esse ciclo e produzir registros para avaliação nas fases seguintes. A comparação inicial considerará um assistente único com acesso ao mesmo modelo, materiais e ferramentas. Serão observadas a qualidade e a fundamentação das respostas, a fidelidade da memória, o cumprimento das restrições de agenda, o sucesso das delegações e os custos em tokens, latência e memória computacional. Ablações de memória, compactação e seleção de \textit{skills} permitirão investigar a contribuição de cada mecanismo, com controle dos recursos utilizados. Essas medidas avaliam o sistema; ganhos de aprendizagem humana exigiriam investigação adicional.
+
+\section{Posicionamento em Relação ao Estado da Arte}
+\label{sec:estado_da_arte}
+
+A seleção parte da lista \href{https://juliodosreis.com/awesome-agenticsystems/}{Awesome Agentic Systems}, indicada pela disciplina, e de trabalhos complementares sobre suporte educacional, memória e uso de ferramentas. Foram priorizadas contribuições relacionadas aos componentes da questão de pesquisa. Para cada trabalho, distinguem-se o critério de seleção, o elemento aproveitado e sua adaptação ao projeto.
+
+\paragraph{MetaGPT \citep{hong2024metagpt}.}
+\textbf{Seleção:} organização da colaboração multiagente por papéis e procedimentos padronizados. \textbf{Elemento extraído:} decomposição de tarefas e comunicação por artefatos estruturados, com verificação de resultados intermediários. \textbf{Adaptação:} substituir o fluxo de desenvolvimento de software por um ciclo educacional de curadoria, tutoria, acompanhamento e replanejamento. Os artefatos passam a representar tópicos, evidências de aprendizagem e restrições temporais.
+
+\paragraph{MultiTutor \citep{sun2025multitutor}.}
+\textbf{Seleção:} aplicação direta de agentes especializados ao suporte personalizado ao estudante. \textbf{Elemento extraído:} cooperação para explicações, seleção de recursos, atividades e identificação de lacunas. \textbf{Adaptação:} priorizar interação textual ativa e conectar os registros das atividades à memória longitudinal e ao cronograma. O trabalho também contempla recursos interativos e multimodais; a contribuição pretendida aqui está na articulação com rotina e continuidade local, e não na alegação de que a tutoria multiagente anterior seja apenas estática.
+
+\paragraph{MemGPT \citep{packer2023memgpt}.}
+\textbf{Seleção:} enfrentamento de janelas de contexto limitadas em análise documental e conversas com múltiplas sessões. \textbf{Elemento extraído:} separação entre contexto ativo e armazenamento externo, com movimentação seletiva de informação. \textbf{Adaptação:} definir uma política de memória pedagógica por tópico, preservando erros recorrentes, objetivos e evidências de progresso. A compactação será avaliada pela fidelidade das informações recuperadas e pela continuidade das tarefas.
+
+\paragraph{Voyager \citep{wang2023voyager}.}
+\textbf{Seleção:} reutilização de habilidades e refinamento a partir de retorno do ambiente. \textbf{Elemento extraído:} biblioteca de habilidades recuperáveis e aperfeiçoamento iterativo. \textbf{Adaptação:} substituir habilidades de código para Minecraft por procedimentos pedagógicos, como construção de flashcards e condução de questionários. A comparação entre instruções completas e reduzidas é uma investigação deste projeto, não um resultado estabelecido pelo Voyager.
+
+\paragraph{ToRA \citep{gou2024tora}.}
+\textbf{Seleção:} integração entre raciocínio em linguagem natural e ferramentas computacionais. \textbf{Elemento extraído:} delegação de operações verificáveis a executores externos. \textbf{Adaptação:} utilizar resolução determinística de restrições para verificar cronogramas, enquanto o agente interpreta necessidades e prioridades. Essa transposição não exige reproduzir o treinamento do ToRA nem elimina erros na interpretação das entradas; torna verificável a viabilidade do plano frente às restrições formalizadas.
+
+Em síntese, o diferencial proposto é a integração de \textbf{tutoria ativa, memória longitudinal e replanejamento orientado por evidências}, sob as restrições de execução local. A hipótese é que a especialização cooperativa e a gestão seletiva de contexto permitam um acompanhamento mais consistente sem crescimento descontrolado do custo de inferência. A confirmação dessa hipótese dependerá dos experimentos, cujos procedimentos detalhados serão definidos na fase de metodologia.
+
+\clearpage
+\section*{Declaração de uso de IA generativa no processo de elaboração}
+
+O rascunho de origem declara o uso de Claude Haiku 4.5 e Muse Spark 1.2 Free para levantamento de ideias, estruturação e aprimoramento da clareza linguística. Nesta versão, foi utilizado o OpenCode, com o modelo GPT-6-Astra, para consolidar os dois rascunhos, adequar a redação às orientações da disciplina, conferir referências e preparar o documento em \LaTeX. A assistência à consolidação foi adotada para harmonizar o conteúdo previamente fornecido pelos autores e explicitar suas relações e delimitações. A revisão final e a responsabilidade pelo conteúdo submetido cabem aos autores; ferramentas de IA não integram a autoria do trabalho.
+
+\clearpage
+\begin{thebibliography}{99}
+
+\bibitem[Gou et~al.(2024)]{gou2024tora}
+Gou, Z.; Shao, Z.; Gong, Y.; Shen, Y.; Yang, Y.; Huang, M.; Duan, N.; Chen, W. (2024).
+\newblock ToRA: A Tool-Integrated Reasoning Agent for Mathematical Problem Solving.
+\newblock \textit{International Conference on Learning Representations (ICLR)}.
+\newblock \url{https://arxiv.org/abs/2309.17452}.
+
+\bibitem[Hong et~al.(2024)]{hong2024metagpt}
+Hong, S. et~al. (2024).
+\newblock MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework.
+\newblock \textit{International Conference on Learning Representations (ICLR)}.
+\newblock \url{https://arxiv.org/abs/2308.00352}.
+
+\bibitem[Packer et~al.(2023)]{packer2023memgpt}
+Packer, C.; Wooders, S.; Lin, K.; Fang, V.; Patil, S.~G.; Stoica, I.; Gonzalez, J.~E. (2023).
+\newblock MemGPT: Towards LLMs as Operating Systems.
+\newblock \textit{arXiv preprint arXiv:2310.08560}.
+\newblock \url{https://arxiv.org/abs/2310.08560}.
+
+\bibitem[Sun e Tai(2025)]{sun2025multitutor}
+Sun, E.; Tai, L. (2025).
+\newblock MultiTutor: Collaborative LLM Agents for Multimodal Student Support.
+\newblock \textit{Proceedings of the Innovation and Responsibility in AI-Supported Education Workshop}, PMLR, 273:174--190.
+\newblock \url{https://proceedings.mlr.press/v273/sun25a.html}.
+
+\bibitem[Wang et~al.(2023)]{wang2023voyager}
+Wang, G.; Xie, Y.; Jiang, Y.; Mandlekar, A.; Xiao, C.; Zhu, Y.; Fan, L.; Anandkumar, A. (2023).
+\newblock Voyager: An Open-Ended Embodied Agent with Large Language Models.
+\newblock \textit{arXiv preprint arXiv:2305.16291}.
+\newblock \url{https://arxiv.org/abs/2305.16291}.
+
+\end{thebibliography}
+\end{document}
