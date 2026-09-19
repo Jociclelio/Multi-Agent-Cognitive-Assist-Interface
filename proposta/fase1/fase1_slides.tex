@@ -1,0 +1,279 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage{lmodern}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{booktabs}
+
+% Fonte: fase1_proposta.tex. Roteiro principal: aproximadamente 4min50s.
+% Nome para submissão:
+% fase1_slides_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf
+\newcommand{\segundoautor}{Jociclelio Castro Macedo Junior}
+\newcommand{\segundora}{231722}
+
+\definecolor{navy}{HTML}{17324D}
+\definecolor{teal}{HTML}{007F82}
+\definecolor{paper}{HTML}{F1F6F8}
+\definecolor{orange}{HTML}{B75A18}
+\setbeamercolor{normal text}{fg=navy,bg=white}
+\setbeamercolor{structure}{fg=teal}
+\setbeamercolor{frametitle}{fg=navy}
+\setbeamercolor{title}{fg=navy}
+\setbeamercolor{subtitle}{fg=teal}
+\setbeamercolor{block title}{fg=white,bg=teal}
+\setbeamercolor{block body}{fg=navy,bg=paper}
+\setbeamercolor{alerted text}{fg=orange}
+\setbeamerfont{title}{size=\LARGE,series=\bfseries}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
+\setbeamerfont{block title}{size=\normalsize,series=\bfseries}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[circle]
+\setbeamersize{text margin left=9mm,text margin right=9mm}
+\setbeamertemplate{footline}{%
+  \hspace{9mm}\textcolor{teal}{\scriptsize EduAgent-OS}\hfill
+  \textcolor{navy}{\scriptsize MO810A/MC959A -- Fase 1\quad|\quad
+  \insertframenumber/\inserttotalframenumber}\hspace{9mm}\vspace{3mm}}
+\setbeamertemplate{frametitle}{\vspace{3mm}\insertframetitle\par
+  \vspace{1mm}{\color{teal}\hrule height 0.6pt}\vspace{2mm}}
+\hypersetup{pdftitle={EduAgent-OS: proposta da fase 1},
+  pdfsubject={Tutoria ativa, memória longitudinal e planejamento adaptativo}}
+
+\title{EduAgent-OS}
+\subtitle{Sistema Multiagente Local para Tutoria Ativa\\
+  e Gestão Longitudinal de Estudos}
+\author{Rafael Attilio Agricola -- 249245\\\segundoautor{} -- \segundora}
+\institute{Instituto de Computação -- UNICAMP\\
+  MO810A/MC959A -- Sistemas Multiagentes com Modelos de Linguagem\\
+  Prof. Dr. Julio Cesar dos Reis}
+\date{Fase 1 -- Proposta\enspace|\enspace 2026}
+
+\begin{document}
+
+% 15 s
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% 30 s
+\begin{frame}{Do material da disciplina à rotina de estudo}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Cenário: estudante de graduação}
+        \begin{itemize}
+          \item Múltiplas disciplinas, PDFs e notas de aula.
+          \item Avaliações, compromissos e tempo limitado.
+          \item Dificuldades que mudam a cada sessão.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Motivação: ODS 4}
+        Apoiar a aprendizagem autônoma conectando o planejamento
+        ao que o estudante demonstra compreender.
+      \end{block}
+      \small Execução local: menor dependência de inferência paga e
+      continuidade com materiais disponíveis offline.
+    \end{column}
+  \end{columns}
+  \vspace{4mm}
+  \textbf{Necessidade central:} transformar evidências de aprendizagem
+  em decisões sobre \alert{o que estudar e quando revisar}.
+  \par\vspace{2mm}
+  {\footnotesize ODS 9 e 10: relação complementar; o alcance depende do hardware necessário.}
+\end{frame}
+
+% 35 s
+\begin{frame}{Problema e questão de pesquisa}
+  \textbf{Uma resposta correta a uma dúvida isolada não garante continuidade.}
+  \vspace{3mm}
+  \begin{enumerate}
+    \item \textbf{Tutoria e rotina desconectadas:} dificuldades precisam alterar o plano.
+    \item \textbf{Histórico pouco fiel:} distinguir evidência, estimativa antiga e estado atual.
+    \item \textbf{Contexto limitado:} documentos e conversas elevam o custo de inferência.
+  \end{enumerate}
+  \vspace{3mm}
+  \begin{block}{Questão de pesquisa}
+    Em que medida uma arquitetura multiagente com memória longitudinal
+    e gestão seletiva de contexto integra tutoria ativa e replanejamento,
+    mantendo qualidade pedagógica e viabilidade temporal com recursos locais limitados?
+  \end{block}
+\end{frame}
+
+% 30 s
+\begin{frame}{Objetivo e recorte do protótipo}
+  \begin{block}{Objetivo geral}
+    Integrar tutoria ativa, memória longitudinal e planejamento adaptativo:
+    as evidências de cada sessão orientam as próximas ações.
+  \end{block}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \textbf{Núcleo previsto}
+      \begin{itemize}
+        \item Organizar tópicos, fontes e prazos.
+        \item Tutoria textual, exercícios e flashcards.
+        \item Histórico por tópico entre sessões.
+        \item Plano semanal com restrições reais.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \textbf{Delimitação}
+      \begin{itemize}
+        \item Inferência, memória e materiais locais.
+        \item Web e agenda externa exigem conexão.
+        \item Sem notas oficiais, geração de vídeos ou treinamento de modelo fundacional.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% 45 s
+\begin{frame}{Cinco agentes, um estado compartilhado}
+  \centering
+  \begin{tikzpicture}[
+    agent/.style={draw=teal,fill=paper,rounded corners=3pt,
+      text width=3.6cm,minimum height=1.12cm,align=center,font=\small},
+    hub/.style={agent,fill=navy,text=white,draw=navy,text width=4.5cm},
+    flow/.style={<->,>=Stealth,thick,draw=teal}]
+    \node[hub] (graph) at (0,0) {\textbf{Orquestração: LangGraph}\\Estado e encaminhamento de tarefas};
+    \node[agent] (curador) at (-4.5,1.75) {\textbf{Curador}\\Tópicos, prazos e fontes via RAG};
+    \node[agent] (tutor) at (0,1.75) {\textbf{Tutor Adaptativo}\\Perguntas, pistas e exercícios};
+    \node[agent] (monitor) at (4.5,1.75) {\textbf{Monitor}\\Evidências e estimativas de domínio};
+    \node[agent] (memoria) at (-3,-1.75) {\textbf{Bibliotecário}\\Histórico, origem e ordem temporal};
+    \node[agent] (agenda) at (3,-1.75) {\textbf{Planejador}\\Blocos de estudo e revisões};
+    \draw[flow] (graph.west) -- (curador.south);
+    \draw[flow] (graph.north) -- (tutor.south);
+    \draw[flow] (graph.east) -- (monitor.south);
+    \draw[flow] (graph.south west) -- (memoria.north);
+    \draw[flow] (graph.south east) -- (agenda.north);
+  \end{tikzpicture}
+  \par\vspace{2mm}
+  \raggedright\footnotesize
+  \textbf{Inferência proposta:} Bonsai 2 local, compartilhado pelos agentes.\\
+  \textbf{Coordenação:} mensagens com tópico, fontes, evidências, prioridade e ação.\\
+  \textbf{Ferramentas:} MCP para acesso a dados; A2A a explorar na delegação entre serviços.
+\end{frame}
+
+% 35 s
+\begin{frame}{Ciclo de uso: a dificuldade muda o plano}
+  \begin{enumerate}
+    \item \textbf{Organizar:} estudante fornece materiais, avaliações e disponibilidade.
+    \item \textbf{Planejar:} propor blocos compatíveis com os compromissos.
+    \item \textbf{Recuperar:} trazer objetivos, dificuldades anteriores e fontes.
+    \item \textbf{Praticar:} Tutor solicita explicações; Monitor registra evidências.
+    \item \textbf{Atualizar:} Bibliotecário consolida o histórico; Planejador ajusta a agenda.
+    \item \textbf{Retomar:} estudante recebe a atualização que orienta a próxima sessão.
+  \end{enumerate}
+  \vspace{2mm}
+  \begin{block}{Exemplo ilustrativo}
+    Dificuldade perto de uma prova $\rightarrow$ recomendação de reforço
+    $\rightarrow$ busca de horário livre $\rightarrow$ nova atividade na sessão seguinte.
+  \end{block}
+  \small\textbf{Agenda verificável:} ferramenta determinística checa duração e
+  sobreposições. Sem tempo suficiente, o sistema explicita o conflito.
+\end{frame}
+
+% 30 s
+\begin{frame}{Memória e contexto sob orçamento limitado}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{Dentro da sessão}
+        Manter interações recentes e compactar trechos antigos entre chamadas.
+        \par\medskip
+        \textbf{Originais recuperáveis} para conferir as sínteses.
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{Entre sessões}
+        Recuperar histórico pertinente à disciplina e ao tópico.
+        \par\medskip
+        Preservar \textbf{evidência, origem, incerteza e temporalidade}.
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{Por tarefa}
+        Carregar somente a \textit{skill} necessária: explicar, criar flashcards ou questionários.
+        \par\medskip
+        Comparar \textbf{instruções completas e reduzidas}.
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{4mm}
+  \textbf{Hipótese a testar:} recuperação seletiva e compactação podem reduzir
+  custos preservando a continuidade e a qualidade do acompanhamento.
+\end{frame}
+
+% 30 s
+\begin{frame}{Estado da arte: elementos e adaptações}
+  \small
+  \renewcommand{\arraystretch}{1.05}
+  \begin{tabular}{@{}p{2.65cm}p{4.25cm}p{6.25cm}@{}}
+    \toprule
+    \textbf{Trabalho} & \textbf{Elemento aproveitado} & \textbf{Adaptação ao EduAgent-OS}\\
+    \midrule
+    MetaGPT (2024) & Papéis e artefatos estruturados & Coordenar tópicos, evidências e restrições.\\
+    MultiTutor (2025) & Agentes de suporte educacional & Conectar tutoria à rotina e ao histórico.\\
+    MemGPT (2023) & Contexto ativo e memória externa & Recuperar progresso e dificuldades por tópico.\\
+    Voyager (2023) & Habilidades reutilizáveis & Biblioteca de procedimentos pedagógicos.\\
+    ToRA (2024) & Raciocínio com ferramentas & Verificar restrições de agenda deterministicamente.\\
+    \bottomrule
+  \end{tabular}
+  \vspace{3mm}
+  \textbf{Diferencial proposto:} integrar tutoria ativa, memória longitudinal
+  e replanejamento orientado por evidências em execução local.
+\end{frame}
+
+% 40 s. Referências no slide seguinte: apoio, fora do roteiro oral.
+\begin{frame}{Como avaliar a proposta nas próximas fases?}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Comparação controlada}
+      \begin{itemize}
+        \item Multiagente versus assistente único.
+        \item Mesmo modelo, materiais e ferramentas; recursos controlados.
+        \item Sequências de sessões e cenários de estudo.
+        \item Ablações de memória, compactação e seleção de \textit{skills}.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Dimensões observadas}
+      \begin{itemize}
+        \item Qualidade e fundamentação das respostas.
+        \item Fidelidade da memória entre sessões.
+        \item Restrições de agenda e delegações.
+        \item Tokens, latência e memória computacional.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{1mm}
+  \begin{block}{Resultado esperado}
+    Protótipo do ciclo completo e registros para avaliar cada mecanismo.
+  \end{block}
+  \footnotesize A avaliação inicial mede o sistema; ganhos de aprendizagem humana
+  exigem investigação adicional.
+\end{frame}
+
+\begin{frame}{Referências e elaboração}
+  \footnotesize
+  \begin{thebibliography}{9}
+    \setlength{\itemsep}{1mm}
+    \bibitem{metagpt} Hong et al. (2024). \textit{MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework}. ICLR.
+      \href{https://arxiv.org/abs/2308.00352}{arXiv:2308.00352}.
+    \bibitem{multitutor} Sun e Tai (2025). \textit{MultiTutor: Collaborative LLM Agents for Multimodal Student Support}. PMLR, 273:174--190.
+      \href{https://proceedings.mlr.press/v273/sun25a.html}{Artigo}.
+    \bibitem{memgpt} Packer et al. (2023). \textit{MemGPT: Towards LLMs as Operating Systems}.
+      \href{https://arxiv.org/abs/2310.08560}{arXiv:2310.08560}.
+    \bibitem{voyager} Wang et al. (2023). \textit{Voyager: An Open-Ended Embodied Agent with Large Language Models}.
+      \href{https://arxiv.org/abs/2305.16291}{arXiv:2305.16291}.
+    \bibitem{tora} Gou et al. (2024). \textit{ToRA: A Tool-Integrated Reasoning Agent for Mathematical Problem Solving}. ICLR.
+      \href{https://arxiv.org/abs/2309.17452}{arXiv:2309.17452}.
+  \end{thebibliography}
+  \vspace{1mm}
+  \textbf{Uso de IA generativa:} proposta elaborada com auxílio de Claude Haiku 4.5,
+  Muse Spark 1.2 Free e GPT-6-Astra; adaptação para slides com GPT-6-Astra.
+  Revisão final e responsabilidade pelo conteúdo cabem aos autores.
+\end{frame}
+
+\end{document}

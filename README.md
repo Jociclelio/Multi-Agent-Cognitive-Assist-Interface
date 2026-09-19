@@ -2,6 +2,11 @@
 
 **IC/UNICAMP — 2026 — Prof. Dr. Julio Cesar dos Reis**
 
+## Dupla
+
+- Rafael Attilio Agricola — RA 249245
+- Jociclelio Castro Macedo Junior — RA 231722
+
 ## Estrutura
 
 ```
@@ -44,6 +49,23 @@ Proposta em `proposta/fase1/` (LaTeX). Compilar:
 ```bash
 cd proposta/fase1 && pdflatex fase1_rascunho_jociclelio.tex
 ```
+
+### Slides da fase 1
+
+- Fonte Beamer: `proposta/fase1/fase1_slides.tex`.
+- Apresentação: `proposta/fase1/fase1_slides.pdf` (16:9; 9 slides principais e 1 de referências).
+- Roteiro previsto para aproximadamente 4min50s, com tempos sugeridos nos comentários do `.tex`.
+
+Compilar a partir da raiz do repositório com Tectonic:
+
+```bash
+tectonic proposta/fase1/fase1_slides.tex
+```
+
+Para a entrega, usar os nomes exigidos pela disciplina:
+
+- Slides: `fase1_slides_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf`.
+- Relatório: `fase1_relatorio_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf`.
 
 ## Convenções
 
