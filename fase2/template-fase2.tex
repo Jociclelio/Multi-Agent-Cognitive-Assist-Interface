@@ -1,0 +1,135 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, tmargin=3cm, lmargin=2.5cm, rmargin=2.5cm, bmargin=3cm]{geometry}
+\usepackage{hyperref}
+
+\usepackage[brazilian]{babel} % Remover linha em caso de escrita em inglês
+\usepackage[fixlanguage]{babelbib} % Remover linha em caso de escrita em inglês
+
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,
+    urlcolor=blue,
+    citecolor=black,
+}
+
+\usepackage{natbib} % to cite references by surname and year
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\pagestyle{fancy} % Ativar o estilo fancy
+\fancyhf{} % Limpar cabeçalhos e rodapés
+\renewcommand{\headrulewidth}{0pt} % Remover a linha do cabeçalho
+\fancyfoot[C]{IC/UNICAMP \\ 2026 }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONFIGURAÇÃO DA PRIMEIRA PÁGINA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+\vspace{5mm}
+\hrule
+
+\vspace{3mm}
+
+\begin{center}
+    {\large\textbf{INSTITUTO DE COMPUTAÇÃO - UNICAMP}} \\
+    \vspace{3mm}
+    {\large\textbf{MO810A/MC959A - Sistemas Multiagentes com Modelos de Linguagem}} \\
+    \vspace{3mm}
+    {\large\textbf{Prof. Dr. Julio Cesar dos Reis}}
+\end{center}
+
+\vspace{3mm}
+\hrule
+
+\vspace{2.5cm}
+\begin{flushright}
+    \Large{\textbf{Fase 2 - Metodologia}} \\
+    \vspace{1cm}
+    \textit{
+        $<$Título do projeto$>$ \\
+    }
+    \vspace{5cm}
+    $<$Aluno(a)$>$ - $<$RA Aluno(a)$>$ \\
+    $<$Aluno(b)$>$ - $<$RA Aluno(b)$>$
+\end{flushright}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\newpage
+\pagestyle{fancy} % 2. Ativar o estilo fancy
+\fancyhf{} % 3. Limpar cabeçalhos e rodapés
+\renewcommand{\headrulewidth}{0pt} % Remover a linha do cabeçalho
+
+\fancyfoot[R]{\thepage}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       INÍCIO DAS SEÇÕES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Visão Geral da Metodologia}
+\label{sec:visao_geral}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Retome brevemente o problema e o ODS definidos na Fase 1, indicando eventuais ajustes de escopo. Apresente o fluxo completo da solução, da entrada até a saída entregue, com uma figura da arquitetura. Justifique por que a abordagem multiagente é adequada ao problema.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conjunto de Dados para a Avaliação}
+\label{sec:dados}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Descreva a definição, a captura e a preparação dos conjuntos de dados: quais fontes são utilizadas, como são obtidas, qual o formato e quais restrições de uso se aplicam. Detalhe o pré-processamento e como os dados ficam disponíveis aos agentes em tempo de execução. Trate de questões de qualidade, viés e dados sensíveis, quando aplicável.$>$} %Explique como os dados serão coletados, as fontes utilizadas e os critérios para seleção. Detalhe o processo de preparação e limpeza dos dados, incluindo técnicas como normalização, remoção de duplicatas, e transformação de dados para adequação ao modelo.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Arquitetura Multiagente}
+\label{sec:arquitetura}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Especifique cada agente do sistema: papel, entradas e saídas, escopo de decisão e critério de término da sua tarefa. Indique o modelo de linguagem atribuído a cada agente e justifique a escolha. Descreva as estratégias de raciocínio, planejamento e memória empregadas.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Orquestração e Uso de Ferramentas}
+\label{sec:orquestracao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Descreva como os agentes da Seção \ref{sec:arquitetura} atuam em conjunto: o padrão de orquestração adotado, o protocolo de comunicação, os limites de execução e o tratamento de falhas e divergências. Liste as ferramentas disponibilizadas aos agentes, a condição de uso de cada uma e como suas saídas são validadas. Indique os mecanismos de controle e os pontos de intervenção humana, quando houver.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Procedimentos de Avaliação}
+\label{sec:avaliacao}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%isso deve ser removido
+\textit{$<$Defina os critérios de sucesso e as métricas adotadas, explicando como cada uma é calculada (por exemplo, precisão, correção do uso de ferramentas, custo e latência, avaliação por usuários alvo). Descreva o protocolo experimental: cenários de teste, condições controladas e \textit{baselines} de comparação. Explique como esses procedimentos garantem a robustez da metodologia e a validade dos resultados, indicando as limitações esperadas.$>$}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Apêndice}
+\label{sec:apendice}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\textit{$<$Use se necessário. $>$}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%          BIBLIOGRAFIA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\bibliographystyle{aasjournal}
+\bibliography{references}{}
+
+
+
+\end{document}
