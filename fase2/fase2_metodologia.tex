@@ -1,0 +1,567 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper,tmargin=3cm,lmargin=2.5cm,rmargin=2.5cm,bmargin=3cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage[authoryear,round]{natbib}
+\let\cite\citep
+\let\citeonline\citet
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs,array,longtable}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{fancyhdr}
+\usepackage{xurl}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black,filecolor=magenta,urlcolor=blue,citecolor=black,
+pdftitle={EduAgent-OS: Fase 2 - Metodologia},
+pdfauthor={Rafael Attilio Agricola; Jociclelio Castro Macedo Junior}}
+\setlength{\emergencystretch}{3em}
+\setlength{\headheight}{14.5pt}
+\setlength{\footskip}{32pt}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{IC/UNICAMP \\ 2026}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\setlength{\tabcolsep}{5pt}
+
+\begin{document}
+
+\vspace*{5mm}
+\hrule
+\vspace{3mm}
+\begin{center}
+    {\large\textbf{INSTITUTO DE COMPUTAÇÃO - UNICAMP}} \\
+    \vspace{3mm}
+    {\large\textbf{MO810A/MC959A - Sistemas Multiagentes com Modelos de Linguagem}} \\
+    \vspace{3mm}
+    {\large\textbf{Prof. Dr. Julio Cesar dos Reis}}
+\end{center}
+\vspace{3mm}
+\hrule
+\vspace{2.5cm}
+\begin{flushright}
+    {\Large\textbf{Fase 2 - Metodologia}} \\
+    \vspace{1cm}
+    {\Large\textit{EduAgent-OS: Sistema Multiagente Local para Tutoria Ativa e Gestão Longitudinal de Estudos}} \\
+    \vspace{5cm}
+    Rafael Attilio Agricola - 249245 \\
+    Jociclelio Castro Macedo Junior - 231722
+\end{flushright}
+
+\newpage
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[R]{\thepage}
+
+\section{Visão Geral da Metodologia}
+\label{sec:visao_geral}
+
+O EduAgent-OS investiga a integração de tutoria textual, memória entre sessões e planejamento de estudos para estudantes de graduação. O problema é manter um acompanhamento coerente quando materiais, dificuldades, prazos e disponibilidade mudam: responder uma pergunta não basta para determinar o que revisar nem quando fazê-lo. O projeto mantém o \textbf{ODS 4 -- Educação de Qualidade} como orientação principal, por buscar apoio à aprendizagem autônoma e à organização do estudo. A execução local também se relaciona aos ODS 9 e 10, mas a acessibilidade dependerá dos requisitos de hardware medidos. Não se pressupõe benefício educacional ou redução efetiva de custos antes da avaliação.
+
+A metodologia compreende especificação de contratos, implementação incremental, construção de dados com referências independentes e experimentos controlados. O núcleo v0.1 processará PDFs e texto fornecidos pelo estudante, produzirá explicações fundamentadas, exercícios, flashcards e autoexplicações, registrará evidências formativas por tópico e proporá agendas semanais exportáveis em ICS. Curadoria web e sincronização remota serão capacidades opcionais, admitidas separadamente. O recorte é textual e inicialmente local, sem notas institucionais, treinamento fundacional, voz, geração de vídeos ou integração com sistemas acadêmicos fechados.
+
+Há um ajuste operacional em relação à proposta: o estado de aprendizagem inicial será observado e auditável, com estimativa numérica nula. Um rótulo provisório de evidência favorável substituirá a inferência imediata de domínio. Da mesma forma, A2A será uma extensão possível para serviços distribuídos, enquanto a comunicação interna ocorrerá por artefatos tipados no grafo. Essas decisões tornam o primeiro protótipo verificável sem depender de parâmetros cognitivos não calibrados ou de distribuição de serviços.
+
+\subsection{Hipóteses e ciclo integrado}
+
+Serão investigadas três questões: (Q1) se a especialização em cinco agentes melhora a continuidade e o sucesso das tarefas frente a um agente único com recursos equivalentes; (Q2) se recuperação seletiva, compactação e seleção de habilidades reduzem custo preservando qualidade; e (Q3) se contratos, verificadores e limites contêm falhas antes que produzam efeitos indevidos. São hipóteses do projeto, não consequências garantidas pela literatura.
+
+A organização por papéis e artefatos adapta elementos do MetaGPT e do MultiTutor \cite{hong2024metagpt,sun2025multitutor}. A separação entre contexto ativo e memória persistente se apoia no MemGPT \cite{packer2023memgpt}; habilidades reutilizáveis são inspiradas no Voyager \cite{wang2023voyager}. O emprego de ferramentas para operações verificáveis dialoga com o ToRA \cite{gou2024tora}, mas o solver de agenda e seus contratos são decisões próprias de engenharia.
+
+O ciclo começa com a captura de materiais e restrições. O Curador extrai conteúdo e fatos candidatos, cuja confirmação antecede sua utilização como restrições duras. Para uma pergunta ou prática, recuperam-se fontes e memória do mesmo snapshot; o Tutor produz um turno ou item e encerra a invocação ao esperar o estudante. A resposta seguinte é avaliada pelo Monitor com referência e rubrica explícitas. Um redutor determinístico persiste a evidência e atualiza o estado por tópico. Quando houver dificuldade, tarefa perdida ou mudança confirmada, o Planejador propõe demandas e aciona um solver. Um verificador separado confere o plano antes do preview e da aprovação. A próxima sessão utiliza o estado atualizado, com origem e temporalidade preservadas.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=6mm and 8mm,
+    box/.style={draw,rounded corners,align=center,font=\small,minimum height=10mm,text width=40mm,inner sep=3pt},
+    wide/.style={box,text width=133mm},
+    arr/.style={-{Stealth[length=2mm]},thick},
+    infra/.style={box,fill=gray!8}]
+\node[wide] (ui) {Estudante: materiais, perguntas, respostas e disponibilidade};
+\node[wide,below=of ui] (g) {LangGraph: intenção, snapshot, contratos, orçamento e checkpoint};
+\node[box,below=of g,xshift=-47mm] (c) {Curador\\Extração e RAG};
+\node[box,below=of g] (b) {Bibliotecário\\Memória temporal};
+\node[box,below=of g,xshift=47mm] (p) {Planejador\\Demandas e prioridades};
+\node[box,below=of c] (t) {Tutor\\Explicação e prática};
+\node[box,below=of b] (m) {Monitor\\Rubrica e evidências};
+\node[infra,below=of p] (s) {CP-SAT + verificador\\Preview e ICS};
+\node[wide,below=of m] (db) {Serviços determinísticos: validação, redutor e commit idempotente\\Documentos versionados, eventos/projeções SQLite e outbox};
+\node[wide,below=of db] (llm) {Bonsai 2 27B local compartilhado: servidor único, fila e adaptador\\Política de ferramentas, cancelamento, limites e traces};
+\draw[arr] (ui)--(g);
+\draw[arr] (g.south west)--(c.north);
+\draw[arr] (g)--(b);
+\draw[arr] (g.south east)--(p.north);
+\draw[arr] (c)--(t);
+\draw[arr] (b.south west)--(t.north east);
+\draw[arr] (t)--node[above,font=\scriptsize]{resposta}(m);
+\draw[arr] (m)--(db);
+\draw[arr] (p)--(s);
+\draw[arr] (m.north east)--(p.south west);
+\draw[arr] (s.south)--(db.north east);
+\draw[arr] (db)--(llm);
+\end{tikzpicture}
+\caption{Arquitetura lógica proposta. As setas resumem dependências de dados; a resposta do estudante inicia uma nova invocação. Os cinco papéis compartilham a inferência local, e efeitos são executados por serviços determinísticos.}
+\label{fig:arquitetura}
+\end{figure}
+
+Especialização significa instruções, entradas, permissões e critérios de término distintos, não cinco cópias do modelo nem diálogo irrestrito entre agentes. O grafo controla dependências, e nenhum parecer textual substitui a validação formal de um plano, o fato confirmado ou o recibo de persistência. O pacote documental das etapas 01--08 complementa a rastreabilidade; as regras necessárias à implementação e à avaliação estão descritas neste relatório. Todos os parâmetros quantitativos apresentados são propostas iniciais, sujeitas a piloto e congelamento anterior ao teste final.
+
+\section{Conjunto de Dados para a Avaliação}
+\label{sec:dados}
+
+\subsection{Fontes, captura e registro}
+
+O corpus será obtido de duas disciplinas de graduação autorizadas: uma de conteúdo técnico-formal e outra com respostas conceituais abertas. Incluirá PDDs, cronogramas, notas e materiais didáticos em português, com inglês técnico, PDFs digitais, documentos escaneados, tabelas e revisões conflitantes. A escolha busca diversidade de transformação e julgamento, sem representar estatisticamente todas as disciplinas. A obtenção dependerá de licença ou autorização documentada; materiais restritos não serão redistribuídos sem permissão.
+
+Cada captura registrará identificador da disciplina, origem, data de obtenção, licença/autorização, MIME verificado pelos bytes, tamanho, SHA-256 e vínculo de versão. O original será preservado separadamente dos derivados. Fontes web opcionais serão congeladas em snapshots para comparações reproduzíveis, com URL final, estado de acesso, data e hash; consultas reais ao conector serão ensaios de integração separados. Um vídeo sem transcrição acessível oferecerá apenas metadados, não conteúdo supostamente lido.
+
+Casos pessoais serão preferencialmente sintéticos: disponibilidade, compromissos e respostas roteirizadas não exigem históricos identificáveis de estudantes reais. Dados sensíveis presentes em documentos serão removidos ou substituídos antes da anotação e distribuição. Os exemplos públicos, manifestos e instruções de acesso autorizado permitirão conferir o corpus sem expor materiais restritos. Os bancos e caminhos de runtime serão segregados por usuário desde o esquema.
+
+\subsection{Pré-processamento, qualidade e ontologia}
+
+A ingestão utilizará Docling para blocos, ordem de leitura, tabelas e proveniência \cite{docling}. OCR seletivo em português ou português/inglês será aplicado quando a qualidade da extração justificar, preservando o original e o diagnóstico. Após OCR, o documento completo será reextraído: um sidecar isolado não representa necessariamente todo o texto \cite{ocrpdf}. Equações, células ou páginas ilegíveis permanecerão pendentes, sem preenchimento automático por inferência. Os limites iniciais são 50 MiB e 500 páginas por documento, 600 s por job e subprocesso limitado a 4 GiB; documentos maiores serão recusados ou divididos pelo usuário.
+
+Duplicatas exatas poderão compartilhar bytes, mas manterão seus vínculos de disciplina. Traduções, scans, revisões e paráfrases serão registradas como parentes, não confundidas com fontes independentes. A normalização de avaliação usará NFC e espaços, preservando sinais, unidades e símbolos. A indexação lexical poderá usar NFKC e minúsculas, com tokenizer próprio versionado; essa transformação não alterará o original nem a transcrição de referência. Datas e números críticos serão comparados com o trecho de origem, não apenas com uma frase gerada.
+
+A ontologia relacional terá entidades de usuário, disciplina, tópico, documento, versão, avaliação, recurso, item, tentativa, demanda e bloco de agenda. Tópicos manterão aliases e relações de pré-requisito; ciclos serão rejeitados. Um fato acadêmico conservará expressão original, valor normalizado, precisão, zona quando aplicável, fontes, autoridade e estado candidato, ambíguo, confirmado ou rejeitado. Dia sem horário não será convertido silenciosamente em instante. Datas relativas dependerão da data da fala e da zona confirmada. O PDD confirmado terá prioridade sobre sugestões, mas uma revisão documental gerará reconciliação, não substituição automática.
+
+Os blocos serão transformados em chunks por seção, com alvo de 384 tokens do modelo de embeddings e sobreposição de até 64 quando necessária à continuidade. Tabelas repetirão cabeçalhos e conservarão referências de células/blocos. Cada referência de fonte identificará documento, versão, página física, bloco, offsets ou caixa e hash do texto. Uma nova versão só será ativada após a construção completa do índice; originais, blocos e índices manterão manifestos compatíveis.
+
+\subsection{Composição, partições e prevenção de vazamento}
+
+As metas iniciais são 24 famílias documentais, divididas em 8 para desenvolvimento, 4 para validação e 12 para teste; 120 consultas e 120 tentativas por partição; 30 trajetórias de teste com oito sessões; 100 agendas pequenas e 100 realistas; e pelo menos dez casos base para cada falha F01--F24. Agendas terão partições de 40/20/40\% por família de construção e parâmetros. Esses números são metas de coleta, não tamanhos já obtidos nem demonstração de potência suficiente.
+
+Por disciplina, serão propostas 12 famílias (4/2/6 nas partições), com pelo menos dois scans e duas tabelas no corpus total. Cada split terá 80 consultas com suporte e 40 sem suporte, além de 60 tentativas por disciplina. Antes das 30 trajetórias de teste, serão construídas seis de desenvolvimento e quatro de validação, também com oito sessões e sem parentesco entre partições. Os autores selecionarão fontes e autorizações; um anotador preparará transcrição/ontologia, outro realizará exame independente dos originais, e um especialista da disciplina adjudicará discordâncias.
+
+Consultas abrangerão suporte completo, parcial e ausente, literais técnicos, códigos, múltiplos aspectos e temporalidade. Tentativas incluirão respostas corretas, parciais, incorretas e indecidíveis, com diferentes níveis de ajuda e revelação de solução. Trajetórias conterão mudança de disponibilidade, erros recorrentes, correção temporal, revisão tardia e replanejamento. Scripts serão fixos, com alternativas aceitáveis e precondições explícitas; uma pergunta inesperada do sistema produzirá \code{SCRIPT_MISMATCH}, sem resposta favorável inventada pelo avaliador.
+
+Toda transformação herdará a partição de sua família: tradução, scan, revisão, paráfrase, item derivado e variante adversarial não serão separados entre desenvolvimento e teste. Um auditor verificará hashes, similaridade, referências e o grafo documento--item--trajetória; candidatos a parentesco serão revisados por humanos, sem assumir limiar universal de similaridade. Gabaritos e rubricas privados do harness não entrarão no índice acessível ao sistema.
+
+Os clusters de análise serão componentes de parentesco. Trajetórias sem fontes compartilhadas entre clusters serão preferidas. Se a conectividade reduzir muito o número de componentes, a análise usará esses componentes e explicitará a limitação, em vez de tratar 30 trajetórias ou centenas de turnos como estudantes independentes. Disciplina será um estrato descritivo, não uma unidade com apenas duas observações suficiente para generalização.
+
+\subsection{Ouro, anotação e disponibilidade aos agentes}
+
+O ouro será elaborado por dois especialistas independentes, com piloto em desenvolvimento e adjudicação de discordâncias por terceiro avaliador ou adjudicador. Serão preservados os julgamentos anteriores à adjudicação para medir acordo. O registro conterá autoria da anotação, versão, referências originais, fatos críticos, entidades/relações, relevâncias de recuperação, claims necessárias, respostas aceitas, critérios, códigos de erro, ledger temporal, restrições originais e efeitos esperados. Campos não aplicáveis ficarão ausentes, evitando interpretar listas vazias como negativos anotados.
+
+Para extração, haverá transcrição humana e ouro de página, ordem, sinais, números e unidades. Para recuperação, qrels serão definidos sobre unidades originais e mapeados aos chunks, evitando que a configuração de segmentação determine o próprio ouro. Para itens, o especialista resolverá o enunciado antes de conferir o gabarito proposto; equivalências e tolerâncias serão explícitas. Cada critério da rubrica terá ID, \code{topic_ids} não vazio, níveis 0--2, marcação crítica, equivalências aceitas e referências de evidência. Critérios multicomponentes serão decompostos quando necessários à atribuição por tópico; sem atribuição separável, não haverá atualização desses tópicos. Para memória, o ledger distinguirá tempo de ocorrência, registro e validade. Agendas terão demandas e compromissos em instantes/minutos originais, com ótimo vetorial conhecido nas instâncias pequenas.
+
+Em runtime, o agente receberá somente os dados autorizados da tarefa e do snapshot: fontes relevantes, fatos vigentes, item e rubrica quando cabíveis. O gabarito ficará separado da pergunta apresentada ao estudante. Os contratos \code{CaseRecord}, \code{GoldRecord} e \code{RunRecord} ligarão caso, família, cluster, partição, roteiro, snapshot, fontes, ouro e rubrica por IDs e hashes. Dados de teste permanecerão reservados ao runner após o congelamento. Vieses de cobertura linguística, qualidade de OCR, extensão de resposta e preferência de anotadores serão registrados por estrato, para não serem ocultados por uma média agregada.
+
+\section{Arquitetura Multiagente}
+\label{sec:arquitetura}
+
+\subsection{Modelo compartilhado e admissão condicional}
+
+Os cinco agentes utilizarão o mesmo candidato, \code{prism-ml/Ternary-Bonsai-2-27B-gguf}, revisão \nolinkurl{b072e1d3b35a0a630cece372c2127528e0994386}, com arquivo inicial \code{Ternary-Bonsai-2-27B-PTQ1_0.gguf} \cite{bonsai2}. O SHA-256 publicado do arquivo é \nolinkurl{53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3}; a implementação deverá recalculá-lo localmente e conferir licença e NOTICE. A identificação evita que o nome Bonsai 2 seja tratado como configuração suficiente.
+
+O runtime candidato será o fork \code{PrismML-Eng/llama.cpp}, release \code{prism-b10743-adfffbe}, fixada por hash após verificação \cite{bonsaidemo}. Não se presume que o llama.cpp padrão aceite o artefato ou possua as mesmas capacidades. Haverá um servidor loopback, um slot de geração e fila de quatro pedidos, sem visão. O manifesto registrará CPU, RAM, GPU/VRAM quando houver, sistema operacional, binários, quantização, tokenizer, template, offload e versões reais de dependências.
+
+Antes de admitir o modelo, serão realizados carregamento offline, smoke do tokenizer e do template, contagem da janela, geração em português, parse de artefatos e rejeição de ferramentas proibidas. JSON Schema será solicitado ao servidor apenas se suportado pelo fork; validação estrutural e de política continuará obrigatória. O adaptador de geração devolverá texto final, uso, motivo de término e erro tipado. Falha de carregamento ou dos gates produzirá \code{MODEL_NOT_ADMITTED}; trocar de modelo exigirá revisão registrada, sem substituição silenciosa.
+
+O perfil inicial sem pensamento explícito usará temperatura 0,7, top-p 0,8, top-k 20 e min-p 0. Em desenvolvimento será comparado ao perfil thinking com 1,0/0,95/20/0,05, conforme documentação do candidato. Template, penalidades e perfil selecionado serão congelados. Pensamento interno não será evidência pedagógica nem oráculo de avaliação; raciocínio e resposta, quando ambos gerados, compartilharão a reserva de saída. A escolha do modelo é motivada pelo objetivo local e pela possibilidade de identificar artefatos, não por eficácia ou latência já verificadas.
+
+\subsection{Papéis, entradas, saídas e término}
+
+\paragraph{Curador de Conhecimento.}
+Receberá arquivos autorizados, metadados da disciplina, consultas e snapshot. Coordenará extração, diagnóstico, identificação de tópicos e fatos candidatos, recuperação documental e curadoria opcional. Produzirá manifesto/blocos, propostas de fatos e \code{EvidencePack} com chunks, ranking, fontes e cobertura suportada, parcial ou ausente. Pode propor um alias ou conflito, mas não confirmar prazo ambíguo nem transformar conteúdo documental em instrução. A tarefa termina em versão indexada, pacote válido, pendência explícita ou falha controlada; ingestão cancelada não ativa versão incompleta.
+
+\paragraph{Tutor Adaptativo.}
+Receberá objetivo, skill selecionada, fontes, memória pertinente e item pendente, sem o ledger privado do avaliador. Produzirá \code{TutorTurn} e, quando solicitado, \code{LearningItem} com pergunta, fontes, referência de resposta e rubrica separadas. Decidirá a forma de explicação e o próximo apoio pedagógico, sem alterar agenda ou declarar domínio. Seus estados serão explicar, tentativa, pista, autoexplicação, transferência e encerramento. Uma solicitação direta poderá receber explicação direta. Ao pedir resposta, termina em \code{waiting_student}; ao concluir, publicar solução solicitada, receber recusa ou cancelamento, encerra sem novas perguntas compulsórias.
+
+\paragraph{Monitor de Aprendizagem.}
+Receberá enunciado, resposta original, gabarito/rubrica, fontes e registro de ajuda/revelação, nunca apenas a autovalidação do Tutor. Produzirá \code{Assessment} por critério/tópico, tipo de evidência, código de misconception, corretude correta/parcial/incorreta/indecidível, confiabilidade aceita/abstenção e recomendação de revisão. Verificação exata, tolerância numérica e unidades prevalecerão quando aplicáveis. Texto aberto usará níveis 0, 1 e 2 com razões curtas. Evidência \code{present} exigirá offsets válidos na resposta; omissão será \code{evidence_kind=missing}, com \code{span=null} e descrição do critério ausente, podendo receber nível 0 sem abstenção automática. Span alegado mas inexistente será inválido; ambiguidade essencial ou divergência formal não resolvida exigirá abstenção. A tarefa termina em avaliação válida ou abstenção explícita; feedback útil poderá ser publicado sem atualização inferencial.
+
+\paragraph{Planejador de Rotina e Agenda.}
+Receberá fatos confirmados, disponibilidade, compromissos, demandas existentes, estado por tópico e pedidos de revisão. Produzirá \code{StudyDemand} e \code{ScheduleProposal} com status, blocos, déficit, diff, objetivo/bound e explicação. O LLM interpreta necessidades e prioridades; o solver decide a viabilidade da formalização e o verificador decide a admissibilidade da publicação. Duração recomendada é estimada até confirmação quando se tornar obrigatória. A tarefa termina em esclarecimento, preview viável, conflito provado para a grade ou resultado inconclusivo; aprovação é uma entrada posterior vinculada à revisão.
+
+\paragraph{Bibliotecário de Memória.}
+Receberá usuário, disciplina, tópico, intervalo temporal, snapshot e propostas de registros. Produzirá \code{MemoryPack}, sínteses com claims ligadas a eventos e propostas de correção, sem escrita irrestrita no banco. Distinguirá observado, declarado e inferido, atual e histórico, evidência independente e assistida. Não reativará fato substituído por similaridade textual. A tarefa termina em pacote resolvível, síntese verificada, contradição pendente ou ausência de evidência. A persistência final será executada pelo serviço determinístico.
+
+\subsection{RAG, planejamento limitado e habilidades}
+
+A recuperação será híbrida: BM25 local e BGE-M3 denso, com revisão/hash de embeddings fixados \cite{m3}. A busca lexical inicial usará \code{BM25Okapi}, $k_1=1{,}5$ e $b=0{,}75$; vetores normalizados e produto interno exato em arrays NumPy evitarão um serviço adicional no primeiro corpus. Usuário, disciplina e versão serão filtrados antes do ranking. Cada modalidade recuperará até 40 candidatos, combinados por
+\begin{equation}
+ \operatorname{RRF}(d)=\sum_{m\in\{lex,denso\}}\frac{1}{60+\operatorname{rank}_m(d)},
+\end{equation}
+com posições a partir de 1 e desempate pelo ID. A referência de RRF foi conferida por metadados; a operacionalização é também apoiada na documentação de busca híbrida \cite{rrf09,qdranthyb}. O reranker \code{BAAI/bge-reranker-v2-m3} será opcional, com pares de até 512 tokens e truncamentos registrados \cite{bgerank}. Sua ativação dependerá de ganho em validação e co-residência viável no hardware.
+
+O contexto documental terá até seis chunks e 4.096 tokens do Bonsai. Toda citação resolverá a versão/página/bloco no snapshot. Resolução estrutural não prova apoio semântico; os dois critérios serão avaliados separadamente. Sem fonte suficiente, o sistema declarará a ausência; uma explicação geral poderá ser rotulada como tal, sem citação fictícia. O limiar de abstenção será escolhido em validação, sem converter escore de ranking em probabilidade calibrada.
+
+O planejamento dos agentes será curto: selecionar rota e skill, gerar proposta estruturada, consultar ferramenta permitida, validar e publicar ou reparar dentro do orçamento. Não haverá autoedição de política ou conversação multiagente aberta. As skills versionadas terão ID, tarefas, schemas de entrada/saída, pré-condições, passos, ferramentas permitidas, pós-condições, término, máximo de chamadas e casos de referência. O catálogo obrigatório conterá explicar, pistas graduais, quiz, flashcard e autoexplicação; mudanças ocorrerão em revisão offline e terão hash registrado.
+
+A prática de recuperação e a autoexplicação são motivadas por trabalhos pedagógicos \cite{roediger2006testing,chi1994selfexplanation}, sem transportar seus efeitos automaticamente para este protótipo. As pistas terão três níveis: conceito, próximo passo e exemplo análogo. Após três, o Tutor oferecerá solução comentada ou encerramento; solução solicitada e recusa interromperão a sequência. Flashcards terão conceito atômico, frente/verso separados e fonte. Intervalos de revisão de 1/3/7 dias serão política inicial configurável. Transferência utilizará famílias identificadas, impedindo que cópia de solução conte como evidência independente.
+
+\subsection{Memória temporal, compactação e estado observado}
+
+SQLite armazenará eventos originais e projeções versionadas. Eventos terão \code{occurred_at} e \code{recorded_at}; fatos terão intervalo de validade, registro e relação \code{supersedes}. Preferência declarada não equivale a evidência de aprendizagem. Consulta atual utilizará projeção vigente e correções; consulta histórica especificará se o corte é por validade ou pelo que já estava registrado naquele instante. Contradição não conciliada manterá ambos os registros e a pendência.
+
+A recuperação de memória filtrará usuário, disciplina, tópico e tempo antes da busca lexical/densa, selecionando até oito originais em 2.048 tokens, além de fatos atuais necessários. Correções relevantes terão prioridade sobre vizinhos semelhantes. Essa política será testada com consultas multissessão, atualizações e abstenção, adaptando categorias do LongMemEval \cite{wu2025longmemeval}.
+
+O contexto será contado com o tokenizer real após template e serialização. A janela operacional proposta é
+\begin{equation}
+ T_{\mathrm{entrada}}+16\,384+2\,048+1\,024\leq32\,768,
+ \qquad T_{\mathrm{entrada}}\leq13\,312.
+\end{equation}
+As reservas correspondem a saída, ferramentas e margem; limites locais de fontes e memória não autorizam ultrapassar o total. A montagem seguirá instrução/schema, skill, tarefa/item/rubrica, âncoras confirmadas, fontes, memória e turnos recentes. Antes de resumir, serão removidas fontes periféricas ou segmentada a tarefa. Rubrica indispensável não poderá ser descartada para continuar avaliando.
+
+Sínteses serão derivadas dos originais, com claim--IDs de eventos e cobertura temporal. Datas, números, polaridade, ajuda e estado serão conferidos explicitamente. Síntese inválida não substituirá o histórico: conservar-se-ão originais selecionados ou será solicitada divisão. Não haverá cadeia indefinida de resumo de resumo, e compactar não apagará eventos. A ablação sem compactação usará a mesma seleção de originais e o mesmo limite; falta de espaço será registrada como impedimento, não compensada com janela maior.
+
+O redutor utilizará, para cada tentativa, o julgamento vigente: a maior \code{assessment_revision} explicitamente aceita, com \code{supersedes} e evento de correção. A unicidade lógica será \code{(attempt_id,assessment_revision)}. Retry não duplicará efeito; revisão de julgamento substituirá a contribuição anterior por replay dos eventos, sem somar uma segunda atualização cumulativa. Cada tentativa terá \code{occurred_at} e \code{attempt_ordinal} atribuído no commit; a ordem será por ocorrência, com desempate pelo ordinal. Julgamento tardio ou corrigido recalculará a sequência sem mudar a ordem da tentativa. Independência exigirá pista de nível 0, ausência de reveal e de acesso prévio à solução da família na sessão corrente; exposição em outra sessão será marcada como revisão, não como ajuda atual automática.
+
+A corretude de um tópico considerará somente seus critérios: todos em nível 2 serão corretos, todos em 0 incorretos e mistura parcial; critério essencial indecidível tornará o tópico indecidível, sem atualização de competência. Critério crítico com nível 0 definirá erro crítico. A estimativa será \code{null}. Sem evidência, o estado será \code{insufficient}; nos demais casos, \code{mixed}, salvo a regra de \code{favorable}: as três tentativas independentes, aceitas e decidíveis mais recentes do tópico devem ser todas corretas, de famílias distintas e posteriores ao último erro crítico aceito, considerando os julgamentos vigentes. ``Mais recentes'' designa ordem de tentativa, não janela de dias; resposta parcial não conta como correta.
+
+Um novo erro crítico aceito, mesmo assistido, retorna a \code{mixed} e solicita revisão. Uma nova tentativa independente parcial ou incorreta também interrompe a sequência favorável. Acertos assistidos não removem erro crítico nem compõem a sequência; leitura e autorrelato não alteram competência. Evidência antiga será indicada pela idade, sem inventar erro por ausência de prática. O rótulo favorável é provisório e não significa domínio. BKT será apenas extensão futura em shadow mode, ajustada em logs separados e admitida após calibração prospectiva \cite{badrinath2021pybkt}.
+
+\subsection{Política de evidências para demandas}
+
+O serviço determinístico aplicará \code{assessment_review_policy_v1}, registrada em demandas e \code{review_due}. Tentativa aceita parcial/incorreta ou erro crítico gerará revisão sugerida no próximo dia local com disponibilidade; na falta dele, buscará a primeira data disponível no horizonte. Acerto independente gerará candidatos de recuperação em 1/3/7 dias a partir da ocorrência local. A relação \code{assessment_topics} ligará tópicos a avaliações acadêmicas confirmadas; o prazo pedagógico será o menor entre o due sugerido e o início confirmado da avaliação. Avaliação informada apenas por dia motivará sugestão anterior à data, sem criar datetime duro. Revisão vencida conservará o due original e buscará bloco futuro com atraso indicado; além do horizonte, ficará pendente para o seguinte.
+
+Prioridade opcional de classe 1 corresponderá a avaliação em até 48 h ou erro crítico; classe 2, avaliação em até sete dias, revisão vencida ou dificuldade recorrente (dois erros aceitos de famílias distintas nas últimas cinco tentativas do tópico); classe 3, demais revisões. Sem avaliação conhecida, não se inventará urgência. Duração informada/confirmada prevalecerá; na ausência, o catálogo proporá \code{practice=30min}, \code{review=15min} e \code{flashcard=15min}, com \code{estimated} e \code{mandatory=false}. Edição e confirmação do estudante serão necessárias para promover a demanda a obrigatória; percentual de domínio não determinará duração.
+
+Haverá no máximo uma demanda pendente por usuário, tópico, tipo de atividade, due local e versão da política. Consolidação reunirá todas as \code{evidence_ids} e a prioridade mais alta, sem duplicar demandas em retry. \code{review_due} será a data do primeiro candidato pendente, não probabilidade de esquecimento. O Planejador poderá explicar ou propor alteração, mas o serviço aplicará a política e exigirá confirmação para mudar restrição dura. A avaliação distinguirá aderência à política e pertinência pedagógica da recomendação.
+
+\subsection{Formalização do planejamento temporal}
+
+O horizonte irá da meia-noite local da data inicial confirmada à meia-noite após sete datas locais, convertendo cada fronteira para UTC. A grade de 15 minutos nascerá às 00:00 de cada dia local; candidatos não atravessarão meia-noite no MVP. UTC servirá para comparações e uma zona IANA confirmada para janelas locais. Disponibilidade será arredondada para dentro e bloqueios para fora; uma demanda de $d_i$ minutos ocupará $\lceil d_i/15\rceil$ slots, sem reduzir duração. Dia sem hora e horário local ambíguo/inexistente exigirão esclarecimento. Capacidade diária contará minutos efetivamente reservados, inclusive arredondamento e blocos fixos de estudo; compromissos pessoais bloquearão tempo sem consumir a capacidade de estudo. Fixos serão inseridos uma única vez na ocupação, sem candidatos móveis.
+
+Para cada demanda $i$, $B_i$ será o conjunto de candidatos contíguos compatíveis com início mínimo, prazo e janelas. Com $x_b\in\{0,1\}$ e presença $p_i=\sum_{b\in B_i}x_b$, o CP-SAT imporá
+\begin{align}
+ p_i&=1 &&\text{se $i$ obrigatória},\\
+ p_i&\leq1 &&\text{se $i$ opcional},\\
+ \sum_{b:t\in b}x_b&\leq1 &&\text{para cada slot $t$},\\
+ p_j&\leq p_i &&\text{se $i$ é predecessor pendente confirmado de $j$}.
+\end{align}
+Se ambas as demandas pendentes de uma precedência estiverem presentes, $end_i\leq start_j$. Dependências temporais referenciarão demandas/atividades, não IDs de tópicos: pré-requisito pedagógico só se tornará dependência de atividade quando explicitado e confirmado. Predecessor concluído satisfará presença com término real; predecessor iniciado ocupará intervalo fixo e o dependente aguardará término confirmado. Predecessor pendente fora do horizonte bloqueará o dependente com razão explícita. Serão impostos limites diários confirmados e imutabilidade dos fixos; ciclo será erro de entrada. Tarefas serão indivisíveis por padrão. Decomposição exigirá \code{splittable}, número/duração de subtarefas e soma pelo menos igual à duração original, confirmados pelo usuário. A documentação de CP-SAT orienta status e implementação, não valida a interpretação das demandas \cite{google2024cpsat}.
+
+O objetivo será lexicográfico: maximizar atendimento opcional de classe 1, depois 2 e 3; minimizar blocos futuros previamente aprovados removidos ou com instantes alterados; minimizar deslocamento em slots, somando diferenças absolutas de início em minutos divididas por 15 sobre IDs mantidos; e maximizar overlap em minutos com janelas preferidas declaradas. Adições serão contadas separadamente; ausência de preferência terá valor zero. Os dez segundos totais serão divididos por tempo restante/etapas restantes, reaproveitando sobra. Cada etapa conservará incumbent validado e vetor de provas; objetivo só será fixado após \code{OPTIMAL}. \code{FEASIBLE} interromperá a lexicografia. \code{UNKNOWN} posterior a uma etapa ótima devolverá o incumbent anterior como \code{FEASIBLE}, com provas parciais, sujeito ao verificador independente; sem qualquer solução, será inconclusivo. \code{INFEASIBLE} será apresentado como inviável na grade conservadora de 15 minutos, com viabilidade contínua não determinada; \code{MODEL_INVALID} será defeito.
+
+Um verificador implementado separadamente reaplicará as restrições em minutos e instantes originais, conferindo duração, conflitos, precedência, demandas, imutabilidade e snapshot. Relaxação diagnóstica nunca será publicada como plano aprovado. O preview mostrará adições, movimentos, remoções, demandas não atendidas e origem das prioridades. A aprovação vinculará ID, revisão, digest e dependências à revisão global do domínio; sua validade para outbox e envio seguirá a política da Seção~\ref{sec:orquestracao}.
+
+\subsection{Registro de atividades e aprovação}
+
+\code{ActivityUpdate} terá bloco, status, ocorrência, revisão esperada e ID de operação. As transições serão planejado--iniciado--concluído ou planejado--perdido/cancelado; conclusão direta de planejado exigirá início/fim reais informados. Sair de concluído exigirá correção explícita. \code{missed} será declaração do estudante ou sugestão de atraso confirmada, nunca inferência automática pelo relógio. Iniciado bloqueará o intervalo aprovado; extensão além do fim previsto exigirá atualização de término antes do solver e manterá conflito até esclarecimento. \code{approve_plan} validará o preview atual. Aprovação e atualização de atividade retornarão recibos e poderão disparar replanejamento uma vez por evento.
+
+\section{Orquestração e Uso de Ferramentas}
+\label{sec:orquestracao}
+
+\subsection{Grafo, contratos e terminais}
+
+O LangGraph coordenará rotas fixas, checkpoints persistentes e pausas \cite{lgstate,lginterrupt}. O estado terá usuário, sessão, turno, tarefa, trace, intenção, snapshot, referências de artefatos, pergunta/item pendente, orçamentos, deadline, cancelamento, status e erros. Checkpoints guardarão referências, não PDFs integrais. Leituras independentes do Curador e Bibliotecário poderão compartilhar snapshot; gerações seguirão a fila serial. A base de domínio será autoritativa, e checkpoint não substituirá commit.
+
+\code{users.domain_revision} será o contador monotônico global por usuário: operação nova que mudar domínio o incrementará na mesma transação; retry, recibo, lease e trace não o incrementarão. \code{snapshot_version} e \code{expected_version} referenciarão esse contador. O snapshot será materializado em transação curta de leitura, copiando fatos, agenda, projeções, versões ativas e hashes necessários para artefato imutável com ownership. Agentes não manterão conexão aberta nem hidratarão silenciosamente dados atuais; índices consultarão exatamente as versões listadas. Nova escrita após a leitura exigirá recarga antes do próximo commit, mesmo quando a alteração não estiver relacionada à tarefa, conforme controle conservador do MVP.
+
+As intenções serão ingestão, consulta, prática, submissão de resposta, planejamento, replanejamento, aprovação de plano, atualização de atividade, consulta/correção/exclusão de memória, exportação, curadoria e cancelamento. Comando explícito prevalecerá sobre classificação; classificador LLM só retornará enum validado. Entrada ambígua pedirá esclarecimento antes de efeito. Consulta passará por recuperação, contexto, Tutor, validação e publicação/espera; submissão resolverá item pendente, Monitor, validação, commit e feedback; agenda passará por demandas, solver, verificador e preview, com exportação apenas da revisão aprovada.
+
+Contratos Pydantic estritos terão campos extras proibidos, enums, IDs UUID, referências ID+versão e tamanhos limitados \cite{pydstrict}. Datetimes serão ISO-8601 com zona/UTC; datas parciais terão tipo próprio. O envelope conterá \code{schema_version}, \code{task_id}, \code{trace_id}, \code{parent_task_id}, \code{sender_role}, \code{artifact_type}, \code{snapshot_version}, \code{source_refs}, \code{payload_ref}, \code{status} e erro tipado. Referências produzidas pelo LLM não serão caminhos de arquivo. O receptor conferirá papel, tipo, versão, ownership e resolução antes de usar o payload.
+
+Terminais observáveis serão concluído, espera legítima, abstenção, conflito, erro, cancelado e efeito desconhecido. Espera pelo estudante encerra a invocação e não consome tempo ativo; uma nova entrada retoma o item. O reinício de um nó após interrupt exige preparação pura e efeitos em nós idempotentes separados. Divergência com fonte confirmada ou solver não será decidida por votação de agentes: haverá esclarecimento ou falha controlada.
+
+\subsection{Matriz de ferramentas e validação}
+
+Ferramentas serão expostas por adaptadores com allowlist; MCP poderá padronizar fronteiras externas \cite{mcparch}. Nenhum agente terá shell genérico ou escrita direta no banco. A autorização será decidida por código, mesmo que uma chamada proibida esteja em JSON válido. Documento, site e retorno de ferramenta serão dados rotulados, sem poder alterar papel ou política.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Ferramentas propostas; ``serviço'' identifica executor determinístico.}
+\begin{tabular}{@{}L{3.3cm}L{2.5cm}L{4.0cm}L{5.0cm}@{}}
+\toprule
+Ferramenta & Proponente & Condição & Validação/resultado \\
+\midrule
+\code{document.extract} & Curador & Arquivo autorizado e job & MIME, limites, diagnóstico, página/bloco \\
+\code{document.search} & Curador e Tutor & Disciplina e snapshot & Ownership, filtros, fontes e cobertura \\
+\code{memory.query} & Bibliotecário & Usuário, tópico e tempo & Versões, correções e origem \\
+\code{assessment.check} & Monitor & Item e rubrica válidos & Unidades, tolerâncias, spans ou ausência tipada \\
+\code{schedule.solve} & Planejador & Restrições duras confirmadas & Status, bound e verificador independente \\
+\code{calendar.render} & Planejador & Plano válido/aprovado para exportar & Parser distinto e equivalência \\
+\code{web.search/fetch} & Curador & Rede/conector habilitados & Destino, quotas, conteúdo e acesso \\
+\code{domain.commit} & Serviço & Proposta válida e revisão esperada & Transação, deduplicação e recibo \\
+\code{calendar.apply} & Serviço & Confirmação atual e outbox & ID remoto, precondição e reconciliação \\
+\bottomrule
+\end{tabular}
+\label{tab:tools}
+\end{table}
+
+A curadoria conectada terá até cinco candidatos e três fetches, 10 s e 5 MiB por recurso, até dois redirecionamentos revalidados. Guardará estados metadados, texto lido, transcrição lida e indisponível. Sem conector configurado, retornará \code{CONNECTOR_DISABLED}; cache offline será datado. Paths canônicos, ownership e bloqueio de traversal/symlink escapes protegerão arquivos. Fetch bloqueará destinos privados/loopback e revalidará DNS e redirects. Essas validações adaptam práticas de fronteira do MCP \cite{mcpsec}; sua efetividade será ensaiada por efeitos e canários, não presumida.
+
+\subsection{Orçamentos, erros e intervenção do estudante}
+
+Os limites propostos por turno são seis chamadas LLM, oito chamadas de ferramentas, 16 passos de grafo, dois reparos no total e um por artefato, 120 s ativos e 90 s por geração. Reparos consomem chamada, tempo e contador. Ingestão será job separado com progresso e cancelamento. Antes de cada nó, ferramenta ou geração, serão conferidos budget, deadline e cancelamento. Fila cheia retornará \code{RESOURCE_LIMIT}; esgotamento terminará com erro e artefatos já válidos, sem promover saída truncada.
+
+Erros tipados incluirão schema inválido, fonte não resolvida, entrada ambígua, conflito de versão, ferramenta negada, modelo não admitido, ausência de evidência, limite de recurso, timeout, efeito desconhecido, cancelamento e falha interna. Cada erro terá mensagem, possibilidade de retry e referência de diagnóstico local. Cancelar impedirá novos despachos e reconciliará efeitos já iniciados; não apagará a necessidade de conhecer o estado remoto.
+
+O estudante confirmará fatos ambíguos, prazos sem hora, restrições obrigatórias estimadas, revisão de plano e efeitos externos. Correção/exclusão mostrará escopo antes do commit. A confirmação não será genérica: ficará ligada ao artefato, revisão e digest. Sugestão de revisão poderá ser opcional enquanto sua duração não for confirmada, evitando transformar incerteza pedagógica em obrigação temporal.
+
+\subsection{Transações, idempotência e outbox}
+
+O armazenamento usará SQLite com chaves estrangeiras e constraints habilitados, WAL/FULL, escritor serializado e transações curtas \cite{sqlitewal}. A versão de runtime deverá incorporar as correções WAL documentadas, inicialmente 3.51.3 ou backport corrigido. Tabelas pessoais terão ownership direto ou herdado por FK composta \code{(user_id,id)} para o pai; eventos e itens pessoais incluirão usuário. Arestas de tópicos exigirão mesmo dono e disciplina. Originais/eventos serão separados de fatos, avaliações, estados, resumos, demandas, planos, operações, confirmações e outbox. Não haverá transação aberta durante inferência ou rede.
+
+O commit receberá \code{operation_id}, digest, usuário e \code{expected_version}. Após conferir identidade/permissão, verificará \textbf{primeiro a identidade da operação}: mesmo ID, digest e usuário devolverão o recibo anterior, mesmo se a revisão esperada agora for obsoleta. Mesmo ID com digest ou usuário diferente será negado. Somente para operação nova será conferida a revisão global esperada; evento, operação, projeção, incremento de \code{domain_revision} e eventual outbox serão gravados atomicamente. Esse ordenamento evita rejeitar como conflito um retry de operação já efetivada.
+
+Preview ficará ligado à revisão global e ao digest. A confirmação guardará \code{base_revision}, \code{approval_revision} pós-commit e conjunto/hash das dependências. Criar nova outbox exigirá domínio igual à revisão da aprovação; confirmação/outbox poderão compartilhar o commit. Antes do envio, o dispatcher distinguirá operação já confirmada de nova proposta e verificará que nenhuma restrição ou atividade dependente mudou. Mudança de dependência invalidará aprovação ainda não aplicada; efeito já aplicado exigirá novo diff e confirmação, sem undo silencioso. Metadados operacionais não invalidarão por si mesmos a revisão de domínio.
+
+O checkpoint ficará em banco separado e não será atomicamente confirmado com o domínio. Após crash, replay consultará a operação autoritativa e reutilizará o recibo. Dispatcher com lease processará outbox apenas após confirmação atual. Antes de commit, crash não promoverá estado; após commit, recuperará pendência; após efeito e antes de ACK, consultará o destino pela identidade e reconciliará. Sem consulta possível, manterá \code{UNKNOWN_EFFECT}, sem repetir cegamente. A entrega poderá ser ao menos uma vez; não se promete exactly-once distribuído.
+
+\code{artifact_dependencies} registrará usuário, referências de filho/pai e relações de derivação, correção ou substituição, indexadas nos dois sentidos. Correção/exclusão percorrerá dependentes, invalidará versões publicadas e reconstituirá projeções. Fonte compartilhada terá vínculo por usuário: excluir um vínculo não removerá bytes que outro dono ainda mantenha autorizados. Exclusão ativa será imediata na aplicação e propagará a payloads, índices, resumos, checkpoints e traces pessoais.
+
+A retenção proposta de backups será de 30 dias; cópias com dados excluídos serão declaradas pendentes até expiração. Backup contendo apenas o usuário excluído será removido já na solicitação. Tombstones sem payload impedirão ressurreição e serão aplicados antes de liberar restore ao sistema, sem manter hash reversível do texto apagado. CLI mostrará escopo lógico e prazo, sem afirmar sanitização forense; job ou doctor verificará expiração com relógio e catálogo. Backup inicial fechará escritores/checkpointer, consolidará o banco e copiará conjunto consistente com originais e manifesto. Restore ocorrerá em diretório novo e passará por integridade e replay.
+
+\subsection{ICS, sincronização e observabilidade}
+
+A exportação seguirá RFC 5545, com biblioteca \code{icalendar}, VCALENDAR VERSION 2.0/PRODID e VEVENT com UID, DTSTAMP, DTSTART, DTEND e SUMMARY \cite{desruisseaux2009icalendar}. UTF-8, CRLF e folding serão validados por parser independente. Início/fim usarão UTC Z e fim exclusivo; all-day usará DATE e término no dia seguinte. A exportação simples será \textbf{sem METHOD}. \code{activity_occurrence_id} será persistido ao criar demanda: a mesma ocorrência conservará \code{block_id} e UID ao mudar horário; outra ocorrência receberá nova identidade. O bloco lógico armazenará \code{created_at}, \code{modified_at}, \code{event_sequence}, resumo, tipo de valor, demanda de origem e início/fim reais.
+
+CREATED conservará a criação da ocorrência; DTSTAMP e LAST-MODIFIED representarão a modificação persistida da revisão do evento. SEQUENCE refletirá \code{event_sequence}, iniciada em zero e incrementada somente quando campos do evento mudarem, não por mudança em outra parte do plano. Retry e reexportação do mesmo evento não alterarão timestamps/SEQUENCE. Diff usará identidade de ocorrência; remoção na exportação ICS significará ausência no arquivo, não comando remoto de delete, que exigirá operação confirmada. UID não garante deduplicação em todo importador manual.
+
+Sincronização será admitida apenas se o conector suportar leitura, identidade e precondições de versão. CalDAV utilizará href estável, \code{If-None-Match:*} para criação e \code{If-Match} com ETag para atualização \cite{daboo2007caldav}. Outros backends precisarão de verificação própria de IDs e condições de update/delete. Alteração externa exigirá conflito e novo preview. Conector sem garantias requeridas permanecerá não admitido, preservando preview e ICS locais.
+
+Traces locais registrarão spans de fila, inferência, retrieval, contexto, solver, commit e ferramentas, com IDs, versões, seed, sampling, contagens, término e erros \cite{oteltrace}. Tokens incluirão todas as chamadas e reparos; raciocínio não será somado duas vezes quando já incluído na saída. Tempo ativo, fila e total serão separados. RSS/VRAM serão amostradas inicialmente a cada 100 ms, indicando limitação de picos. Payload pessoal completo não será logado por padrão. Métrica indisponível será nula com motivo, nunca zero. Energia e custo monetário dependerão de medidor ou amortização documentados, separando custo do sistema e custo da avaliação.
+
+\subsection{Sequência de implementação}
+
+Python 3.11+, lock e manifesto fixarão LangGraph, Pydantic v2, Docling/OCR, embeddings, OR-Tools e bibliotecas de calendário. A entrega terá CLI/API loopback, schemas exportados, migrações, skills e módulos de serviços; dados e checkpoints ficarão separados. O trabalho seguirá dependências verificáveis:
+\begin{enumerate}
+\item Admitir hardware/modelo, tokenizer, adaptador e instalação offline; iniciar registro de casos e auditoria de splits.
+\item Implementar contratos, repositório, migrações, commit idempotente e recuperação antes de efeitos remotos.
+\item Implementar ingestão, ontologia, proveniência e confirmação; comparar com ouro documental.
+\item Implementar RAG híbrido e abstenção; selecionar reranker em validação.
+\item Implementar skills, Tutor, Monitor e redutor; validar itens, rubricas e ajuda.
+\item Implementar memória bitemporal, montagem/compactação e propagação de correção/exclusão.
+\item Implementar demandas, CP-SAT, verificador separado, preview, confirmação e ICS.
+\item Integrar grafo, pausas, cancelamento, checkpoints e traces; admitir conectores individualmente.
+\item Concluir piloto e congelar dados, condições, métricas, budgets e hipóteses; executar o testbed e emitir resultados somente após as runs.
+\end{enumerate}
+
+\section{Procedimentos de Avaliação}
+\label{sec:avaliacao}
+
+\subsection{Testbed, famílias e oráculos}
+
+A avaliação será em camadas: contratos/componentes determinísticos; qualidade dos 18 tipos de saída; fluxos W01--W12 completos; continuidade longitudinal; robustez F01--F24; e custo/reprodução. A cobertura integral por saída e falha consta do Apêndice. Instâncias pequenas terão referência formal independente; texto e pedagogia terão rubricas humanas. Métodos de ranking, citações e fidelidade adaptam BEIR, ALCE e RAGAs \cite{thakur2021beir,gao2023alce,es2024ragas}, sem tratar pontuação automática como prova de correção.
+
+O \code{SUTAdapter} terá inicialização por manifesto/condição/sandbox/relógio/seed, carga de snapshot, invoke, resume, cancel, leitura de artefato, inspeção de domínio, exportação de trace, restart e close. O retorno conterá terminal, fontes, artefatos, operações, uso e erros. Inspeção autoritativa será recurso do harness, não ferramenta adicional do agente. MockLLM servirá aos testes determinísticos, sem ser braço de comparação de qualidade real.
+
+O registro de execução terá par, condição, seed, braço limpo/perturbado, hashes, snapshot inicial, tempos, conclusão, terminal seguro, elegibilidade, trigger alcançado, falha injetada e erro do harness. Métricas manterão numerador, denominador, unidade, oráculo/versão, cluster e motivo de ausência. Erro do harness será separado de falha do sistema, sem substituir silenciosamente a run; repetição técnica seguirá regra pré-definida.
+
+O registro ligará requisitos C01--C20 a casos e predicados executáveis. Validator rejeitará ID desconhecido e requisito do núcleo sem caso positivo, negativo e predicado. A matriz concreta será gerada após captura, com IDs reais de casos. Oráculos próprios reproduzirão revisão global/materialização, ownership direto ou composto, julgamento vigente e ordinal, omissão válida, política de demanda, atividades/dependências, grade e identidade de ocorrência. Capacidade desabilitada será N/A com motivo, sem crédito de cobertura por outra rota.
+
+Os oráculos serão testados em desenvolvimento por controles válidos e mutantes conhecidos: sobreposição de um minuto, duração de 17 reduzida a 15, pré-requisito omitido, fixo movido, página existente mas errada, span inexistente, ajuda apagada, DTSTAMP inconsistente por revisão, canário ressurgido e contador sem retry. Um avaliador incapaz de detectar seu mutante será corrigido antes do congelamento. Serializer e parser distintos evitarão round-trip tautológico; incapacidade do parser de interpretar propriedade válida será marcada como interoperabilidade inconclusiva, não falha automática do serializer.
+
+\subsection{Métricas de artefato e critérios propostos}
+
+Extração medirá distância de edição de caracteres/palavras, $CER/WER=(S+D+I)/N$, por transcrição humana \cite{jiwerQuality}; ambas podem exceder 1. Serão reportados exact match de sinais, datas, números/unidades e ordem de blocos. Entidades/relações terão pareamento um a um, precisão $P=TP/(TP+FP)$, recall $R=TP/(TP+FN)$ e $F_1=2PR/(P+R)$; datas incluirão tipo, precisão, zona, autoridade e confirmação. Referência existente com página errada não passará no predicado de proveniência.
+
+Para recuperação respondível, $Recall@40=|R_q\cap D_{40}|/|R_q|$ e $MRR@6$ será a média do inverso da posição do primeiro relevante até seis, ou zero quando ausente. Com ganho linear,
+\begin{equation}
+ DCG@6=\sum_{r=1}^{6}\frac{rel_r}{\log_2(r+1)},
+ \qquad nDCG@6=\frac{DCG@6}{IDCG@6}.
+\end{equation}
+Query respondível sem ranking contará zero; query sem ouro relevante pertencerá ao estrato de abstenção, sem recall fictício. Completude de aspectos será anotada para perguntas multitrecho.
+
+Precisão de citação (CP) contará citações em claims apoiadas pelo conjunto citado, em que cada citação apoia sozinha ou é necessária ao apoio conjunto; cobertura de citação (CR) contará claims documentais necessárias com citação que sustenta:
+\begin{align}
+ CP&=\frac{\#\text{citações adequadas}}{\#\text{citações avaliadas}},\\
+ CR&=\frac{\#\text{claims necessárias sustentadas e citadas}}{\#\text{claims documentais necessárias avaliadas}}.
+\end{align}
+Fidelidade ao contexto, corretude factual e citação serão medidas distintas. Denominador zero será N/A com razão. Claims atômicas e fontes serão anotadas antes de utilizar um juiz auxiliar.
+
+Explicações e turnos receberão rubrica 0--4 por corretude, pertinência, clareza, explicitação de limites e apoio contingente. Itens serão conferidos por especialista e, quando possível, verificação numérica $|a-a^*|\leq atol+rtol|a^*|$, unidades e equivalência simbólica sob hipóteses explícitas. O Monitor terá kappa ponderado linear por nível,
+\begin{equation}
+ \kappa_w=1-\frac{\sum_{a,b}d_{ab}O_{ab}}{\sum_{a,b}d_{ab}E_{ab}},
+ \qquad d_{ab}=\frac{|a-b|}{2},
+\end{equation}
+além de macro-$F_1$ de códigos de erro, falso crédito e omissão de erro crítico. Kappa pode ser negativo ou indefinido. Falso crédito será reportado entre avaliações aceitas, juntamente com cobertura de aceitação e curva risco--cobertura, para não premiar abstenção universal. Avaliação por rubrica é motivada pelo Prometheus, sem supor que o Bonsai possua suas capacidades \cite{kim2024prometheus}.
+
+Estado de aprendizagem será comparado por replay de prefixos com redutor de referência; memória terá acurácia atual, retrospectiva, multissessão, atualização e abstenção. Compactação medirá recall de tuplas críticas (sujeito, predicado, valor, polaridade, tempo, ajuda e fontes), contradições, tokens e qualidade downstream. Não serão calculados Brier ou log loss para \code{estimate=null}; se um módulo probabilístico futuro for admitido, $Brier=n^{-1}\sum_{i=1}^{n}(p_i-y_i)^2$ e log loss de próxima resposta exigirão calibração prospectiva \cite{guo2017calibration}. Log loss não tem teto e infinitude será registrada por flag, não JSON inválido.
+
+Demandas serão comparadas às restrições originais confirmadas, incluindo omissões e duras extras. Uma implementação simples e independente da política v1 conferirá due, prioridade, duração estimada/confirmada, dedup e evidências, separadamente da pertinência humana. Planos terão violações por publicação, atendimento, déficit, status/provas parciais, capacidade em minutos reservados e churn por ocorrência. Nas pequenas agendas, enumeração própria verificará viabilidade e vetor objetivo; não se imporá identidade de plano em empates. ICS e sincronização terão equivalência por tuplas plano--arquivo--readback, UID e sequência do evento, incluindo plano alterado sem mudança do evento. Recibos terão ledger externo de efeito, atomicidade, invalidação de aprovação e exclusão propagada no escopo lógico declarado; backups pendentes serão conferidos até expiração e tombstones antes de restore.
+
+Os gates iniciais propostos são: exact match crítico de extração $\geq0{,}98$; $F_1$ ontológico $\geq0{,}90$; recall de recuperação $\geq0{,}90$ e CP $\geq0{,}95$; mediana humana $\geq3$ por dimensão; validade de itens/cards $\geq0{,}95$; kappa do Monitor $\geq0{,}70$ e falso crédito $\leq0{,}05$ com cobertura; acurácia de memória $\geq0{,}90$; pertinência de curadoria $\geq0{,}90$. Proveniência, replay, fatos críticos de compactação, fidelidade de restrições duras, equivalência ICS, terminais e spans obrigatórios de trace exigirão 100\% no ensaio. Evidências present exigirão offsets válidos; missing exigirá span nulo e omissão descrita. Nenhum caso aceito poderá conter erro crítico; não se tolerarão plano inválido publicado, vazamento, efeito duplicado ou perda de dado comprometido. São critérios de engenharia para o corpus escolhido, não mínimos universais publicados nem garantia além da amostra. ICs e denominadores acompanharão todo gate; não será reduzido um limite depois de observar teste.
+
+\subsection{Sucesso, disponibilidade, custo e delegação}
+
+Uma tarefa terá sucesso somente se todos os predicados essenciais da rota e o terminal correto forem satisfeitos. Abstenção correta em caso sem suporte e conflito correto em agenda inviável poderão ser sucesso; erro controlado após falha induzida pode ser contenção segura sem concluir a tarefa original. Serão mantidas duas variáveis: \code{task_completion} e \code{safe_terminal}.
+\begin{align}
+ TSR&=\frac{\#\text{tarefas com sucesso}}{\#\text{tarefas elegíveis tentadas}},\\
+ A_O&=\frac{\#\text{artefatos requeridos disponíveis}}{\#\text{oportunidades elegíveis}}.
+\end{align}
+Qualidade condicional ao artefato será apresentada junto de $A_O$ e TSR: ausência não receberá nota perfeita nem desaparecerá do denominador. Haverá TSR por fluxo, média micro e macro não ponderada. Sucesso longitudinal exigirá integridade das dependências críticas em todas as sessões; as cinco seeds serão primeiro agregadas por trajetória e depois por cluster com pesos definidos antes do teste.
+
+Delegação e uso de ferramenta terão quatro níveis separados: parse/schema, seleção/intenção, argumentos/domínio e efeito observado. O sucesso de delegação será
+\begin{equation}
+ D=\frac{\#\text{artefatos válidos entregues e consumidos corretamente}}
+ {\#\text{delegações elegíveis tentadas}}.
+\end{equation}
+Exigirá tipo/versão esperados, snapshot compatível e destinatário correto, com entrega e consumo no ledger. Apenas enviar mensagem não contará como sucesso; falhas de geração, schema ou receptor permanecerão no denominador. Também se medirão refs incompatíveis, reparos e terminais de handoff. Violação crítica será reportada por tentativa, artefato publicado e presença de qualquer violação por cluster, evitando diluição por muitas chamadas corretas.
+
+Tokens serão totalizados em todas as gerações/reparos; latência incluirá fila, retrieval, geração, solver e validação. Espera humana será excluída do ativo e indicada separadamente. Serão apresentados p50/p95, taxa de timeout, conclusão censurada, prefill/decode quando disponíveis e RSS/VRAM. Quantil não identificável por censura será declarado, não estimado apenas pelos sucessos. Energia ficará N/A sem medidor; custo local terá segundos, tokens e amortização explícita, e custos de avaliação/juiz ficarão separados.
+
+\subsection{Condições comparativas e justiça de recursos}
+
+As condições serão MA completo, agente único equivalente, MA sem memória longitudinal, MA sem compactação e MA com todas as skills carregadas. O baseline receberá o mesmo Bonsai/runtime, corpus, ferramentas, memória disponível, validadores, solver, regras de persistência e capacidades; a diferença será um papel LLM em vez de cinco especializações. Seu prompt será ajustado nos mesmos dados e com esforço comparável, sem fragilidade deliberada. A ablação sem memória removerá apenas histórico longitudinal, preservando fontes e estado indispensável à rota corrente.
+
+Um contraste focal adicional comparará \textbf{a mesma skill completa e reduzida}, distinguindo redução de instruções de seleção do catálogo. Objetivo, casos, modelo, fontes, ferramentas, schemas e limites serão os mesmos; versões dos dois prompts serão registradas. Serão propostos 60 casos distribuídos entre habilidades, duas variantes e cinco seeds (600 runs). Qualidade composta e custo total, incluindo reparos, serão pareados. Margem de preservação e família de hipóteses desse contraste serão justificadas e congeladas antes do teste; a margem de compactação não será automaticamente transferida para skills.
+
+Todos terão janela 32.768, mesmas reservas, seis chamadas, oito ferramentas, 16 passos, reparos 2/1, 120 s ativos, geração de 90 s e solver de 10 s totais. Esses tetos serão ajustados apenas no piloto e depois congelados. Para distinguir especialização de aumento de inferência, curvas de qualidade--custo usarão níveis de chamadas 2/4/6 e entrada operacional de 8 mil/13.312 tokens, sem relaxar reservas. Serão reportados consumo real e tarefas impedidas pelo orçamento. Redução de custo sem preservação de qualidade não será descrita como eficiência bem-sucedida.
+
+Seeds principais serão 0--4, e testes de falha com geração usarão 0--2; sem geração, teste determinístico. Gerador de dados, modelo, controlador e bootstrap terão RNGs separados. Cada execução restaurará snapshot idêntico em sandbox novo. Ordem será contrabalançada por bloco de caso/condição, com seed de shuffle registrada. Warmup e política de cache serão explícitos; não haverá cache de resposta gerada entre condições. Cold e warm serão separados, e o servidor local rodará sem concorrência não documentada. Offline será condição própria; conectado utilizará mocks/snapshots pareados e posterior smoke real do conector.
+
+\subsection{Orçamento experimental e anotação}
+
+O teste principal cruzará 120 consultas e 120 tentativas com cinco condições e cinco seeds, totalizando 6.000 runs. O longitudinal terá $30\times8\times5\times5=6\,000$ sessões, cada qual com vários turnos possíveis. O contraste de skills acrescentará 600 runs. Para falhas, dez casos por F01--F24, dois braços, duas condições (MA/SA) e três seeds darão até 2.880 runs, com menos repetições quando não houver geração. Agendas e smoke terão contagens separadas. Esses totais são planejamento, não execuções realizadas.
+
+Antes do freeze, um piloto de 20 casos de desenvolvimento medirá wall time, chamadas e minutos de anotação. Para estratos $s$ com $N_s$ unidades previstas, segundos médios $\bar t_s$ e minutos médios de anotação $\bar a_s$, a projeção será
+\begin{align}
+ H_{exec}&=\frac{\sum_s N_s\bar t_s}{3\,600},\\
+ H_{hum}&=\frac{2\sum_s N^{\mathrm{anot}}_s\bar a_s}{60}+H_{\text{adjudicação}}.
+\end{align}
+O fator 2 corresponde aos julgamentos independentes; $N^{\mathrm{anot}}_s$ seguirá a amostragem proposta, não o total de turnos automaticamente. Os autores aprovarão orçamento e ajustarão N com justificativa, ou classificarão análises como exploratórias, antes do teste final.
+
+A proposta inicial de avaliação humana será 100\% dos candidatos críticos e amostra aleatória de 20\% dos restantes em cada estrato condição/disciplina/tipo. Probabilidade de inclusão, julgamentos e ICs amostrais serão preservados, com estimação ponderada quando necessária. Cobertura humana, disponibilidade de artefatos e número de clusters serão reportados. Gates semânticos se limitarão ao alcance dessa amostra e de sua inferência; não se afirmará verificação humana de 100\% das saídas. Checks determinísticos serão executados em todas as unidades elegíveis.
+
+\subsection{Robustez, exposição e recuperação}
+
+O \code{FaultController} injetará falhas por entrada, fronteira de ferramenta, processo ou ambiente, com alvo semântico, trigger, intensidade, duração e horizonte de recuperação. Guardará independentemente se o trigger foi alcançado e se a falha foi injetada. Teste de fronteira não será chamado de E2E: este exigirá o caminho real escolhido pelo agente. Exposição não alcançada será reportada e não contará como resistência demonstrada.
+
+Cada caso perturbado terá par limpo com mesmo snapshot/seed, medindo $\Delta$qualidade, sucesso, custo, latência, efeitos indevidos e detecção/recuperação. Ataques terão taxa de sucesso por efeito (ASR), com denominadores elegível e exposto e utilidade legítima: bloquear tudo não será confundido com defesa útil. O desenho de objetivo legítimo/adversarial adapta o AgentDojo \cite{debenedetti2024agentdojo}; fluxos multiturno dialogam com AgentBench e BFCL \cite{liu2024agentbench,bfclMultiTurn}.
+
+Crashpoints cobrirão antes/durante transação, depois de commit antes de checkpoint/ACK, após lease antes de envio, após efeito antes de ACK, após recibo e durante índice/migração/backup. \code{SIGKILL} testará crash de processo, não queda elétrica. Busy será provocado por conexão controlada; ENOSPC por volume isolado; ledger externo sobreviverá ao processo. Nenhuma falha será injetada no banco real de usuário. O horizonte inicial de recuperação será 300 s. Watchdog externo terá 120+5 s para encerrar processo; terminal após 120 s contará como overshoot, não novo SLO.
+
+Concorrência será ensaiada com dois clientes na mesma revisão: um commit vence, outro recebe conflito; retry com ID/digest iguais recebe recibo antes da versão obsoleta; digest diferente é negado. Históricos de até oito operações serão checados por enumeração de ordens que respeitem invoke/return e modelo sequencial local. Checker de 5 s ou enumeração de 10 s esgotados produzirão inconclusivo. Linearizabilidade local não será estendida indevidamente aos efeitos remotos.
+
+Testes stateful com Hypothesis gerarão sequências de tentativa, ajuda, avaliação, commit/retry, correção, aprovação, cancelamento, restart e delete/restore \cite{hypothesisStateful}. Invariantes serão conferidos após cada ação, inclusive chamadas proibidas. Metamorfismos determinísticos incluirão permutação de IDs/demandas preservando viabilidade/ótimo, mais disponibilidade não removendo solução, mais bloqueios não criando solução e repetição de operação preservando efeito \cite{chen2018metamorphic}. Paráfrase dependerá de ouro humano; ruído e distrator serão sensibilidade, não invariância de ranking garantida.
+
+Falhas compostas prioritárias serão OCR--data--agenda; falso crédito--redutor--compactação; mudança de snapshot--crash; correção/exclusão--resumo antigo; loop/replay--efeito; e timeout--trace--viés de análise. No desenho limpo/A/B/A+B, a interação será $Y_{AB}-Y_A-Y_B+Y_{limpo}$, com exposição de ambas as causas conferida. A seleção será por severidade, sem alegar cobertura de todas as combinações.
+
+\subsection{Julgamento humano, inferência e decisões}
+
+Artefatos semânticos serão exportados cegos, com pergunta, fontes e rubrica, sem condição, trace de identidade ou parecer do Monitor. Dois avaliadores julgarão independentemente nas unidades selecionadas; acordo será medido antes da adjudicação. Juiz LLM será secundário e calibrado em validação, com modelo/prompt/hash separados. Comparações inverterão ordem A/B, controlarão comprimento sem conteúdo novo e paráfrases, registrando flips e erros críticos \cite{zheng2023judge}. Modelo diferente não garante independência do ouro nem amplia o alcance de um gate humano amostral.
+
+As primárias serão TSR longitudinal e violação crítica publicada, com decisão conjunta. A regra proposta para benefício será limite inferior do IC95\% da diferença pareada de TSR (MA menos agente único) acima de zero e nenhuma violação crítica publicada no MA; a comparação de violações entre condições e sua incerteza será reportada conjuntamente. Não haverá tolerância de engenharia para violação crítica; observação de violação bloqueará a capacidade afetada, e ausência em amostra finita não provará risco nulo nem equivalência de riscos. Família de secundárias confirmatórias, incluindo sustentação, memória e custo, terá correção de Holm; análises adicionais serão exploratórias. Estimandos micro/macro, pesos e hipóteses serão definidos antes do teste, alinhando análise ao desenho \cite{dror2018hitchhiker}.
+
+Será proposto bootstrap pareado por cluster, inicialmente \textbf{10.000 reamostragens}, seed 2026, mantendo conjuntamente casos, seeds, condições e braços. A cada reamostragem serão recalculadas razões micro ou médias macro conforme o estimando. IC95\% percentil será default a validar por simulação no piloto, não BCa aplicado a turnos independentes. O agrupamento exige implementação explícita; \code{paired=True} sozinho não resolve clusters \cite{field2007cluster,scipyBootstrap}. Poucos componentes e zero eventos poderão produzir IC degenerado; esse limite será declarado.
+
+Para compactação, a margem inicial proposta de não inferioridade será \textbf{0,03} na taxa composta de emitir artefato e passar todos os essenciais. É tolerância de engenharia a justificar com especialistas antes do congelamento, não margem extraída da literatura. Com $\Delta=Q_{\text{compactação}}-Q_{\text{sem compactação}}$, preservação exigirá limite inferior unilateral de 95\% acima de $-0{,}03$, custo menor e nenhuma tolerância em violação crítica. Valor $p>0{,}05$ não demonstrará equivalência. Tanto margem quanto 10.000 reamostragens serão propostas verificadas antes do freeze, sem ajuste orientado pelo teste final.
+
+Piloto apenas em desenvolvimento simulará diferenças pareadas por cluster em grades de variância, correlação e número de componentes, estimando potência e precisão para efeito relevante definido com os responsáveis \cite{lakens2022inferences}. Se 30 trajetórias forem insuficientes, ampliar-se-á a coleta antes do congelamento ou a análise será declarada exploratória por recursos. Não haverá potência pós-hoc. Com zero eventos e $G$ clusters independentes comparáveis amostrados, o limite unilateral de 95\% para presença de qualquer violação será $1-0{,}05^{1/G}$; não será aplicado a ataques adversariais escolhidos nem a turnos correlacionados.
+
+\subsection{Execução, validade e produtos}
+
+O pré-flight conferirá autorização/splits, hashes, admissão de modelo/ambiente, controles dos oráculos, smoke offline e restore. O runner restaurará sandbox, iniciará ledger e relógios, executará roteiro até terminal/budget, capturará domínio/efeitos/traces e exportará artefatos cegos. Relógio virtual controlará datas e lógica; relógio monotônico real conferirá backend/deadlines. Após anotação serão calculados acordo, métricas, clusters, ICs e decisões. Freeze produzirá manifesto imutável com dados, ouro, scripts/ataques, configs, seeds, thresholds, margens, budgets, hipóteses, parsers e oráculos. Reprodutibilidade seguirá inventário de pesos/binários e ensaio offline, não apenas um lock de pacotes \cite{pineau2021reproducibility}.
+
+O relatório experimental informará N planejado, executado, elegível e exposto, cobertura W/O/F, qualidade e disponibilidade, TSR, violações, utilidade/ASR, clean/fault, recuperação/censura, custo, ablações, ICs e acordo/meta-avaliação. Falha crítica bloqueará a liberação da capacidade afetada, preservando todas as runs. Threshold pontual com IC amplo será evidência limitada. Esta fase descreve metodologia e passos de implementação; não contém testes executados nem resultados de eficácia.
+
+A validade interna depende de snapshots, ouro independente, orçamento equivalente e cegamento; a validade de construto depende de não confundir fluência, acerto assistido, domínio e contenção segura com sucesso original. Componentes independentes do harness reduzem, mas não eliminam, erros correlacionados. Duas disciplinas, trajetórias roteirizadas, corpus finito e um hardware limitam validade externa. Simulações avaliam consistência do sistema, não ganho humano. Estudo educacional futuro precisaria de participantes, pré/pós-teste tardio, transferência, controle de tempo e protocolo próprio. O pacote de avaliação será concebido para tornar falhas e limitações observáveis, em vez de preencher lacunas com resultados presumidos.
+
+\section*{Apêndice}
+\label{sec:apendice}
+
+\subsection*{A. Rastreabilidade das famílias de fluxo}
+
+Os IDs abaixo conectam contratos, casos e relatório experimental. ``Cobertura'' significará presença de casos executados e elegíveis, não apenas existência de uma linha no catálogo.
+
+\begin{center}\small
+\begin{longtable}{@{}L{1.0cm}L{5.7cm}L{2.8cm}L{5.3cm}@{}}
+\toprule ID & Família & Saídas & Terminal/variante essencial \\ \midrule
+\endfirsthead
+\toprule ID & Família & Saídas & Terminal/variante essencial \\ \midrule
+\endhead
+W01 & Ingestão e confirmação & O01--02 & Indexado, pendência, ilegível, revisão \\
+W02 & Consulta fundamentada & O03--04 & Apoio, parcial, geral rotulada, abstenção \\
+W03 & Prática e apoio gradual & O05--07 & Espera, pistas, solução, recusa \\
+W04 & Avaliação formativa & O08--09 & Aceita/abstenção, ajuda preservada \\
+W05 & Retomada longitudinal & O10--11 & Atual/histórico, correção, ausência \\
+W06 & Planejamento & O12--13 & Viável, conflito, inconclusivo, ambíguo \\
+W07 & Replanejamento & O09, O13 & Diff, fixos, déficit, versão nova \\
+W08 & Exportação/sincronização & O14 & ICS, recibo, efeito desconhecido \\
+W09 & Curadoria opcional & O15 & Texto, transcrição, metadados ou offline \\
+W10 & Consulta/correção/exclusão & O10, O16 & Confirmação, propagação, conflito \\
+W11 & Recuperação operacional & O16--17 & Replay, cancelado, limite, reconciliação \\
+W12 & Instalação e manutenção & O18 & Doctor, backup/restore, smoke offline \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+\subsection*{B. Matriz completa das 18 saídas}
+
+Os limites desta matriz são \textbf{propostos} e serão congelados após desenvolvimento/validação. Percentuais de 100\% e zero violações são critérios no ensaio finito; estimativas, disponibilidade, denominadores e ICs serão reportados conjuntamente.
+
+\begin{center}\small
+\begin{longtable}{@{}L{0.8cm}L{3.0cm}L{6.3cm}L{4.7cm}@{}}
+\toprule ID & Artefato & Oráculo independente/métrica & Gate inicial proposto \\ \midrule
+\endfirsthead
+\toprule ID & Artefato & Oráculo independente/métrica & Gate inicial proposto \\ \midrule
+\endhead
+O01 & Manifesto e blocos & Transcrição humana; CER/WER, exact match crítico, pares de ordem e resolução de página/bbox/versão & EM crítico $\geq0{,}98$; refs corretas 100\% \\
+O02 & Tópicos, fatos e prazos & Entidades/relações 1:1; tupla de data, tipo, precisão, zona, autoridade e status; ledger de confirmação & $F_1\geq0{,}90$; promoção ambígua silenciosa zero \\
+O03 & Evidências e citações & Qrels original--chunk; recall@40, MRR/nDCG@6, aspectos, CP/CR; negativos de suporte & Recall $\geq0{,}90$; CP $\geq0{,}95$; abstenção separada \\
+O04 & Explicação & Humanos: corretude, pertinência, clareza e limites 0--4; claims necessárias e erro crítico & Mediana $\geq3$ por dimensão; crítico bloqueia caso \\
+O05 & Exercício/quiz & Especialista resolve antes do gabarito; tolerância/unidade e equivalência simbólica; fonte/solução separadas & Validade $\geq0{,}95$; gabarito sem origem rejeitado \\
+O06 & Flashcard & Checklist de atomicidade, precisão, frente/verso e fonte; duplicata por objetivo e reveal & Validade $\geq0{,}95$; revelação antecipada zero \\
+O07 & Turno/pista & Rubrica de contingência/participação 0--4 e máquina de estados externa; chamadas durante espera & Mediana $\geq3$; terminais respeitados 100\% \\
+O08 & Avaliação e evidência & Critérios por tópico 0--2; present/missing, kappa, macro-$F_1$, falso crédito/aceitas e críticos & $\kappa\geq0{,}70$; falso crédito $\leq0{,}05$; cobertura amostral \\
+O09 & Estado/revisão & Replay por julgamento vigente, ordinal e famílias; revisão tardia, dedup e independência por sessão & Replay 100\%; favorável fiel; estimativa nula \\
+O10 & Memória temporal & Ledger bitemporal e QA atual, retrospectiva, multissessão e abstenção; cortes de conhecimento & Acurácia $\geq0{,}90$; vazamento zero; correções respeitadas \\
+O11 & Síntese/contexto & Tuplas críticas, claims--eventos e tokenizer após template; contradições e qualidade downstream & Prazos/ajuda críticos 100\%; budget válido; fonte exigida \\
+O12 & Demanda de estudo & Ouro de restrições originais; omissões/duras extras, status da duração e pertinência & Duras fiéis 100\%; nenhuma inventada; estimativa rotulada \\
+O13 & Plano, conflito e diff & Checker em minutos UTC originais; enumeração pequena, vetor objetivo e diff por bloco & Violação publicada zero; status/diff corretos; grade explicitada \\
+O14 & ICS/recibo remoto & Parser distinto, UTF-8/CRLF/folding, UID/SEQUENCE/timestamps e tuplas plano--ICS--readback & Equivalência 100\%; duplicata zero no adaptador ensaiado \\
+O15 & Recurso/estado de acesso & Snapshot de fetch/transcrição, proxy de acesso e pertinência humana & Pertinência $\geq0{,}90$; resumo não lido zero \\
+O16 & Recibo, alteração e exclusão & Ledger, revisão global/aprovação, canários, dependentes e restore com tombstones & Duplicata/perda zero; exclusão lógica e retenção conferidas \\
+O17 & Trace/medidas & Proxy externo versus spans; chamadas/reparos/tokens, tempos e recursos; censura & Spans obrigatórios 100\%; falhas incluídas; ausente nulo \\
+O18 & Bundle e diagnóstico & Inventário e hashes; instalação offline limpa, smoke, integridade/FK e restore lógico & Artefatos requeridos presentes; smoke/restore íntegros \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+\subsection*{C. Matriz completa das 24 falhas}
+
+Cada linha será instanciada por plano de falha com trigger e exposição conferidos. A medida de contenção será apresentada ao lado da utilidade original e dos deltas limpo/perturbado.
+
+\begin{center}\small
+\begin{longtable}{@{}L{0.8cm}L{3.0cm}L{6.3cm}L{4.7cm}@{}}
+\toprule ID & Fronteira & Injeção concreta & Observação/oráculo \\ \midrule
+\endfirsthead
+\toprule ID & Fronteira & Injeção concreta & Observação/oráculo \\ \midrule
+\endhead
+F01 & Extração/OCR & Scan com rotação/ruído; ordem, sinal, número/data mutados e anotados & O01--02, gabarito/plano afetados; diagnóstico versus promoção \\
+F02 & Ontologia/data & Prazo parcial/relativo, revisão conflituosa e alias ambíguo & O02/O12; falsa confirmação e restrição downstream \\
+F03 & Recuperação & Remover fonte, acrescentar distrator e apresentar versão antiga & O03; recall, apoio, abstenção e disponibilidade \\
+F04 & Geração/citação & Claim sem apoio, fonte contraditória, citação existente irrelevante & O03--04; falso suporte e erro factual \\
+F05 & Tutoria/ajuda & Scripts de solução/recusa, três pistas, reveal e resposta posterior & O05--07/O09; vazamento, insistência, independência falsa \\
+F06 & Monitor/gabarito & Curta correta, longa errada, paráfrase e referência defeituosa & O08--09; falso crédito, risco--cobertura, estado \\
+F07 & Redutor & Retry de tentativa, ajuda, replay com futuro e novo erro crítico & O09; duplicata, corte temporal e falso favorável \\
+F08 & Memória & Correção retroativa, homônimo, supersedes e evidência antiga & O10; atual/histórico, origem e conflito \\
+F09 & Compactação & Pressão de contexto e síntese com data/polaridade/ajuda alterada & O11 e downstream; retenção crítica e rejeição \\
+F10 & Comunicação & Envelope/schema/ref/usuário incompatíveis, inclusive JSON válido & Domínio e validadores; aceitação inválida, reparos/efeitos \\
+F11 & Grafo/tools & Erro persistente de ferramenta, rota circular e pedidos repetidos & Watchdog; calls/steps, overshoot e terminal \\
+F12 & Inferência e recursos & Timeout, truncamento, OOM, tokenizer divergente e fila saturada & Disponibilidade, censura, erro e promoção parcial \\
+F13 & Solver/tempo & 17 min reduzidos a 15, meio-slot, DST, ciclo e UNKNOWN & O13; checker original, status e publicação inválida \\
+F14 & Versão e replanejamento & Alterar snapshot antes de commit, dois clientes e bloco iniciado & O13/O16; conflito, lost update, churn/fixo \\
+F15 & Efeito/retry & Crash nas barreiras de commit, lease, efeito, ACK/recibo; timeout remoto & Ledger externo; duplicata/perda, reconciliação, unknown effect \\
+F16 & Prompt injection & Instrução em PDF/site/tool buscando mudar prazo ou executar efeito & Proxy e domínio; ASR por efeito e utilidade legítima \\
+F17 & Isolamento e acesso & Outro usuário, traversal/symlink, DNS/redirect privado e canário & Leituras/envios/efeitos negados; vazamento zero \\
+F18 & Persistência & Busy, ENOSPC, crash em migração, backup ou índice incompleto & O16/O18; atomicidade antigo/novo, restore e recuperação \\
+F19 & Web/conector & Offline, 404, quota, mudança de recurso e falta de transcrição & O15; continuidade local e acesso fiel \\
+F20 & ICS e interoperabilidade & UTF-8, DATE/all-day, zona, UID e revisão/DTSTAMP inconsistentes & O14; parser distinto, equivalência e retry \\
+F21 & Correção e exclusão & Excluir/corrigir e depois reindexar, replay e restaurar backup & O10/O16; dado antigo/canário não ressurgem \\
+F22 & Telemetria & Span omitido, retry invisível, contador/exporter ausente & O17; proxy externo e erro de medição, nulo explícito \\
+F23 & Validade experimental & Ordem/comprimento do juiz e caso deliberadamente vazado & Auditor/controle humano; análise contaminada sinalizada \\
+F24 & Empacotamento & Remover peso, OCR/lock; hash errado; instalação offline limpa & O18; doctor, dependência ausente e smoke/restore \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+\subsection*{D. Declaração de uso de IA generativa}
+
+A elaboração deste relatório foi assistida pelo OpenCode na leitura e consolidação dos documentos do projeto, na redação técnica e na formatação LaTeX. A ferramenta foi utilizada como apoio à elaboração. A conferência final para submissão e a responsabilidade pelo conteúdo cabem aos autores identificados na capa.
+
+\newpage
+\IfFileExists{aasjournal.bst}{\bibliographystyle{aasjournal}}{\bibliographystyle{plainnat}}
+\bibliography{references}
+
+\end{document}

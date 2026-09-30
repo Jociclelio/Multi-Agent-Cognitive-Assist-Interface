@@ -1,0 +1,138 @@
+% Fontes nucleares novas efetivamente consultadas em 2026-09-30.
+% Completar com references_arquitetura.bib e references_pedagogia.bib.
+% Reutilizadas, sem redefinir: oteltrace, sqlitewal, desruisseaux2009icalendar.
+% Alcance de leitura e tentativas excluidas: 07b_metodos_robustez_experimentos.md, secao 10.
+
+@article{chen2018metamorphic,
+  author = {Chen, Tsong Yueh and Kuo, Fei-Ching and Liu, Huai and Poon, Pak-Lok and Towey, Dave and Tse, T. H. and Zhou, Zhi Quan},
+  title = {Metamorphic Testing: A Review of Challenges and Opportunities},
+  journal = {ACM Computing Surveys},
+  year = {2018},
+  volume = {51}, number = {1}, pages = {1--27},
+  doi = {10.1145/3143561},
+  url = {https://api.crossref.org/works/10.1145/3143561},
+  urldate = {2026-09-30},
+  note = {Resumo editorial e metadados Crossref consultados; integral ACM retornou 403. Publicacao online em 2018-01-04; fasciculo impresso em 2019-01-31. Relacoes locais propostas nao foram validadas pelo artigo}
+}
+
+@misc{hypothesisStateful,
+  author = {{Hypothesis contributors}},
+  title = {Stateful tests},
+  howpublished = {Documentacao oficial do Hypothesis},
+  url = {https://hypothesis.readthedocs.io/en/latest/stateful.html},
+  urldate = {2026-09-30},
+  note = {Regras, Bundles, precondicoes, invariantes e exemplo de modelo de referencia/reducao de sequencia lidos. Pagina latest movel; ano editorial nao verificado}
+}
+
+@misc{sqliteTesting,
+  author = {{SQLite developers}},
+  title = {How SQLite Is Tested},
+  year = {2026},
+  howpublished = {Documentacao oficial do SQLite},
+  url = {https://sqlite.org/testing.html},
+  urldate = {2026-09-30},
+  note = {Atualizacao exibida 2026-04-21. Lidos anomaly testing, OOM, I/O, crash, falhas compostas, fronteiras e mutation testing. Ano refere-se a atualizacao, nao a origem dos metodos}
+}
+
+@misc{athalye2017porcupine,
+  author = {Athalye, Anish},
+  title = {Porcupine: A fast linearizability checker in {Go}},
+  year = {2017},
+  howpublished = {README oficial do repositorio Porcupine},
+  url = {https://raw.githubusercontent.com/anishathalye/porcupine/master/README.md},
+  urldate = {2026-09-30},
+  note = {Ano conforme citacao fornecida no README; modelo executavel, historicos, exemplos e limites lidos. Branch master movel; artigos de algoritmos vinculados nao lidos}
+}
+
+@misc{bfclMultiTurn,
+  author = {Mao, Huanzhi and Yan, Fanjia and Ji, Charlie Cheng-Jie and Huang, Jason and Suresh, Vishnu and Huang, Yixin and Yu, Xiaowen and Gonzalez, Joseph E. and Patil, Shishir G.},
+  title = {{BFCL V3}: Multi-Turn and Multi-Step Function Calling Evaluation},
+  year = {2024},
+  howpublished = {Gorilla, documentacao primaria do Berkeley Function-Calling Leaderboard},
+  url = {https://gorilla.cs.berkeley.edu/blogs/13_bfcl_v3_multi_turn.html},
+  urldate = {2026-09-30},
+  note = {Release 2024-09-19, ultima atualizacao declarada 2024-12-10. Curadoria, estado, resposta e terminais lidos. Tambem consultado blog inicial https://gorilla.cs.berkeley.edu/blogs/8_berkeley_function_calling_leaderboard.html para AST/execucao. Entrada de documentacao, nao metadados do artigo BFCL; V4 nao consultado}
+}
+
+@inproceedings{liu2024agentbench,
+  author = {Liu, Xiao and Yu, Hao and Zhang, Hanchen and Xu, Yifan and Lei, Xuanyu and Lai, Hanyu and Gu, Yu and Ding, Hangliang and Men, Kaiwen and Yang, Kejuan and Zhang, Shudan and Deng, Xiang and Zeng, Aohan and Du, Zhengxiao and Zhang, Chenhui and Shen, Sheng and Zhang, Tianjun and Su, Yu and Sun, Huan and Huang, Minlie and Dong, Yuxiao and Tang, Jie},
+  title = {{AgentBench}: Evaluating {LLMs} as Agents},
+  booktitle = {International Conference on Learning Representations},
+  year = {2024},
+  eprint = {2308.03688}, archivePrefix = {arXiv},
+  url = {https://arxiv.org/html/2308.03688v3},
+  urldate = {2026-09-30},
+  note = {ICLR 2024 confirmado na pagina arXiv /abs/2308.03688. Primeira submissao 2023; v3 consultada de 2025-10-04. Secoes 2--4 lidas no retorno disponivel; HTML integral truncado, apendices completos nao analisados. Autores conforme texto HTML; algumas grafias diferem do registro abs}
+}
+
+@misc{debenedetti2024agentdojo,
+  author = {Debenedetti, Edoardo and Zhang, Jie and Balunovi{\'c}, Mislav and Beurer-Kellner, Luca and Fischer, Marc and Tram{\`e}r, Florian},
+  title = {{AgentDojo}: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for {LLM} Agents},
+  year = {2024},
+  eprint = {2406.13352}, archivePrefix = {arXiv},
+  url = {https://arxiv.org/html/2406.13352v3},
+  urldate = {2026-09-30},
+  note = {Metadados em /abs/2406.13352 e secoes 1--4 do HTML disponivel consultados. v3 de 2024-11-24; HTML integral truncado. Utilidade, seguranca, estado e ataques lidos; codigo nao executado}
+}
+
+@inproceedings{dror2018hitchhiker,
+  author = {Dror, Rotem and Baumer, Gili and Shlomov, Segev and Reichart, Roi},
+  title = {The Hitchhiker's Guide to Testing Statistical Significance in Natural Language Processing},
+  booktitle = {Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  year = {2018}, pages = {1383--1392},
+  publisher = {Association for Computational Linguistics},
+  doi = {10.18653/v1/P18-1128},
+  url = {https://aclanthology.org/P18-1128/},
+  urldate = {2026-09-30},
+  note = {Resumo e metadados consultados; PDF nao lido nesta rodada. Usado para adequacao da analise ao desenho/metrica, nao como fonte de algoritmo de cluster bootstrap}
+}
+
+@article{field2007cluster,
+  author = {Field, C. A. and Welsh, A. H.},
+  title = {Bootstrapping Clustered Data},
+  journal = {Journal of the Royal Statistical Society Series B: Statistical Methodology},
+  year = {2007}, volume = {69}, number = {3}, pages = {369--390},
+  doi = {10.1111/j.1467-9868.2007.00593.x},
+  url = {https://api.crossref.org/works/10.1111/j.1467-9868.2007.00593.x},
+  urldate = {2026-09-30},
+  note = {Resumo editorial e metadados lidos via Crossref/DOI. Tentativa de pagina Oxford retornou 403; integral nao acessado. Alcance teorico depende dos modelos estudados, nao garante validade para poucas familias ou dependencia cruzada local}
+}
+
+@misc{scipyBootstrap,
+  author = {{The SciPy community}},
+  title = {scipy.stats.bootstrap},
+  howpublished = {Documentacao oficial SciPy, versao exibida 1.18.0},
+  url = {https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html},
+  urldate = {2026-09-30},
+  note = {Documentacao lida: paired, indices compartilhados, metodos percentile/basic/BCa, RNG e degeneracao. paired=True nao implementa agrupamento automaticamente; ano editorial nao verificado}
+}
+
+@book{lakens2022inferences,
+  author = {Lakens, Dani{\"e}l},
+  title = {Improving Your Statistical Inferences},
+  year = {2022},
+  doi = {10.5281/zenodo.6409077},
+  url = {https://lakens.github.io/statistical_inferences/08-samplesizejustification.html},
+  urldate = {2026-09-30},
+  note = {Citacao/ano conforme prefacio https://lakens.github.io/statistical_inferences/. Capitulo 8, secoes 8.1--8.8 lidas no retorno disponivel; capitulo integral truncado. Livro movel; capitulo adapta Sample Size Justification do autor. Artigo Collabra tentou-se acessar, mas retornou 403}
+}
+
+@misc{zheng2023judge,
+  author = {Zheng, Lianmin and Chiang, Wei-Lin and Sheng, Ying and Zhuang, Siyuan and Wu, Zhanghao and Zhuang, Yonghao and Lin, Zi and Li, Zhuohan and Li, Dacheng and Xing, Eric P. and Zhang, Hao and Gonzalez, Joseph E. and Stoica, Ion},
+  title = {Judging {LLM-as-a-Judge} with {MT-Bench} and Chatbot Arena},
+  year = {2023},
+  eprint = {2306.05685}, archivePrefix = {arXiv},
+  url = {https://arxiv.org/html/2306.05685v4},
+  urldate = {2026-09-30},
+  note = {v4 de 2023-12-24; secoes 1--6 lidas no retorno disponivel, HTML integral truncado. Vieses de posicao/verbosidade e limites de julgamento lidos. Acordo de preferencia naquele benchmark nao valida julgamento formativo local}
+}
+
+@article{pineau2021reproducibility,
+  author = {Pineau, Joelle and Vincent-Lamarre, Philippe and Sinha, Koustuv and Lariviere, Vincent and Beygelzimer, Alina and d'Alche-Buc, Florence and Fox, Emily and Larochelle, Hugo},
+  title = {Improving Reproducibility in Machine Learning Research (A Report from the {NeurIPS 2019} Reproducibility Program)},
+  journal = {Journal of Machine Learning Research},
+  year = {2021}, volume = {22}, number = {164}, pages = {1--20},
+  url = {https://jmlr.org/papers/v22/20-303.html},
+  urldate = {2026-09-30},
+  note = {Resumo e metadados JMLR consultados; PDF nao lido. Manifesto e ensaio offline locais sao propostas metodologicas derivadas dos contratos do sistema, nao resultados reproduzidos do artigo}
+}

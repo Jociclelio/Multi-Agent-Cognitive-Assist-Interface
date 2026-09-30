@@ -1,0 +1,100 @@
+% Etapa 7a: oito fontes novas efetivamente consultadas em 2026-09-30.
+% Fontes reutilizadas NAO duplicadas aqui:
+% references_pedagogia.bib: kim2024prometheus, wu2025longmemeval,
+% google2024cpsat, desruisseaux2009icalendar.
+% references_arquitetura.bib: sqlitewal, oteltrace.
+% Carregar os tres BibTeX para citar o conjunto. Sem ano editorial quando
+% a documentacao nao o informa; ano de acesso nao e ano de publicacao.
+
+@misc{jiwerQuality,
+  author = {{Jitsi/JiWER contributors}},
+  title = {{JiWER}},
+  howpublished = {Documentacao oficial},
+  url = {https://jitsi.github.io/jiwer/},
+  urldate = {2026-09-30},
+  note = {Sem data editorial explicita. Tambem consultada Usage, https://jitsi.github.io/jiwer/usage/: CER/WER, alinhamentos, transformacoes e API. Pagina inicial documenta referencias vazias a partir de 4.0. Biblioteca de ASR adaptada metodologicamente a OCR; pacote nao executado}
+}
+
+@misc{thakur2021beir,
+  author = {Thakur, Nandan and Reimers, Nils and R{\"u}ckl{\'e}, Andreas and Srivastava, Abhishek and Gurevych, Iryna},
+  title = {{BEIR}: A Heterogenous Benchmark for Zero-shot Evaluation of Information Retrieval Models},
+  year = {2021},
+  eprint = {2104.08663},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.IR},
+  doi = {10.48550/arXiv.2104.08663},
+  url = {https://arxiv.org/abs/2104.08663},
+  urldate = {2026-09-30},
+  note = {Registro e abstract v4 de 2021-10-21; comentario informa aceitacao NeurIPS 2021 Datasets and Benchmarks. Artigo integral nao lido. Codigo oficial consultado em https://raw.githubusercontent.com/beir-cellar/beir/main/beir/retrieval/evaluation.py: EvaluateRetrieval, pytrec_eval, k_values, remocao de IDs e agregacao. main e movel, requer pin; nao executado}
+}
+
+@inproceedings{gao2023alce,
+  author = {Gao, Tianyu and Yen, Howard and Yu, Jiatong and Chen, Danqi},
+  title = {Enabling Large Language Models to Generate Text with Citations},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing},
+  year = {2023},
+  pages = {6465--6488},
+  publisher = {Association for Computational Linguistics},
+  doi = {10.18653/v1/2023.emnlp-main.398},
+  url = {https://aclanthology.org/2023.emnlp-main.398/},
+  urldate = {2026-09-30},
+  note = {Identidade editorial verificada na ACL. Metodo consultado tambem em https://arxiv.org/html/2305.14627, retorno v2 de 2023-10-31: tarefa e secoes 2--3, corretude, citation recall/precision e apoio conjunto. HTML truncado; avaliacao humana e apendices nao integralmente inspecionados}
+}
+
+@inproceedings{es2024ragas,
+  author = {Es, Shahul and James, Jithin and Espinosa Anke, Luis and Schockaert, Steven},
+  title = {{RAGAs}: Automated Evaluation of Retrieval Augmented Generation},
+  booktitle = {Proceedings of the 18th Conference of the European Chapter of the Association for Computational Linguistics: System Demonstrations},
+  year = {2024},
+  pages = {150--158},
+  publisher = {Association for Computational Linguistics},
+  doi = {10.18653/v1/2024.eacl-demo.16},
+  url = {https://aclanthology.org/2024.eacl-demo.16/},
+  urldate = {2026-09-30},
+  note = {Metadados editoriais de 2024 verificados. Texto metodologico lido em https://arxiv.org/html/2309.15217, retorno v2 de 2025-04-28, secoes 3--5: faithfulness, relevancias, WikiEval e limites. Distinguir revisao de publicacao; API atual do pacote nao auditada nem executada}
+}
+
+@misc{zheng2023judge,
+  author = {Zheng, Lianmin and Chiang, Wei-Lin and Sheng, Ying and Zhuang, Siyuan and Wu, Zhanghao and Zhuang, Yonghao and Lin, Zi and Li, Zhuohan and Li, Dacheng and Xing, Eric P. and Zhang, Hao and Gonzalez, Joseph E. and Stoica, Ion},
+  title = {Judging {LLM-as-a-Judge} with {MT-Bench} and Chatbot Arena},
+  year = {2023},
+  eprint = {2306.05685},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  doi = {10.48550/arXiv.2306.05685},
+  url = {https://arxiv.org/abs/2306.05685v4},
+  urldate = {2026-09-30},
+  note = {Autores/ano/DOI verificados no registro v4 de 2023-12-24, comentario NeurIPS 2023 Datasets and Benchmarks. HTML https://arxiv.org/html/2306.05685 consultado, retorno v4, secoes 3--4: vieses, ordem dupla, referencia e acordo com/sem empates. Retorno truncado; apendices nao integralmente lidos. Entrada cita versao arXiv}
+}
+
+@inproceedings{guo2017calibration,
+  author = {Guo, Chuan and Pleiss, Geoff and Sun, Yu and Weinberger, Kilian Q.},
+  title = {On Calibration of Modern Neural Networks},
+  booktitle = {Proceedings of the 34th International Conference on Machine Learning},
+  series = {Proceedings of Machine Learning Research},
+  volume = {70},
+  pages = {1321--1330},
+  publisher = {PMLR},
+  year = {2017},
+  url = {https://proceedings.mlr.press/v70/guo17a.html},
+  urldate = {2026-09-30},
+  note = {Identidade verificada na PMLR. Tambem consultado https://arxiv.org/html/1706.04599, retorno v2 de 2017-08-03, cujo titulo HTML e Supplementary Materials for: On Calibration of Modern Neural Networks, mas inclui texto principal. Leitura direcionada de definicoes/calibradores, secoes 2 e 4; retorno truncado, suplementos e graficos nao integralmente analisados. DOI editorial nao verificado, omitido}
+}
+
+@misc{sklearnKappaQuality,
+  author = {{scikit-learn developers}},
+  title = {{cohen\_kappa\_score}},
+  howpublished = {Documentacao oficial do scikit-learn},
+  url = {https://scikit-learn.org/stable/modules/generated/sklearn.metrics.cohen_kappa_score.html},
+  urldate = {2026-09-30},
+  note = {Sem data editorial explicita. Retorno identifica documentacao 1.9.1. Formula, marginais, labels, pesos e indefinicao consultados. Referencias internas Cohen e Artstein/Poesio nao abertas separadamente; API nao executada}
+}
+
+@misc{sklearnCalibrationQuality,
+  author = {{scikit-learn developers}},
+  title = {Probability calibration},
+  howpublished = {Documentacao oficial do scikit-learn},
+  url = {https://scikit-learn.org/stable/modules/calibration.html},
+  urldate = {2026-09-30},
+  note = {Sem data editorial explicita. Retorno identifica documentacao 1.9.1. Curvas, distincao entre qualidade probabilistica e calibracao, dados separados, sigmoid/isotonico/temperature consultados. Exemplos e referencias internas nao reproduzidos; stable requer pin}
+}

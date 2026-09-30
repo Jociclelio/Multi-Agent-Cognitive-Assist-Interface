@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "scope": "documentação; não experimentos do sistema",
+  "bibliography_unique": 56,
+  "cited_unique": 44,
+  "uncited_unique": 12,
+  "missing_citations": [],
+  "steps": 11,
+  "components": 20,
+  "flows": 12,
+  "outputs": 18,
+  "failures": 24,
+  "local_links_checked": 39,
+  "delivery_pending": [],
+  "compilation": "pdflatex + bibtex + pdflatex ×2; sem referência indefinida ou overfull",
+  "bibliography_style": "aasjournal se disponível, plainnat no ambiente verificado"
+}
