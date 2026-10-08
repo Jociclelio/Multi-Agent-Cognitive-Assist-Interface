@@ -1,0 +1,83 @@
+# Espelho-máquina de docs/README.md — fonte de paths para agentes de IA.
+# Não infira nomes por número: use estes paths literais.
+# Ordem = sequência didática.
+convencao: kebab-case-minusculo-sem-acento-sem-espacos
+conteudo:
+  - aula: 1
+    tema: Introducao a agentes LLM
+    descricao: Conceitos, definicoes e panorama de agentes baseados em LLM.
+    slide: disciplina/slides/introducao.pdf
+    notebooks: []
+  - aula: 2
+    tema: Componentes de agentes
+    descricao: Percepcao, decisao, acao; anatomia de um agente.
+    slide: disciplina/slides/componentes.pdf
+    notebooks: []
+  - aula: 3
+    tema: Especificando agentes
+    descricao: Como especificar comportamento, papeis e tarefas de agentes.
+    slide: disciplina/slides/especificando-agentes.pdf
+    notebooks: []
+  - aula: null
+    tema: Base pratica LangChain
+    descricao: Fundamentos de LangChain (cabecalho original N0); pre-requisito sem slide dedicado.
+    slide: null
+    notebooks:
+      - notebooks/introducao-langchain.ipynb
+  - aula: 4
+    tema: Introducao ao LangGraph
+    descricao: Grafos, estados e primeiros fluxos em LangGraph (N1).
+    slide: disciplina/slides/introducao-langgraph.pdf
+    notebooks:
+      - notebooks/introducao-langgraph.ipynb
+  - aula: 5
+    tema: Workflows e orquestracao agentica com LangGraph
+    descricao: LangGraph com LLMs e padroes de orquestracao (N2).
+    slide: disciplina/slides/workflows-orquestracao-agentica-langgraph.pdf
+    notebooks:
+      - notebooks/langgraph-com-llms.ipynb
+  - aula: 6
+    tema: Ferramentas e integracoes com agentes
+    descricao: Tools/function-calling e integracao com sistemas externos (N3).
+    slide: disciplina/slides/ferramentas-integracoes-agentes.pdf
+    notebooks:
+      - notebooks/ferramentas-integracoes-agentes.ipynb
+  - aula: 7
+    tema: Model Context Protocol (MCP)
+    descricao: Protocolo de contexto para conectar modelos a dados e ferramentas (N4).
+    slide: disciplina/slides/model-context-protocol-mcp.pdf
+    notebooks:
+      - notebooks/model-context-protocol-mcp.ipynb
+  - aula: 8
+    tema: Skills
+    descricao: Empacotamento de capacidades reutilizaveis como skills (N6).
+    slide: disciplina/slides/skills.pdf
+    notebooks:
+      - notebooks/skills.ipynb
+  - aula: 9
+    tema: Raciocinio em agentes LLM
+    descricao: Padroes de raciocinio ReAct, CoT, reflexao (N7).
+    slide: disciplina/slides/raciocinio-agentes-llm.pdf
+    notebooks:
+      - notebooks/raciocinio-agentes-llm.ipynb
+  - aula: 10
+    tema: Planejamento em agentes LLM
+    descricao: Decomposicao de tarefas e plan-execute (N8).
+    slide: disciplina/slides/planejamento-agentes-llm.pdf
+    notebooks:
+      - notebooks/planejamento-agentes-llm.ipynb
+  - aula: 11
+    tema: Memoria em agentes LLM
+    descricao: Memoria curta/longa, checkpointers e persistencia em LangGraph (N10).
+    slide: disciplina/slides/memoria-agentes-llm.pdf
+    notebooks:
+      - notebooks/memoria-agentes-llm.ipynb
+  - aula: 12
+    tema: Memoria reflexiva em agentes LLM
+    descricao: Memoria reflexiva e autoaperfeicoamento do agente (N11).
+    slide: disciplina/slides/memoria-reflexiva-agentes-llm.pdf
+    notebooks:
+      - notebooks/memoria-reflexiva-agentes-llm.ipynb
+apoio:
+  pdd: disciplina/PDD-MO810-MC959-1.pdf
+  playground: playground-llmagenticsystem/
