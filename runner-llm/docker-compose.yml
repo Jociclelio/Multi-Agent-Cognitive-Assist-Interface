@@ -1,0 +1,25 @@
+# Serviço de inferência local Bonsai 2 (modo router, 1 slot).
+# Sobe com: docker compose -f runner-llm/docker-compose.yml up --build
+services:
+  llm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eduagent-llm:latest
+    ports:
+      - "8079:8079"
+    volumes:
+      - ./models:/app/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8079/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s

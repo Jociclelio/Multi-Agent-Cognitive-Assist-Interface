@@ -1,0 +1,5 @@
+models/
+third_party/
+build/
+*.gguf
+*.log
