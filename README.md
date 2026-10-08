@@ -461,8 +461,8 @@ O projeto requer **Python 3.11+** e um compilador TeX (Tectonic ou TeX Live comp
 
 ```bash
 # 1. Clonar o repositório com submódulos
-git clone --recurse-submodules https://github.com/Jociclelio/MO810-Multi-Agentic-System-for-Study.git
-cd MO810-Multi-Agentic-System-for-Study
+git clone --recurse-submodules https://github.com/Jociclelio/Multi-Agent-Cognitive-Assist-Interface.git
+cd Multi-Agent-Cognitive-Assist-Interface
 
 # 2. Criar e ativar o ambiente virtual
 python -m venv .venv
