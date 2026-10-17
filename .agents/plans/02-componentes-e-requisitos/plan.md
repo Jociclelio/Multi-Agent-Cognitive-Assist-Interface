@@ -1,0 +1,38 @@
+# Plano: Componentes faltantes e requisitos (Etapa 2)
+
+Estado: rascunho
+
+## Objetivo
+Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no sentido técnico do documento-fonte (não especificados na proposta, não ausência comprovada em implementação), com IDs permanentes (C01–C20) que ligam pesquisa, arquitetura e testes, suas características exigidas, critérios verificáveis, dependências/prioridades e as ambiguidades que exigem decisão antes da implementação.
+
+## Abordagem
+- Usar o documento-fonte como especificação normativa do que cada componente (C01–C20) precisa garantir, sem adicionar requisitos ou números não presentes nele.
+- Tratar cada ID como permanente e estável: referências futuras de pesquisa, arquitetura e testes devem citar os IDs C01–C20, não nomes alternativos.
+- Ordenar o trabalho de implementação futura pela cadeia de dependências do documento:
+  - Núcleo: C01 → C02/C03 → C04/C09 → C06/C07/C08 → C11, sustentado desde o início por C13–C17/C20.
+  - C18/C19 começam antes da otimização, para impedir que o conjunto de teste oriente escolhas.
+  - Opcionais avaliados separadamente: C05 e a sincronização remota de C12; o ICS local de C12 permanece obrigatório no núcleo.
+- Registrar as seis ambiguidades do documento como decisões pendentes que bloqueiam ou condicionam os componentes afetados (Bonsai 2 sem identificador/precisão/hardware; estados "evidência insuficiente" e "avaliável" no monitor; não resolver falta de tempo removendo compromissos silenciosamente; reconciliação em vez de substituição automática de prazos; A2A fora do MVP; toda recomendação de pesquisa deve declarar hipótese, alternativa, custo, limitação e teste de seleção).
+
+## Escopo
+- Entrega: especificação estruturada dos requisitos de C01–C20 com critérios verificáveis, mapa de dependências e prioridades, e lista de ambiguidades a decidir — materializada em tasks derivadas deste plano, sem criar documento novo nem alterar o documento-fonte (que já contém a tabela, as dependências e as ambiguidades e permanece intocado como fonte normativa).
+- Limites: nada aqui estabelece resultado experimental medido — especificação ≠ resultado; valores de qualidade/latência não podem ser derivados da designação "Bonsai 2" conforme o próprio documento; extensões opcionais (C05, sincronização remota de C12, A2A) não são necessárias para fechar o núcleo.
+
+## Contexto
+- `fase2/documentos/02_componentes_e_requisitos.md` — documento-fonte: tabela C01–C20, dependências/prioridades e ambiguidades a decidir.
+- `fase2/documentos/04_mapa_completo_do_sistema.md` — mapa normativo de implementação, referência para onde os requisitos dos componentes se concretizam (consultar conforme necessário).
+- `fase2/documentos/08_mapa_completo_da_testagem.md` — mapa normativo de avaliação, referência para os critérios verificáveis e para C18/C19 (consultar conforme necessário).
+
+## Critérios de conclusão
+- Cada componente C01–C20 está representado com suas características exigidas e critério verificável extraídos fielmente do documento-fonte.
+- A ordem de implementação (núcleo, C18/C19 antes da otimização, opcionais) está registrada conforme a seção de dependências.
+- As seis ambiguidades estão listadas como decisões pendentes, sem resolver nenhuma delas arbitrariamente.
+
+## Questões abertas
+1. Bonsai 2 carece de identificador, precisão e hardware-alvo: a escolha concreta do artefato (e o benchmark de português/ferramentas antes da adoção, exigido por C01) precisa de decisão externa.
+2. Como operacionalizar os estados "evidência insuficiente" e "avaliável" do monitor formativo (C07) ainda não está definido.
+3. Política de reconciliação entre prazos confirmados e documentos externos mais recentes (ligada a C03/C11/C12) pendente de decisão.
+4. Definições de orçamentos (chamadas, tempo, reparos — C17) e demais parâmetros não constam do documento e não devem ser inventados aqui.
+
+## Tasks
+<A preencher pelo task-writer.>
