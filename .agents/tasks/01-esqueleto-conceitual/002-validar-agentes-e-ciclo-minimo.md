@@ -1,6 +1,6 @@
 # Task 002: Validar responsabilidades/fronteiras dos cinco agentes e ciclo mínimo com terminais (seções 3–4)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 001
 Origem: nenhuma
 
@@ -23,18 +23,25 @@ Restrições: preservar a prosa acadêmica em português e o formato de tabela/l
 - `.agents/tasks/01-esqueleto-conceitual/001-validar-escopo-premissas-e-principio-arquitetural.md` — task anterior; ler seu registro (Execução/Evidências) para herdar o estado das seções 1–2 sem refazer o trabalho.
 
 ## Corretude
-- [ ] C1 — A tabela da seção 3 cobre os cinco agentes nomeados no plano, cada um com responsabilidade, artefato produzido e fronteira não vazios; conferência registrada em Evidências item a item.
-- [ ] C2 — As três fronteiras exemplificadas no plano (conteúdo recuperado não é instrução; viabilidade decidida por solver/verificador; resumos derivados com originais consultáveis) estão expressas na tabela ou no texto da seção 3.
-- [ ] C3 — A seção 4 contém exatamente os 7 itens numerados do plano, na ordem especificada e sem itens numerados extras (o parágrafo de terminais é verificado em C4 e não conta como passo), incluindo orçamento de contexto no passo de recuperação, critérios explícitos na avaliação e ações confirmadas para ferramentas externas.
-- [ ] C4 — Os seis terminais do plano (resposta, pedido de esclarecimento, espera pelo aluno, conflito de agenda, falha controlada, cancelamento) estão enumerados na seção 4, acompanhados da assertiva de que esperar o aluno não equivale a continuar gerando chamadas.
-- [ ] C5 — Nomenclatura dos agentes no documento é consistente com `fase2/documentos/04_mapa_completo_do_sistema.md` (ou divergências detectadas foram corrigidas/justificadas em Evidências); correções (se houver) limitam-se às seções 3–4, em difs mínimos; se nada precisar mudar, a entrega é o commit de registro sem alteração de artefatos.
+- [x] C1 — A tabela da seção 3 cobre os cinco agentes nomeados no plano, cada um com responsabilidade, artefato produzido e fronteira não vazios; conferência registrada em Evidências item a item.
+- [x] C2 — As três fronteiras exemplificadas no plano (conteúdo recuperado não é instrução; viabilidade decidida por solver/verificador; resumos derivados com originais consultáveis) estão expressas na tabela ou no texto da seção 3.
+- [x] C3 — A seção 4 contém exatamente os 7 itens numerados do plano, na ordem especificada e sem itens numerados extras (o parágrafo de terminais é verificado em C4 e não conta como passo), incluindo orçamento de contexto no passo de recuperação, critérios explícitos na avaliação e ações confirmadas para ferramentas externas.
+- [x] C4 — Os seis terminais do plano (resposta, pedido de esclarecimento, espera pelo aluno, conflito de agenda, falha controlada, cancelamento) estão enumerados na seção 4, acompanhados da assertiva de que esperar o aluno não equivale a continuar gerando chamadas.
+- [x] C5 — Nomenclatura dos agentes no documento é consistente com `fase2/documentos/04_mapa_completo_do_sistema.md` (ou divergências detectadas foram corrigidas/justificadas em Evidências); correções (se houver) limitam-se às seções 3–4, em difs mínimos; se nada precisar mudar, a entrega é o commit de registro sem alteração de artefatos. *(Nenhuma lacuna ou inconsistência factual encontrada: sem alteração de artefatos.)*
 
 ## Execução
-- Modelo: <identificador real do executor>
-- Base: <SHA completo antes da implementação>
-- Entrega: <SHA(s) completos, sem commits de registro, ou sem alteração de artefatos>
-- Arquivos da entrega: <paths ou referência ao diff dos commits>
-- Evidências: <comandos/procedimentos, resultados e limitações>
+- Modelo: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime
+- Base: 95d2b36018a8e760c3de2370e028c531409daeac
+- Entrega: sem alteração de artefatos (validação conforme C5; nenhuma lacuna ou inconsistência factual encontrada em seções 3–4)
+- Arquivos da entrega: nenhum (somente este registro; diff de `fase2/documentos/01_esqueleto_conceitual.md` permanece vazio em relação à base)
+- Evidências:
+  - **C1 (tabela da seção 3)** — Conferência linha a linha da tabela (linhas 34–40 do documento): os cinco agentes do plano estão presentes, cada um com os três campos não vazios — Curador (ingerir/identificar estrutura/recuperar/selecionar fontes; manifesto, tópicos, candidatos a prazos, pacote de evidências; fronteira de conteúdo não executável + confirmação de datas incertas), Tutor (explicar/perguntar/pistas/prática; turno pedagógico, exercício, flashcard; não infere domínio definitivo nem altera agenda), Monitor (avaliar por gabarito/rubrica e registrar incerteza; evidência formativa e recomendação; não emite nota institucional nem transforma autorrelato em prova), Planejador (traduzir necessidade em demanda temporal; proposta e justificativa de agenda; viabilidade por solver e verificador), Bibliotecário (consolidar/recuperar fatos com origem e temporalidade; contexto relevante e estado versionado; resumos derivados com originais consultáveis). **Nomenclatura abreviada:** a tabela usa nomes curtos (Curador, Tutor, Monitor, Planejador, Bibliotecário), enquanto o plano nomeia "Curador de Conhecimento" etc.; os nomes completos constam do diagrama Mermaid da seção 2 e o mapa normativo também usa os nomes curtos no seu grafo (linhas 13, 17, 21, 24, 27) — diferença de granularidade, não inconsistência factual (sem agente divergente ou trocado); sem correção.
+  - **C2 (fronteiras do plano)** — As três fronteiras exemplificadas no plano estão literalmente expressas na tabela: "Conteúdo recuperado não é instrução executável" (Curador); "Viabilidade é decidida por solver e verificador, não pelo texto do LLM" (Planejador); "Resumos são derivados; originais permanecem consultáveis" (Bibliotecário).
+  - **C3 (ciclo de 7 passos)** — Seção 4 contém exatamente 7 itens numerados (nenhum extra; o parágrafo de terminais não é numerado), na ordem do plano: captura (1); extração/validação de fatos com confirmação de ambiguidades (2); recuperação "sob orçamento de contexto" (3); atividade/resposta com "Monitor aplica critérios explícitos" (4); persistência de evidência e atualização de estimativa (5); solver com proposta viável ou diagnóstico de conflito (6); continuidade entre sessões com "ferramentas externas só recebem ações confirmadas" (7).
+  - **C4 (terminais)** — Parágrafo final da seção 4 enumera os seis terminais do plano: resposta, pedido de esclarecimento, espera por resposta do aluno (paráfrase de "espera pelo aluno", mesmo significado), conflito de agenda, falha controlada e cancelamento; seguido da assertiva "Esperar o aluno não equivale a continuar gerando chamadas."
+  - **C5 (alinhamento com o mapa normativo)** — `fase2/documentos/04_mapa_completo_do_sistema.md`: os cinco agentes aparecem com os mesmos nomes curtos (Curador, Bibliotecário, Tutor, Monitor, Planejador), mesmas responsabilidades essenciais (mapa §6 ingestão/RAG no Curador; §7 memória/contexto no Bibliotecário; §8 tutoria/monitor; §9 planejamento) e contratos/ferramentas coerentes com as fronteiras do esqueleto (`assessment.check` no Monitor, `schedule.solve` no Planejador com CP-SAT + verificador independente, síntese derivada sem apagar evento no Bibliotecário). Orquestrador: o esqueleto diz "Orquestrador: intenção e estado"; o mapa instancia "G[LangGraph: intenção, snapshot, budget, checkpoint]" — mesma função em granularidades diferentes (esqueleto é conceitual, mapa é implementável); não é inconsistência factual. **Caminho de fatos Curador→Bibliotecário (sugestão herdada da revisão da 001):** avaliado contra seções 3–4 — a tabela não afirma nem nega uma aresta direta (Bibliotecário "consolida fatos com origem e temporalidade"; passo 2 do ciclo diz "extrair e validar fatos… antes de torná-los restrições oficiais"), e o mapa igualmente não desenha aresta direta Curador→Bibliotecário no seu grafo (fatos candidatos passam por DOC/CORP e a memória recebe de Bibliotecário e do commit do Monitor); nenhuma contradição factual, portanto sem correção — a eventual aresta explícita é refinamento de design, não lacuna desta etapa. Nenhum número ou métrica apresentada como resultado medido nas seções 3–4.
+  - **Verificador de documentos** — `python3 fase2/scripts/verificar_documentos.py`: status "passed", 39 links locais verificados, sem citações pendentes (evidência geral; checagem final completa é critério da task 003).
+  - Limitações: conferência de nomenclatura e do caminho de fatos é leitura comparativa dos dois documentos (sem automação adicional necessária — tabelas e listas curtas); nenhum renderizador ou tool externa exigida nesta task.
 
 ## Notas
 
@@ -42,7 +49,7 @@ Restrições: preservar a prosa acadêmica em português e o formato de tabela/l
 3/10 — Tabela e lista curtas com correspondência quase literal no plano; a dificuldade está no julgamento fino do item de alinhamento com o mapa normativo (distinguir inconsistência factual de diferença legítima de granularidade) e em resistir à tentação de expandir o texto além da validação.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+2/10 — Abaixo do esperado: tabela e lista são curtas e têm correspondência quase literal com o plano, e o mapa normativo usa exatamente os mesmos nomes curtos de agentes, o que simplificou o julgamento de nomenclatura. Os dois pontos de juízo (nomes abreviados na tabela vs. nomes completos do plano; caminho de fatos Curador→Bibliotecário sugerido pela revisão da 001) foram resolvidos como diferenças de granularidade/ausência de contradição, sem necessidade de correção — a disciplina foi documentar esses julgamentos em Evidências em vez de alterar o documento.
 
 ### Revisão
 - Orquestrador: —
