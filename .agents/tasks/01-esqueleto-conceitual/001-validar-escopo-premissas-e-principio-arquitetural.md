@@ -52,13 +52,15 @@ Restrições: preservar a prosa acadêmica em português; difs mínimos; não in
 3/10 — Conferência textual direta, conforme o esperado. A única fricção real foi a ausência de renderizador Mermaid no ambiente (exigiu fallback de leitura manual + script estrutural próprio, com dois ajustes no script até refletir os rótulos do grafo), e a decisão de não tratar a ausência da aresta Curador→Bibliotecário como lacuna corretiva, por não haver contradição com o ciclo nem exigência do plano/fase 1.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in. Rodada **paralela** (três revisores em sessões independentes): a revisão é de leitura/verificação documental com scripts stdlib isolados em `/tmp/opencode`, sem disputa de recursos compartilhados do sistema.
+- Alvo: base `e7f3f9c` (e7f3f9c765887df62eca2edbfb2f4a1a505e9b97); entrega **sem alteração de artefatos** (nenhum commit de artefatos; `git diff e7f3f9c..HEAD -- fase2/` vazio); commit de registro revisado `ba4e283` (ba4e283b7cf46c1537b64a81cdd9b2ddfe45322b), árvore limpa em `main`.
+- Avaliações: sd2/GLM-5.3-Flash: 9/10 (ses_eb58e8ae1ffekNKqGU8UgAxj7P); openai/gpt-6-luna: 9/10 (ses_eb58e8aaeffehw7YfzJZgYCuqU); opencode/mimo-v2.6-flash-free: 9/10 (ses_eb58e8a72ffe20mR6SITDosn2b). Quórum de três modelos distintos cumprido. Observação registrada: o revisor GLM-5.3-Flash coincide com o modelo do executor (configuração explícita do ciclo); os demais dois revisores são de modelos distintos, preservando a independência do quórum. Nenhum revisor falhou; nenhuma substituição foi necessária. Os três verificaram identidade, base e árvore por conta própria, rodaram checagens estruturais independentes do Mermaid e confirmaram `verificar_documentos.py` → passed.
+- Nota final: 9/10 — todos os critérios C1–C5 verificados de forma independente e atendidos pelos três revisores; evidências do executor conferem com a realidade da árvore; C5 sem alteração de artefatos é correto dado o resultado "nenhuma lacuna". Dedução única e compartilhada: validade do diagrama Mermaid confirmada por leitura manual + checagem estrutural (dois revisores reproduziram scripts próprios), não por renderização efetiva — limitação de ambiente, registrada honestamente e mitigada de forma proporcional.
+- Parecer: nenhum achado bloqueante ou de severidade média/alta. (1) Observação (GLM): identidade revisor=executor, sem impacto na entrega e sem comprometer o quórum. (2) Observação (todos; detalhada por MiMo): a ausência de aresta Curador→Bibliotecário no grafo não é contradição com o ciclo da seção 4 nem exigência do plano/fase 1 (fluxo de fatos pode ser considerado em refinamento posterior); julgamento do executor de não tratá-la como lacuna foi considerado adequado. (3) Observação (MiMo, severidade baixa): o registro em Evidências da divergência plano × fase 1 cobre as exclusões, mas não a paráfrase de infraestrutura local ("inferência, recuperação e armazenamento" vs. "inferência, memória e base de materiais" em `fase1_proposta.tex:84`) — precedência do plano corretamente aplicada, nota de uma linha em Evidências opcional, não exige reabertura. Divergência principal das exclusões registrada com precisão e com prevalência do plano, conforme a regra da task. Divergências essenciais entre pareceres: nenhuma.
+- Decisão: fechar
+- Reversão: não se aplica
+- Próximo passo: liberar a task 002 (`.agents/tasks/01-esqueleto-conceitual/002-validar-agentes-e-ciclo-minimo.md`); observar a sugestão de avaliar o caminho de fatos Curador→Bibliotecário na revisão das seções 3–4.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/01-esqueleto-conceitual/002-validar-agentes-e-ciclo-minimo.md","family":".agents/tasks/01-esqueleto-conceitual/001-validar-escopo-premissas-e-principio-arquitetural.md","plan":".agents/plans/01-esqueleto-conceitual/plan.md"} -->
 
 Plano: [plan.md](../../plans/01-esqueleto-conceitual/plan.md)
