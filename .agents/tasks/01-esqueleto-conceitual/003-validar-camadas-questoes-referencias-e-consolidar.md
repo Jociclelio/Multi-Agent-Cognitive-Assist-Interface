@@ -1,6 +1,6 @@
 # Task 003: Validar camadas transversais, questões abertas, referências de partida e consolidação final (seções 5–7)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 002
 Origem: nenhuma
 
@@ -24,18 +24,28 @@ Restrições: preservar a prosa acadêmica em português; difs mínimos; não in
 - `fase2/documentos/11_indice_da_entrega.md` — índice da entrega; consultar apenas para confirmar que a etapa 1 mantém o enquadramento de "especificação/proposta", não para editar.
 
 ## Corretude
-- [ ] C1 — As oito camadas transversais do plano estão representadas na seção 5, cada uma com conferência registrada em Evidências; nenhuma camada do plano ficou de fora.
-- [ ] C2 — As onze questões abertas do plano estão enumeradas na seção 6 e o texto as remete explicitamente à etapa 2 e às etapas 3–4 (formulações equivalentes, como "remetidas às etapas 2–4" ou "resolvidas metodologicamente nas etapas 3–4", são aceitas desde que nenhuma questão apareça como resolvida nesta etapa), sem resolver ou decidir nenhuma delas.
-- [ ] C3 — A seção 7 lista as cinco referências de partida com enquadramento explícito de "verificação na etapa 3 e na auditoria final", e nenhuma frase do documento atribui a elas validação, eficácia ou suporte a este projeto.
-- [ ] C4 — Os três critérios de conclusão do plano foram reavaliados sobre o documento completo e o resultado (conforme/ajustado) está registrado em Evidências, citando trechos verificados.
-- [ ] C5 — `python3 fase2/scripts/verificar_documentos.py` roda sem erro fatal e sem apontamentos referentes a `01_esqueleto_conceitual.md` (saída registrada; limitações do verificador anotadas); correções (se houver) em difs mínimos; se nada precisar mudar além do registro, a entrega é o commit de registro sem alteração de artefatos.
+- [x] C1 — As oito camadas transversais do plano estão representadas na seção 5, cada uma com conferência registrada em Evidências; nenhuma camada do plano ficou de fora.
+- [x] C2 — As onze questões abertas do plano estão enumeradas na seção 6 e o texto as remete explicitamente à etapa 2 e às etapas 3–4 (formulações equivalentes, como "remetidas às etapas 2–4" ou "resolvidas metodologicamente nas etapas 3–4", são aceitas desde que nenhuma questão apareça como resolvida nesta etapa), sem resolver ou decidir nenhuma delas.
+- [x] C3 — A seção 7 lista as cinco referências de partida com enquadramento explícito de "verificação na etapa 3 e na auditoria final", e nenhuma frase do documento atribui a elas validação, eficácia ou suporte a este projeto.
+- [x] C4 — Os três critérios de conclusão do plano foram reavaliados sobre o documento completo e o resultado (conforme/ajustado) está registrado em Evidências, citando trechos verificados.
+- [x] C5 — `python3 fase2/scripts/verificar_documentos.py` roda sem erro fatal e sem apontamentos referentes a `01_esqueleto_conceitual.md` (saída registrada; limitações do verificador anotadas); correções (se houver) em difs mínimos; se nada precisar mudar além do registro, a entrega é o commit de registro sem alteração de artefatos.
 
 ## Execução
-- Modelo: <identificador real do executor>
-- Base: <SHA completo antes da implementação>
-- Entrega: <SHA(s) completos, sem commits de registro, ou sem alteração de artefatos>
-- Arquivos da entrega: <paths ou referência ao diff dos commits>
-- Evidências: <comandos/procedimentos, resultados e limitações>
+- Modelo: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime
+- Base: 815a474f73f253b524df49f79edd367efa4684da
+- Entrega: sem alteração de artefatos (validação conforme C1–C5; nenhuma lacuna, desvio ou resíduo encontrado nas seções 5–7 nem na consolidação final)
+- Arquivos da entrega: nenhum (somente este registro; `git diff 815a474 -- fase2/documentos/01_esqueleto_conceitual.md` permanece vazio)
+- Evidências:
+  - **C1 (seção 5, oito camadas)** — Conferência item a item da lista (linhas 56–63 do documento) contra o bullet de camadas do plano: (1) contratos tipados e IDs estáveis de disciplina/tópico/documento/evento/tarefa; (2) separação de dados brutos, fatos confirmados, inferências e artefatos publicados; (3) recuperação documental distinta da memória do estudante, ambas com proveniência; (4) skills versionadas, selecionadas por tarefa, com pré-condições e critérios de término; (5) validação estrutural, validação de domínio e conferência independente de efeitos externos; (6) checkpoints, transações, idempotência, timeout, limites de chamadas e cancelamento; (7) registro de custo, latência, erros, delegações e versão de cada componente; (8) avaliação em camadas: artefatos, fluxos completos, continuidade e injeção de falhas. Correspondência 1:1 com o plano — oitava camada com desdobramento exemplificativo ("artefatos, fluxos completos, continuidade e injeção de falhas"), consistente com "avaliação em camadas" do plano; nenhuma camada de fora, nenhum item extra que conflite.
+  - **C2 (seção 6, onze questões)** — Contagem e conferência do parágrafo único (linha 67): escolha verificável e configuração do Bonsai 2 (1); extração/OCR (2); granularidade dos tópicos (3); busca híbrida e reranking (4); tratamento de datas (5); rubricas e estimador de domínio (6); recuperação/compactação da memória (7); formalização do solver (8); ferramentas e suas permissões (9); limites operacionais (10); dataset e métricas (11) — as onze do plano, nenhuma a mais ou a menos. Remissão explícita presente: "Essas lacunas são enumeradas na etapa 2 e resolvidas metodologicamente nas etapas 3–4" — formulação aceita pelo critério; nenhuma questão aparece como resolvida ou decidida nesta etapa.
+  - **C3 (seção 7, cinco referências)** — Conferência das cinco entradas (linhas 71–77): MetaGPT (Hong et al., ICLR 2024, arXiv:2308.00352), MultiTutor (Sun e Tai, PMLR 273, 2025), MemGPT (Packer et al., 2023, arXiv:2310.08560), Voyager (Wang et al., 2023, arXiv:2305.16291), ToRA (Gou et al., ICLR 2024, arXiv:2309.17452). Enquadramento explícito de verificação futura: "sua verificação e análise de adequação serão registradas na etapa 3 e na auditoria final, antes de entrarem no relatório". Cada entrada traz qualificador que impede atribuição de validação a este projeto ("transferência para educação é uma adaptação"; "sem estabelecer eficácia deste projeto"; "não validação de um modelo pedagógico"; "não prova benefício de compactar prompts"; "solver de agenda é uma escolha de engenharia própria"). Links conferidos como os do documento atual (arXiv/PMLR), sem acesso à rede — verificação de referências permanece para as etapas 3 e 10.
+  - **C4 (consolidação final, três critérios do plano) — resultado: conforme**, sem resíduos:
+    1. *Cobertura das seções do esqueleto* — percurso completo do documento (linhas 1–77): §1 escopo/premissas com hipótese como hipótese; §2 princípio arquitetural com diagrama Mermaid (`flowchart TD`, linhas 13–30, cobrindo os cinco agentes, orquestrador e camada de contratos/observabilidade); §3 tabela de responsabilidades e fronteiras dos cinco agentes (linhas 34–40); §4 ciclo mínimo em 7 passos com terminais explícitos (linha 52: "resposta, pedido de esclarecimento, espera por resposta do aluno, conflito de agenda, falha controlada e cancelamento"); §5 camadas transversais; §6 questões abertas; §7 referências de partida. Todas as seções exigidas presentes; consistência entre seções mantida (ex.: terminais de §4 alinhados com cancelamento/limites de §5; nomes dos agentes no grafo, na tabela e no ciclo coincidem).
+    2. *Nenhuma proposta como resultado medido* — varredura por números/métricas/resultados: não há valores medidos no documento; §1 mantém "A hipótese é que separação de responsabilidades, contratos verificáveis e memória seletiva melhorem continuidade e consistência sob orçamento local" e condiciona a comparação: "A comparação com um agente único deve usar as mesmas ferramentas, dados e limites de recursos"; "dataset e métricas" consta apenas como questão aberta (§6). Conforme.
+    3. *Questões abertas enumeradas e remetidas às etapas 2–4* — conforme evidência de C2 (remissão explícita no fechamento da seção 6). Conforme.
+    - **Divergência plano × fase 1** — nenhuma divergência nova relevante identificada nas seções 5–7; as registradas em 001/002 (exclusões do escopo; nomenclatura abreviada dos agentes) permanecem resolvidas com prevalência do plano, sem alteração.
+  - **C5 (verificador)** — `python3 fase2/scripts/verificar_documentos.py` a partir da raiz: saída `status: "passed"`, `bibliography_unique: 56`, `cited_unique: 44`, `missing_citations: []`, `steps: 11`, `components: 20`, `flows: 12`, `outputs: 18`, `failures: 24`, `local_links_checked: 39`, `delivery_pending: []` — passagem limpa, sem apontamentos referentes a `01_esqueleto_conceitual.md` (o verificador cobre todos os documentos da fase 2 e não reporta nenhum). **Limitações anotadas:** o verificador usa só a biblioteca padrão e não checa freshness de PDFs nem checksums; `delivery_pending: []` indica apenas ausência de entrega pendente declarada, não validação de PDF/ZIP. Verificação de rede/referências fora do escopo desta etapa (etapas 3 e 10).
+  - **Decisão de não alteração** — todas as conferências (C1–C4) e o verificador (C5) conformes; nenhuma correção necessária, portanto nenhum dif aplicado ao documento, preservando a prosa acadêmica intacta. Entrega consolidada como "sem alteração de artefatos".
 
 ## Notas
 
@@ -43,7 +53,7 @@ Restrições: preservar a prosa acadêmica em português; difs mínimos; não in
 4/10 — Seções curtas e com correspondência próxima ao plano, mas a task acumula a consolidação final de todo o documento e a execução do verificador; exige julgamento para distinguir resíduo real de estilo legítimo e para interpretar a saída do script (que cobre todos os documentos da fase 2, não só este).
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+3/10 — Correspondência 1:1 entre seções 5–7 e os bullets do plano tornou as conferências diretas; o verificador passou limpo na primeira execução. A única exigência de julgamento foi a consolidação final sobre o documento inteiro (C4), distinguir estilo legítimo de resíduo (nenhum encontrado) e anotar as limitações do verificador (sem checagem de PDF/checksums) sem apresentar `delivery_pending: []` como validação experimental.
 
 ### Revisão
 - Orquestrador: —
