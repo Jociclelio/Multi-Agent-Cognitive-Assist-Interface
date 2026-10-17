@@ -89,9 +89,10 @@ Aceite funcional do mapa §13.235, verificável por inspeção/execução:
 - Uma sessão retomada de checkpoint preserva item pendente, nível de ajuda e
   histórico do turno.
 - Uso de evidências: zero evidência → `insufficient`; sequência `favorable`
-  exige três tentativas independentes/aceitas/decidíveis de famílias distintas,
-  todas corretas e posteriores ao último erro crítico aceito
-  (mapa §8, §15.2) — regra aplicada exatamente como especificada.
+  exige as três tentativas mais recentes, independentes/aceitas/decidíveis e
+  no tópico, de famílias distintas, todas corretas e posteriores ao último
+  erro crítico aceito (mapa §8, §15.2) — regra aplicada exatamente como
+  especificada.
 - Ingestão acima dos limites é recusada ou dividida; versão incompleta nunca
   vira ativa (mapa §3, §12).
 - Manifesto congelado com versões reais (pacotes, modelo, tokenizer, skills)

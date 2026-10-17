@@ -6,6 +6,8 @@ Estado: rascunho
 Consolidar a pesquisa metodológica de testagem (documentos 07a/07b) em um documento de síntese (`fase2/documentos/07_metodologias_de_testagem.md`) que registre os métodos selecionados para cada família de saída/falha (O01–O18, F01–F24, C18/C19), as correções que a pesquisa exige em etapas anteriores e as decisões de implementação do testbed — mantendo o caráter de especificação (pesquisa dirigida), sem apresentá-lo como revisão sistemática ou resultado experimental medido.
 
 ## Abordagem
+Os itens abaixo descrevem o conteúdo já existente nos artefatos acordados, a ser validado nesta etapa, não produzido por ela.
+
 - Partir do relatório `07a` (métodos de qualidade, O01–O18) e do relatório `07b` (robustez e experimentos, F01–F24, C18/C19) e sintetizá-los em uma tabela única de métodos por família, com as referências/bibliotecas associadas (ex.: JiWER, BEIR, ALCE, RAGAs, Prometheus, LongMemEval, AgentDojo, Hypothesis, SciPy).
 - Registrar as referências bibliográficas novas em `references_avaliacao_qualidade.bib` e `references_robustez.bib`; reutilizar chaves existentes (não contá-las como evidência independente) e remover a duplicata `zheng2023judge` da bibliografia consolidada.
 - Documentar as seis correções exigidas pela pesquisa em etapas anteriores (faixas de CER/WER/kappa/log loss; semântica de DTSTAMP vs. CREATED na etapa4; definição implementável de "contradição recente"; ordem de conferência de `operation_id` no retry idempotente; alcance do diagnóstico INFEASIBLE da grade; denominadores completos de disponibilidade/TSR e regra de "contenção segura não é conclusão original").

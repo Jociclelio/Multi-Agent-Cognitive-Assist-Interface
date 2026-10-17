@@ -24,7 +24,7 @@ Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no
 - `fase2/documentos/08_mapa_completo_da_testagem.md` — mapa normativo de avaliação, referência para os critérios verificáveis e para C18/C19 (consultar conforme necessário).
 
 ## Critérios de conclusão
-- Cada componente C01–C20 está representado com suas características exigidas e critério verificável extraídos fielmente do documento-fonte.
+- Cada componente C01–C20 está representado nas tasks derivadas deste plano, com suas características exigidas e critério verificável extraídos fielmente do documento-fonte.
 - A ordem de implementação (núcleo, C18/C19 antes da otimização, opcionais) está registrada conforme a seção de dependências.
 - As seis ambiguidades estão listadas como decisões pendentes, sem resolver nenhuma delas arbitrariamente.
 

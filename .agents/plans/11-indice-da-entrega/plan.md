@@ -9,7 +9,7 @@ Manter o pacote de entrega da fase 2 íntegro e sincronizado: o índice (`11_ind
 1. Conferir se o índice lista corretamente os documentos das etapas 1–11, com links relativos válidos (`fase2/documentos/`, `fase2/pesquisa/`, relatório LaTeX/PDF, `references.bib`, `README-entrega.md`).
 2. Rodar a verificação documental focada: `python3 fase2/scripts/verificar_documentos.py`.
 3. Para confirmar a existência dos arquivos de entrega linkados (os dois PDFs e o ZIP — é isso que a flag faz; ela não checa `verificacao_documental.json` nem checksums): `python3 fase2/scripts/verificar_documentos.py --check-delivery`.
-4. Conferir checksums da entrega já existente em disco: `sha256sum -c fase2/SHA256SUMS.txt` a partir da raiz (opcionalmente, comparar também o `SHA256SUMS.txt` embutido no ZIP com a cópia em `fase2/`).
+4. Conferir checksums da entrega já existente em disco: `sha256sum -c fase2/SHA256SUMS.txt` a partir da raiz (o `SHA256SUMS.txt` cobre o conteúdo extraído, não o arquivo ZIP em si — integridade do ZIP por CRC; opcionalmente, comparar o `SHA256SUMS.txt` embutido no ZIP com a cópia em `fase2/`).
 5. Se documentos ou a entrega mudarem, regenerar/publicar com `python3 fase2/scripts/gerar_entrega.py` (valida antes; roda `pdflatex -> bibtex -> pdflatex -> pdflatex`; rejeita citações/referências indefinidas e overfull boxes; valida CRCs de ZIP e SHA-256). O script sobrescreve ambos os PDFs da fase 2, `verificacao_documental.json`, `SHA256SUMS.txt` e o ZIP.
 6. Atualizar o índice apenas se a lista de arquivos ou a estrutura do pacote mudar, preservando a prosa acadêmica em português.
 

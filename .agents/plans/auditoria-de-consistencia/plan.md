@@ -3,7 +3,7 @@
 Estado: rascunho
 
 ## Objetivo
-Reproduzir, como processo verificável, a auditoria independente de consistência registrada em `fase2/documentos/auditoria_de_consistencia.md`: confrontar os oito documentos metodológicos, as quatro pesquisas, a proposta e as instruções da fase 2, verificar a cobertura nominal C01–C20/W01–W12/O01–O18/F01–F24 e confirmar que as quinze decisões de correção listadas na tabela de achados estão incorporadas nos locais indicados ("Local vigente").
+Reproduzir, como processo verificável, a auditoria independente de consistência registrada em `fase2/documentos/auditoria_de_consistencia.md`: confrontar os documentos da fase 2, com verificação item a item delimitada conforme o Escopo, verificar a cobertura nominal C01–C20/W01–W12/O01–O18/F01–F24 e confirmar que as quinze decisões de correção listadas na tabela de achados estão incorporadas nos locais indicados ("Local vigente").
 
 ## Abordagem
 Auditoria somente leitura dos documentos; nenhuma verificação de implementação/execução é escopo (o documento-fonte registra explicitamente que o modelo/runtime, OCR/RAG, pipeline educacional e testbed não foram executados).
