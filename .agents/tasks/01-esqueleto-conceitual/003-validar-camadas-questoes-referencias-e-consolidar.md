@@ -1,6 +1,6 @@
 # Task 003: Validar camadas transversais, questões abertas, referências de partida e consolidação final (seções 5–7)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 002
 Origem: nenhuma
 
@@ -56,13 +56,15 @@ Restrições: preservar a prosa acadêmica em português; difs mínimos; não in
 3/10 — Correspondência 1:1 entre seções 5–7 e os bullets do plano tornou as conferências diretas; o verificador passou limpo na primeira execução. A única exigência de julgamento foi a consolidação final sobre o documento inteiro (C4), distinguir estilo legítimo de resíduo (nenhum encontrado) e anotar as limitações do verificador (sem checagem de PDF/checksums) sem apresentar `delivery_pending: []` como validação experimental.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in. Rodada **paralela** (três revisores em sessões independentes): a revisão é leitura/verificação documental com diffs e script stdlib, sem disputa de recursos compartilhados do sistema.
+- Alvo: base `815a474` (815a474f73f253b524df49f79edd367efa4684da); entrega **sem alteração de artefatos** (`git diff 815a474..HEAD -- fase2/` vazio, confirmado pelos três revisores); commit de registro revisado `2c63c46` (2c63c4652bf48361c548a7cac9cdffa8e9da1eb6), tocando somente o arquivo desta task; árvore limpa em `main`. Executor: sd2/GLM-5.3-Flash, sessão `ses_eb584f8faffekiTwda03YOqYc3`.
+- Avaliações: sd2/GLM-5.3-Flash: 9/10 (ses_eb5845bbfffemsaaK24L1CJCgO); openai/gpt-6-luna: 10/10 (ses_eb5845b8affe13ZimdhA3XU5c4); opencode/mimo-v2.6-flash-free: 9/10 (ses_eb5845b58ffeSCYAME0hpkuZgu). Quórum de três modelos distintos cumprido; nenhum revisor falhou, nenhuma substituição necessária. Os três receberam o mesmo pedido (mesmo caminho, base, SHAs e registro), sem acesso aos pareceres dos demais, e leram as fontes por conta própria. Observação registrada: o revisor GLM-5.3-Flash coincide com o modelo do executor (configuração explícita do ciclo); os demais dois revisores são de modelos distintos, preservando a independência do quórum.
+- Nota final: 9/10 — todos os critérios C1–C5 verificados de forma independente e reprodutíveis pelos três revisores: correspondência 1:1 das oito camadas (documento linhas 56–63 × plano), das onze questões abertas com remissão explícita às etapas 2–4 (linha 67) e das cinco referências por verificar (linhas 71–77); consolidação final conforme nos três critérios de conclusão do plano, sem resíduos; verificador reproduzido pelos três com passagem limpa idêntica (`status: "passed"`, 39 links locais, sem apontamentos para `01_esqueleto_conceitual.md`); isolamento (commit único de registro, dif de artefatos vazio, seção Revisão intocada, sem marcador task-cycle) e restrições (nada medido, nada resolvido, referências não validadas, prosa preservada) confirmados. A nota não é média automática: dá-se 9/10 (não 10) porque persistem imprecisões leves no registro (abaixo) e margem residual de julgamento em C4, sem impacto na conformidade.
+- Parecer: nenhum achado bloqueante ou de severidade média/alta; Corretude C1–C5 sem pendência. Achados registrados (todos severidade baixa, não bloqueantes, sem necessidade de correção): (1) MiMo — evidência C3 do registro cita "cinco entradas (linhas 71–77)", mas as entradas estão em 73–77 (a linha 71 é o parágrafo de enquadramento); imprecisão de intervalo, conferência em si correta; (2) MiMo — evidência C4 afirma que "nomes dos agentes no grafo, na tabela e no ciclo coincidem", sendo que a tabela usa nomes abreviados (já reconhecido no próprio registro como divergência plano × fase 1 resolvida); formulação ligeiramente superlativa; (3) GLM — margem residual de julgamento subjetivo na varredura de resíduos de C4, sem achado concreto. Divergências essenciais entre pareceres: nenhuma (variação 9/10 vs. 10/10 reflete apenas critério de margem). Os três revisores recomendam fechar.
+- Decisão: fechar
+- Reversão: não se aplica — sem alteração de artefatos
+- Próximo passo: nenhuma task restante no plano; família 001→002→003 completa (todas fechadas com decisão "fechar"). Critérios de conclusão do plano com evidência: C4 desta task (consolidação final conforme) e registros de 001/002. Plano `01-esqueleto-conceitual` marcado concluído no índice.
+
+<!-- task-cycle: {"decision":"concluido","next_task":null,"family":".agents/tasks/01-esqueleto-conceitual/001-validar-escopo-premissas-e-principio-arquitetural.md","plan":".agents/plans/01-esqueleto-conceitual/plan.md"} -->
 
 Plano: [plan.md](../../plans/01-esqueleto-conceitual/plan.md)

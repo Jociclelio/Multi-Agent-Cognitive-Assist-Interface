@@ -1,6 +1,6 @@
 # Plano: Esqueleto conceitual do EduAgent-OS
 
-Estado: aprovado
+Estado: concluído (família 001→002→003 fechada com decisão "fechar" em todas as tasks; critérios de conclusão com evidência nos registros — consolidação final conforme na task 003; verificador `verificar_documentos.py` com passagem limpa)
 
 ## Objetivo
 Documentar a etapa 1 (esqueleto conceitual) do EduAgent-OS como proposta de implementação: recorte de escopo, princípio arquitetural multiagente com modelo local, responsabilidades e fronteiras dos cinco agentes lógicos, ciclo mínimo de funcionário, camadas transversais e questões abertas remetidas às etapas seguintes.
@@ -35,6 +35,6 @@ As próprias questões abertas do documento (configuração verificável do Bons
 ## Tasks
 1. [001-validar-escopo-premissas-e-principio-arquitetural](../../tasks/01-esqueleto-conceitual/001-validar-escopo-premissas-e-principio-arquitetural.md) — valida e consolida as seções 1 (escopo/premissas, hipótese como hipótese) e 2 (princípio arquitetural e diagrama Mermaid). Depende de: nenhuma. Estado: fechada (quórum 3/3 modelos distintos, nota final 9/10, decisão fechar; sem alteração de artefatos, registro `ba4e283`).
 2. [002-validar-agentes-e-ciclo-minimo](../../tasks/01-esqueleto-conceitual/002-validar-agentes-e-ciclo-minimo.md) — valida e consolida a tabela de responsabilidades/fronteiras dos cinco agentes (seção 3) e o ciclo mínimo com terminais explícitos (seção 4). Depende de: 001 (resolvida). Estado: fechada (quórum 3/3 modelos distintos, nota final 9/10, decisão fechar; sem alteração de artefatos, registro `1ae71ae`).
-3. [003-validar-camadas-questoes-referencias-e-consolidar](../../tasks/01-esqueleto-conceitual/003-validar-camadas-questoes-referencias-e-consolidar.md) — valida camadas transversais (seção 5), questões abertas remetidas às etapas 2–4 (seção 6) e referências de partida por verificar (seção 7); faz a consolidação final contra os critérios de conclusão e roda `fase2/scripts/verificar_documentos.py`. Depende de: 002 (resolvida). Estado: liberada.
+3. [003-validar-camadas-questoes-referencias-e-consolidar](../../tasks/01-esqueleto-conceitual/003-validar-camadas-questoes-referencias-e-consolidar.md) — valida camadas transversais (seção 5), questões abertas remetidas às etapas 2–4 (seção 6) e referências de partida por verificar (seção 7); faz a consolidação final contra os critérios de conclusão e roda `fase2/scripts/verificar_documentos.py`. Depende de: 002 (resolvida). Estado: fechada (quórum 3/3 modelos distintos, nota final 9/10, decisão fechar; sem alteração de artefatos, registro `2c63c46`).
 
 Cobertura: as três tasks cobrem todas as seções do esqueleto exigidas pelos critérios de conclusão (escopo/premissas, princípio arquitetural com diagrama, responsabilidades e fronteiras dos cinco agentes, ciclo mínimo com terminais, camadas transversais, questões abertas e referências de partida), além da restrição de nenhuma proposta como resultado medido. O documento da etapa 1 já existe commitado; as tasks validam/consolidam, não reescrevem do zero.
