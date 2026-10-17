@@ -52,13 +52,15 @@ Restrições: preservar a prosa acadêmica em português e o formato de tabela/l
 2/10 — Abaixo do esperado: tabela e lista são curtas e têm correspondência quase literal com o plano, e o mapa normativo usa exatamente os mesmos nomes curtos de agentes, o que simplificou o julgamento de nomenclatura. Os dois pontos de juízo (nomes abreviados na tabela vs. nomes completos do plano; caminho de fatos Curador→Bibliotecário sugerido pela revisão da 001) foram resolvidos como diferenças de granularidade/ausência de contradição, sem necessidade de correção — a disciplina foi documentar esses julgamentos em Evidências em vez de alterar o documento.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in. Rodada **paralela** (três revisores em sessões independentes): revisão é leitura/verificação documental com diffs e scripts stdlib, sem disputa de recursos compartilhados do sistema.
+- Alvo: base `95d2b36` (95d2b36018a8e760c3de2370e028c531409daeac); entrega **sem alteração de artefatos** (`git diff 95d2b36..HEAD -- fase2/` vazio, confirmado pelos três revisores); commit de registro revisado `1ae71ae` (1ae71ae92d3678fe48cd33244681499bc54b18ea), tocando somente o arquivo desta task; árvore limpa em `main`. Executor: sd2/GLM-5.3-Flash, sessão `ses_eb589427bffe7M6mOVWeOWOWE5`.
+- Avaliações: sd2/GLM-5.3-Flash: 9/10 (ses_eb58897afffe0CWzZ5a6GuC4Jh); openai/gpt-6-luna: 10/10 (ses_eb5889777ffehwrdjT1mkSGOeY); opencode/mimo-v2.6-flash-free: 9/10 (ses_eb5889742ffehOvj1NkXQapROb). Quórum de três modelos distintos cumprido. Nenhum revisor falhou; nenhuma substituição foi necessária. Observação registrada: o revisor GLM-5.3-Flash coincide com o modelo do executor (configuração explícita do ciclo); os demais dois revisores são de modelos distintos, preservando a independência do quórum. Os três verificaram identidade, base e árvore por conta própria, reproduziram `verificar_documentos.py` → passed (39 links, sem citações pendentes) e confirmaram o diff de artefatos vazio.
+- Nota final: 9/10 — todos os critérios C1–C5 verificados de forma independente e atendidos pelos três revisores; o registro em Evidências foi confrontado linha a linha contra as fontes e conferiu (citações de linhas 34–40 e 44–52 do documento, grafo do mapa linhas 13/17/21/24/27, ferramentas linhas 199–200). C5 sem alteração de artefatos é correto dado o resultado "nenhuma lacuna ou inconsistência factual". Deduções compartilhadas: identidade do executor não verificável externamente (limitação declarada, sem impacto) e paráfrase do terminal "espera por resposta do aluno" vs. "espera pelo aluno" (mesmo significado; o mapa usa `waiting_student`, reforçando a equivalência) — nenhuma exige correção.
+- Parecer: nenhum achado bloqueante ou de severidade média/alta; apenas observações de severidade baixa/informativas: (1) paráfrase do terminal de espera do aluno (GLM e MiMo), aceitável e coerente com o mapa normativo; (2) julgamento sobre a ausência de aresta Curador→Bibliotecário validado contra o esqueleto e o mapa (nenhum dos dois desenha a aresta direta; sem contradição com o ciclo) — encaminhamento a refinamento de design futuro considerado adequado (GLM, MiMo). Os dois pontos de juízo (nomes abreviados na tabela vs. nomes completos do plano; Orquestrador conceitual vs. LangGraph no mapa) foram corretamente classificados como diferença de granularidade, não inconsistência factual, conforme a instrução da task. Divergências essenciais entre pareceres: nenhuma (variação de nota 9/10 vs. 10/10 reflete apenas critério de margem, sem achado divergente).
+- Decisão: fechar
+- Reversão: não se aplica
+- Próximo passo: liberar a task 003 (`.agents/tasks/01-esqueleto-conceitual/003-validar-camadas-questoes-referencias-e-consolidar.md`), que fecha as seções 5–7 e faz a consolidação final contra os critérios de conclusão.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/01-esqueleto-conceitual/003-validar-camadas-questoes-referencias-e-consolidar.md","family":".agents/tasks/01-esqueleto-conceitual/001-validar-escopo-premissas-e-principio-arquitetural.md","plan":".agents/plans/01-esqueleto-conceitual/plan.md"} -->
 
 Plano: [plan.md](../../plans/01-esqueleto-conceitual/plan.md)
