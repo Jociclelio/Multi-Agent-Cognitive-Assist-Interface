@@ -35,4 +35,15 @@ Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no
 4. Definições de orçamentos (chamadas, tempo, reparos — C17) e demais parâmetros não constam do documento e não devem ser inventados aqui.
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Componentes | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-validar-fundacao-inferencia-ingestao-ontologia.md](../../tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md) | C01, C02, C03 | nenhuma | pendente |
+| 2 | [002-validar-rag-e-memoria-persistente.md](../../tasks/02-componentes-e-requisitos/002-validar-rag-e-memoria-persistente.md) | C04, C09 | 001 | pendente |
+| 3 | [003-validar-tutor-monitor-e-estado-de-aprendizagem.md](../../tasks/02-componentes-e-requisitos/003-validar-tutor-monitor-e-estado-de-aprendizagem.md) | C06, C07, C08 | 002 | pendente |
+| 4 | [004-validar-planejamento-solver-e-agenda.md](../../tasks/02-componentes-e-requisitos/004-validar-planejamento-solver-e-agenda.md) | C11, C12 (ICS local) | 003 | pendente |
+| 5 | [005-validar-orquestracao-contratos-e-politica-de-ferramentas.md](../../tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md) | C13, C14, C15 | 004 | pendente |
+| 6 | [006-validar-persistencia-observabilidade-e-empacotamento.md](../../tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md) | C16, C17, C20 | 005 | pendente |
+| 7 | [007-validar-dados-e-avaliacao-experimental.md](../../tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md) | C18, C19 | 006 | pendente |
+| 8 | [008-validar-opcionais-e-consolidar-cobertura-c01-c20.md](../../tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md) | C05, sinc. remota de C12 + consolidação | 007 | pendente |
+
+Cobertura da cadeia do fonte: núcleo C01 → C02/C03 → C04/C09 → C06/C07/C08 → C11 (tasks 001–004), sustentado por C13–C17/C20 (tasks 005–006), C18/C19 antes da otimização (task 007), opcionais C05 e sincronização remota de C12 (task 008). Todas as especificações são extraídas fielmente de `fase2/documentos/02_componentes_e_requisitos.md`, que permanece intocado como fonte normativo; as seis ambiguidades permanecem decisões pendentes.
