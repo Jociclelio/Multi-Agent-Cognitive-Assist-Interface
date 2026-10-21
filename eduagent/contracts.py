@@ -729,8 +729,9 @@ class TutorTurn(_StrictModel):
 
 class Assessment(_StrictModel):
     """``Assessment`` — avaliação por critérios com spans (mapa §4/§8/§15.2).
-    Span existe salvo ``evidence_kind='missing'``; ``missing`` exige span nulo
-    e descrição do critério ausente em ``reason`` (§15.2).
+    Span existe salvo ``evidence_kind='missing'``; ``missing`` exige span
+    nulo, nível 0 ("missing" significa critério ausente — nível não pode ser
+    >0, §15.2) e descrição do critério ausente em ``reason``.
 
     ``evidence_kind='undecidable'`` (§15.2: "``undecidable`` não atualiza
     competência") marca critério essencial que o julgamento NÃO decidiu —
@@ -739,8 +740,9 @@ class Assessment(_StrictModel):
     para silêncio, §15.2) e ``reason`` descreve o motivo. A regra de §4
     "span existe salvo evidence_kind=missing" governa evidência julgada
     (present/missing); ``undecidable`` é a exceção não inferencial fechada
-    aqui — nível>0 sem span válido continua impossível por construção
-    (invariante F4 da revisão da 009)."""
+    aqui — nível>0 sem evidência julgada com span válido é impossível por
+    construção (invariante F4 da revisão da 009, estendida a ``missing``
+    na 009b)."""
 
     class EvidenceKind(str, Enum):
         PRESENT = "present"
@@ -772,8 +774,10 @@ class Assessment(_StrictModel):
         def _span_invariants(self) -> "Assessment.CriterionResult":
             # §15.2: evidence_kind=present requer offsets válidos; missing e
             # undecidable exigem span=null (não inventar span para silêncio).
-            # undecidable é marcador não inferencial: nível 0 nunca é veredito
-            # — nível>0 sem evidência julgada é impossível por construção.
+            # missing significa critério ausente (§15.2) e undecidable é
+            # marcador não inferencial: ambos exigem nível 0 — nível>0 sem
+            # evidência julgada é impossível por construção (invariante F4
+            # da revisão da 009, estendida a missing na 009b).
             if self.evidence_kind in (
                 Assessment.EvidenceKind.MISSING,
                 Assessment.EvidenceKind.UNDECIDABLE,
@@ -783,12 +787,17 @@ class Assessment(_StrictModel):
                         f"evidence_kind='{self.evidence_kind.value}' exige "
                         "response_span nulo"
                     )
-                if self.evidence_kind is (
-                    Assessment.EvidenceKind.UNDECIDABLE
-                ) and self.level != 0:
+                if self.level != 0:
+                    if self.evidence_kind is (
+                        Assessment.EvidenceKind.UNDECIDABLE
+                    ):
+                        raise ValueError(
+                            "evidence_kind='undecidable' é marcador não "
+                            "inferencial: nível deve ser 0 (nunca veredito)"
+                        )
                     raise ValueError(
-                        "evidence_kind='undecidable' é marcador não "
-                        "inferencial: nível deve ser 0 (nunca veredito)"
+                        "evidence_kind='missing' significa critério "
+                        "ausente: nível deve ser 0 (não pode ser >0, §15.2)"
                     )
             else:
                 if self.response_span is None:

@@ -826,6 +826,25 @@ class AssessmentService:
         # a agregação dos critérios decididos tem de coincidir com o rótulo
         # global — divergência formal é recusada, não abstida (o Monitor
         # abstém, o redutor recusa).
+        # 009b-A1 (F4/§15.2): ``missing`` significa critério ausente —
+        # critério com nível>0 em evidence_kind='missing' não compõe
+        # competência. A construção já recusa (invariante do contrato);
+        # assessment deserializado/externo que contorne o contrato é
+        # recusado aqui com erro tipado (divergência formal é recusa,
+        # nunca abstinência nem projeção de estado).
+        for result in assessment.criterion_results:
+            if (
+                result.evidence_kind is Assessment.EvidenceKind.MISSING
+                and result.level != 0
+            ):
+                raise EduAgentError(
+                    ErrorCode.SCHEMA_INVALID,
+                    f"critério {result.criterion_id!r} com evidence_kind="
+                    f"'missing' e nível {result.level}: missing significa "
+                    "critério ausente — nível deve ser 0 (§15.2); "
+                    "divergência formal é recusa, não abstinência",
+                    diagnostic=_DIAGNOSTIC,
+                )
         if assessment.reliability is Assessment.Reliability.ACCEPTED:
             has_undecidable = any(
                 result.evidence_kind is Assessment.EvidenceKind.UNDECIDABLE
@@ -1071,7 +1090,8 @@ class AssessmentService:
                         diagnostic=_DIAGNOSTIC,
                     ) from exc
                 event_row = conn.execute(
-                    "SELECT user_id, payload_json FROM events WHERE id = ?",
+                    "SELECT user_id, kind, payload_json FROM events "
+                    "WHERE id = ?",
                     (str(ref.id),),
                 ).fetchone()
         if item is None:
@@ -1089,6 +1109,17 @@ class AssessmentService:
                 ErrorCode.SOURCE_UNRESOLVED,
                 "rubrica publicada do item não resolve (evento de "
                 "publicação ausente para o usuário)",
+                diagnostic=_DIAGNOSTIC,
+            )
+        # 009b-A2: a resolução exige o evento de PUBLICAÇÃO do item —
+        # evento homônimo (payload com lista ``rubric``) com outra kind é
+        # recusado (nunca ler rubrica de evento que não é ``item_published``).
+        if event_row["kind"] != "item_published":
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                "rubric_ref do item não resolve para evento de publicação: "
+                f"evento com kind '{event_row['kind']}' (esperado "
+                "'item_published')",
                 diagnostic=_DIAGNOSTIC,
             )
         try:

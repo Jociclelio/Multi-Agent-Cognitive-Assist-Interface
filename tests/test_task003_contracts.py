@@ -544,6 +544,30 @@ def test_assessment_undecidable_evidence_invariants():
         )
 
 
+def test_assessment_missing_evidence_requires_zero_level():
+    # 009b-A1 (F4/§15.2): missing significa critério ausente — nível não
+    # pode ser >0; span nulo com nível 0 constrói normalmente (marcador de
+    # ausência, não veredito).
+    marker = C.Assessment.CriterionResult(
+        criterion_id="c1", topic_ids=[UID], level=0,
+        evidence_kind="missing", response_span=None,
+        reason="critério ausente na resposta",
+    )
+    assert marker.evidence_kind is C.Assessment.EvidenceKind.MISSING
+    with pytest.raises(Exception, match="ausente"):
+        C.Assessment.CriterionResult(
+            criterion_id="c1", topic_ids=[UID], level=2,
+            evidence_kind="missing", response_span=None,
+            reason="missing com nível>0",
+        )
+    with pytest.raises(Exception, match="ausente"):
+        C.Assessment.CriterionResult(
+            criterion_id="c1", topic_ids=[UID], level=1,
+            evidence_kind="missing", response_span=None,
+            reason="missing com nível>0",
+        )
+
+
 def test_tutor_hint_level_invariants():
     with pytest.raises(Exception, match="hint"):
         C.TutorTurn(skill_id="graduated_hint", skill_version=1,

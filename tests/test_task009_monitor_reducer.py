@@ -55,6 +55,8 @@ Tabela de testes (código → caso):
 | S2 | record_attempt: ordinal no commit e independência julgada no commit |
 | S3 | (009a-F3/C5) retry idempotente: check por operation_id e record_attempt por attempt_id |
 | S4 | (009a-A2/C4) critical_criterion_ids validado contra a rubrica publicada |
+| S5 | (009b-A1) check recusa assessment externo com missing nível>0; replay idempotente precedente |
+| S6 | (009b-A2) rubric_ref exige kind='item_published' — evento homônimo com outra kind recusado |
 """
 
 from __future__ import annotations
@@ -1435,6 +1437,155 @@ class TestStorageAndService:
         result = world.assess(record, item, levels=[2, 2])
         assert result.accepted
         assert _state(env).status is TopicState.TopicStatus.MIXED
+
+    def test_s5_check_rejects_external_missing_with_positive_level(self, env):
+        # 009b-A1 (F4/§15.2): ``missing`` significa critério ausente —
+        # assessment deserializado/externo com critério missing nível>0 é
+        # RECUSADO por check() com erro tipado (divergência formal é recusa,
+        # não abstinência nem composição de competência); sem commit de
+        # estado/evento/assessment. O replay idempotente por operation_id
+        # (S3) permanece a primeira operação — retry posterior do chamador
+        # original ainda devolve o recibo anterior.
+        service, store = env
+        world = World(service, store)
+        item = world.item(1)
+        record = world.attempt(item, 1, occurred=T0)
+        operation = str(_uid(4244))
+        first = world.assess(record, item, levels=[2, 2],
+                             operation_id=operation)
+        assert first.accepted
+        # Assessment externo que contorna o contrato (como na desserialização
+        # de fonte não confiável): critério missing com nível 2.
+        bad_result = Assessment.CriterionResult.model_construct(
+            criterion_id="c1",
+            topic_ids=[_uuid.UUID(TOPIC_A)],
+            level=2,
+            evidence_kind=Assessment.EvidenceKind.MISSING,
+            response_span=None,
+            reason="missing com nível>0 (assessment externo)",
+            misconception_code=None,
+        )
+        bad = Assessment.model_construct(
+            attempt_id=record.attempt_id,
+            item_ref=Ref(kind="item", id=item, version=1),
+            assessment_revision=2,
+            supersedes=Ref(kind="assessment", id=first.assessment_id,
+                           version=1),
+            criterion_results=[bad_result],
+            correctness=Assessment.Correctness.CORRECT,
+            help_level=0,
+            revealed=False,
+            evidence_ids=[],
+            reliability=Assessment.Reliability.ACCEPTED,
+            reason="assessment externo divergente",
+        )
+        with pytest.raises(EduAgentError) as excinfo:
+            service.check(
+                user_id=UID,
+                session_id=SESSION,
+                assessment=bad,
+                critical_criterion_ids=["c1"],
+            )
+        assert excinfo.value.code is ErrorCode.SCHEMA_INVALID
+        assert "missing" in excinfo.value.message
+        # Nada foi commitado além do primeiro assessment: revision 2 não
+        # existe, nenhum evento novo foi emitido, estado inalterado.
+        with store.read_transaction() as conn:
+            assert conn.execute(
+                "SELECT COUNT(*) AS n FROM assessments "
+                "WHERE attempt_user_id = ?",
+                (UID,),
+            ).fetchone()["n"] == 1
+            assert conn.execute(
+                "SELECT COUNT(*) AS n FROM events WHERE user_id = ? "
+                "AND kind = 'assessment_recorded'",
+                (UID,),
+            ).fetchone()["n"] == 1
+        assert _state(env).status is TopicState.TopicStatus.MIXED
+        # Replay idempotente do chamador original permanece intacto (§11:
+        # primeiro verifica operation_id; a recusa acima não o afetou).
+        retry = world.assess(record, item, levels=[2, 2],
+                             operation_id=operation)
+        assert retry.receipt.operation_id == first.receipt.operation_id
+        assert retry.receipt.was_retry is True
+
+    def test_s6_rubric_ref_requires_item_published_kind(self, env):
+        # 009b-A2: a resolução de items.rubric_ref exige o evento de
+        # publicação — evento homônimo (payload com lista ``rubric``) com
+        # outra kind é recusado com erro tipado, antes de comparar
+        # critical_criterion_ids.
+        service, store = env
+        world = World(service, store)
+        item_id = _uid(8001)
+        event_id = str(_uid(8002))
+        rubric = [
+            {"criterion_id": "c1", "topic_ids": [TOPIC_A],
+             "description": "critério c1 publicado", "critical": True},
+            {"criterion_id": "c2", "topic_ids": [TOPIC_A],
+             "description": "critério c2 publicado", "critical": False},
+        ]
+        payload = {"item_id": str(item_id), "rubric": rubric}
+        occurred = T0.astimezone(timezone.utc).isoformat()
+        store.execute_write(
+            UID,
+            [
+                (
+                    "INSERT INTO events(id, user_id, session_id, kind, "
+                    "payload_json, occurred_at, recorded_at) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (
+                        event_id,
+                        UID,
+                        None,
+                        "attempt_recorded",
+                        json.dumps(payload, sort_keys=True),
+                        occurred,
+                        occurred,
+                    ),
+                ),
+                (
+                    "INSERT INTO items(id, user_id, family_id, version, "
+                    "prompt, answer_ref, rubric_ref, source_refs_json) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        str(item_id),
+                        UID,
+                        str(_uid(1)),
+                        1,
+                        "enunciado",
+                        f"event:{event_id}@1",
+                        f"event:{event_id}@1",
+                        "[]",
+                    ),
+                ),
+            ],
+        )
+        record = world.attempt(item_id, 1, occurred=T0)
+        with pytest.raises(EduAgentError) as excinfo:
+            world.assess(record, item_id, levels=[2, 2])
+        assert excinfo.value.code is ErrorCode.SCHEMA_INVALID
+        assert "item_published" in excinfo.value.message
+        # Nada foi commitado: sem assessment, sem estado, sem evento.
+        with store.read_transaction() as conn:
+            assert conn.execute(
+                "SELECT COUNT(*) AS n FROM assessments "
+                "WHERE attempt_user_id = ?",
+                (UID,),
+            ).fetchone()["n"] == 0
+            assert conn.execute(
+                "SELECT COUNT(*) AS n FROM topic_states WHERE user_id = ?",
+                (UID,),
+            ).fetchone()["n"] == 0
+            assert conn.execute(
+                "SELECT COUNT(*) AS n FROM events WHERE user_id = ? "
+                "AND kind = 'assessment_recorded'",
+                (UID,),
+            ).fetchone()["n"] == 0
+        # Item com o evento de publicação correto resolve normalmente
+        # (forma canônica do World.item).
+        item_ok = world.item(1)
+        record_ok = world.attempt(item_ok, 1, occurred=T0)
+        assert world.assess(record_ok, item_ok, levels=[2, 2]).accepted
 
     def test_pure_projection_ignores_abstain_as_current(self, env):
         service, store = env
