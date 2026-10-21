@@ -1,6 +1,6 @@
 # Task 002: Manifesto/hardware e gate de modelo Bonsai 2 (mapa §3.1, §13.1)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 001
 Origem: nenhuma
 

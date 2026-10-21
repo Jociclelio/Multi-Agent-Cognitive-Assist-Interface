@@ -39,13 +39,14 @@ Implementar em `eduagent/contracts.py` (e módulos afins) todos os contratos do 
 4/10 — O volume de contratos foi o principal custo (11 artefatos + envelope + estado + 12 erros, ~1.300 linhas), mas o mapa §4/§15.2 é preciso e reduziu ambiguidade; enums e nomes de ação não fixados pelo mapa (kinds de evento, ações de `Operation`, statuses de envelope) foram definidos como defaults de ensaio documentados no docstring. Dois pontos exigiram cuidado real: (1) o requisito "datas parciais sem coerção para datetime" precisa de before-validators próprios — o modo lax do Pydantic 2.14 aceitava `datetime` em campo `date` e `bool`/`"3"` em campos int, contornando validadores `after`; resolvido com `StrictInt`/`StrictBool` e validadores `before` explícitos (o `strict=True` integral foi descartado porque rejeitaria as strings ISO-8601 que o próprio mapa exige aceitar); (2) a forward reference `MemoryPack→TopicState` (ordem da tabela §4) exigiu `model_rebuild()`. A absorção do F1 no adaptador foi encontrada por acaso ao reexercitar `_validate_messages` offline — o gap real (`tool_calls` sob papel permitido) não era visível só lendo o gate da 002.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (sd2), sessão master do ciclo opt-in.
+- Alvo: base `64a1e162510ab954130acce4b766804331a3ea42`; entrega `82bac2dd3600967358f1db42154913a3c7375834`; registro `7259ec061bb8163ac520cf95deb122156ca0a04c` (HEAD confirmado, árvore limpa durante toda a rodada). Modo da rodada: **paralelo** — revisão por leitura, probes e testes curtos de contratos; sem disputa de recursos exclusivos (GPU/portas não envolvidas; revisores isolaram escritas em /tmp/opencode).
+- Avaliações: (1) `sd2/GLM-5.3-Flash` — 9/10, aprovada; 17 verificações independentes próprias, 61 testes em cópia isolada, regeneração byte a byte dos schemas e F1 da 002 reproduzido; ressalvas baixas A1' (import local em validator), A2' (`.gitkeep` em schemas/), A3' (`topic_id` extra em `TopicState`, documentado como extrapolação coerente com o DDL). (2) `openai/gpt-6-luna` — 9/10, aprovada; 61 testes e `--check` ok; sem achado concreto bloqueante. (3) `opencode/mimo-v2.6-flash-free` — 7,5/10, requer correção; probes P1–P11 com evidência por linha: **A1 (alto)** `StudyDemand` aceita `mandatory=True` com `duration_status="estimated"` (mapa §4 "restrição dura exige confirmação"; §15.3; §8 "não converter incerteza em obrigação"), contradizendo a checkbox C1 marcada pelo executor; **A2 (médio)** `error_codes` aceita código inventado fora dos 12 do §4; **A3 (médio)** `ToolRequest` carrega `sender_role` no payload e o teste usa papel atribuído, não alegado; **A4 (baixo)** `timezone` sem `max_length`; **A5 (baixo)** `EnvelopeStatus`/`EventKind` sem rótulo de default de ensaio (divergência relato×código); **A6 (baixo)** `jsonschema` só transitivo no lock.
+- Síntese: convergência plena em C2 (envelope, grafo, 12 erros, F1), C3 (15 schemas regeneráveis, round-trip) e C4 (mapa/plano/submódulo intocados, commits separados). Divergência essencial em C1: o parecer reprovador apresenta evidência concreta e específica de duas invariantes da tabela §4 não implementadas, que os outros dois revisores não exercitaram; por contrato, o master não desempata abrindo fontes ou rodando testes — a verificação normativa cabe à subtask de correção. Pendência essencial não pode ser escondida atrás da aprovação majoritária.
+- Nota final: 8/10 — entrega extensa (~1.300 linhas), isolada e com evidência forte e verificada de forma independente por três modelos; desconto pela pendência essencial de C1 (A1/A2) a esclarecer e corrigir.
+- Parecer: entrega preservada; correção delimitada aos invariantes disputados da tabela §4 e achados acessórios aproveitáveis; nenhuma reversão necessária.
+- Decisão: corrigir
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: subtask de correção da 003 (criação pendente; path a ser registrado no índice).
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
