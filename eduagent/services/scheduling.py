@@ -1747,6 +1747,31 @@ def _usable_slots(
     return usable, fixed_study
 
 
+def _merged_availability(
+    problem: SchedulingProblem, day: date
+) -> list[tuple[int, int]]:
+    """União das janelas de disponibilidade do dia (decisão de codificação
+    da 012a, §9/§15.5): janelas adjacentes ou sobrepostas do mesmo dia
+    colapsam em intervalos contíguos. É a mesma semântica da grade
+    (``_usable_slots`` constrói os slots utilizáveis como união das janelas)
+    e do enumerador (runs contíguos sobre esses slots); o verificador
+    reaplica a restrição nos minutos originais sem arredondamento —
+    arredondamento para dentro **por janela** e bloqueios para fora
+    permanecem na grade. Vão entre janelas disjuntas não é cobertura."""
+    intervals = sorted(
+        (window.start_minute, window.end_minute)
+        for window in problem.availability
+        if window.day == day
+    )
+    merged: list[list[int]] = []
+    for start, end in intervals:
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return [(start, end) for start, end in merged]
+
+
 def _build_grid(
     problem: SchedulingProblem, settings: SolverSettings
 ) -> _Grid:
@@ -2277,17 +2302,19 @@ def _verify_placement(
             issues.append(
                 f"bloco {block.block_id} atravessa meia-noite local (§15.5)"
             )
-        # Disponibilidade nos instantes originais, sem arredondamento.
+        # Disponibilidade nos instantes originais, sem arredondamento,
+        # pela união das janelas do dia (decisão da 012a): mesma semântica
+        # da grade/enumerador, cujos candidatos contíguos cobrem runs sobre
+        # janelas adjacentes/sobrepostas (§9); contenção em janela única
+        # rejeitaria entrada confirmada legítima como INTERNAL_FAILURE.
         day = start_local.date()
         start_minute = _wall_minutes_of(block.start_utc, day, problem.local_timezone)
         end_minute = start_minute + int(
             (block.end_utc - block.start_utc).total_seconds() // 60
         )
         covered = any(
-            window.day == day
-            and window.start_minute <= start_minute
-            and end_minute <= window.end_minute
-            for window in problem.availability
+            start_minute >= window_start and end_minute <= window_end
+            for window_start, window_end in _merged_availability(problem, day)
         )
         if not covered:
             issues.append(

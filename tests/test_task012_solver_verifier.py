@@ -51,6 +51,10 @@ Tabela de testes (código → caso):
 | K1 | config default.yaml alimenta SolverSettings (10/15/7/0/1) e from_mapping |
 | K2 | slot_minutes e horizon_days da config governam o solve |
 | R1 | schedule.solve só pode ser proposto pelo Planejador (mapa §10) |
+| J1 | janelas adjacentes (8:15–9:15 e 9:15–10:15) com obrigatória de 90 min: solução válida publicada, nunca INTERNAL_FAILURE (correção 012a) |
+| J2 | janelas sobrepostas sem janela única que caiba a demanda: união das janelas governa enumerador e verificador (correção 012a) |
+| J3 | verificador: emenda adjacente é cobertura pela união; vão entre janelas disjuntas é rejeitado (bloqueios para fora, §9) |
+| J4 | identidade do diff preservada entre preview e proposta: movida mantém block_id/uid; ocorrências distintas nunca colidem na mesma identidade |
 """
 
 from __future__ import annotations
@@ -1075,3 +1079,189 @@ def test_r1_schedule_solve_so_pelo_planejador():
             settings=SolverSettings(solver_budget_s=1.0),
         )
     assert exc_curator.value.code is ErrorCode.TOOL_DENIED
+
+
+# ---------------------------------------------------------------------------
+# Correção 012a — janelas adjacentes/sobrepostas (§9/§15.5) e identidade do
+# diff. Decisão de semântica (a): o verificador valida cobertura pela união
+# das janelas do dia — a mesma semântica da grade (``_usable_slots``) e do
+# enumerador (runs contíguos sobre a união). INTERNAL_FAILURE é reservado a
+# contradição interna genuína (§15.5), nunca a entrada confirmada legítima.
+# ---------------------------------------------------------------------------
+
+
+def test_j1_janelas_adjacentes_nao_geram_internal_failure():
+    # Sonda da revisão da 012 (achado A1): janelas adjacentes 8:15–9:15 e
+    # 9:15–10:15 com obrigatória de 90 min. Antes da correção, o
+    # verificador exigia contenção em janela única e ``schedule.solve``
+    # devolvia INTERNAL_FAILURE para entrada confirmada legítima.
+    demand = _demand(1, duration=90, mandatory=True)
+    problem = SchedulingProblem(
+        user_id="u",
+        horizon_start=D0,
+        local_timezone=None,
+        snapshot_version=1,
+        demands=(demand,),
+        availability=(
+            _window(D0, 8 * 60 + 15, 9 * 60 + 15),
+            _window(D0, 9 * 60 + 15, 10 * 60 + 15),
+        ),
+    )
+    result = _solve(problem)
+    assert result.proposal.status in (
+        ScheduleProposal.SolverStatus.OPTIMAL,
+        ScheduleProposal.SolverStatus.FEASIBLE,
+    )
+    block = result.proposal.blocks[0]
+    # Bloco dentro da união das janelas do dia (8:15–10:15), contíguo.
+    assert block.start_utc >= _utc(D0, 8 * 60 + 15)
+    assert block.end_utc <= _utc(D0, 10 * 60 + 15)
+    assert (block.end_utc - block.start_utc) == timedelta(minutes=90)
+    validation = verify_schedule(
+        problem, result.proposal, clock=lambda: _utc(D0, 6 * 60)
+    )
+    assert validation.passed is True
+    assert validation.issues == []
+
+
+def test_j2_janelas_sobrepostas_uniao_cobre_emenda():
+    # Janelas sobrepostas 8:00–9:00 e 8:30–9:45: nenhuma janela única cabe
+    # em 90 min (60 e 75 min), então toda solução viável cruza a emenda —
+    # enumerador (runs sobre a união) e verificador (união dos minutos
+    # originais) precisam concordar.
+    demand = _demand(1, duration=90, mandatory=True)
+    problem = SchedulingProblem(
+        user_id="u",
+        horizon_start=D0,
+        local_timezone=None,
+        snapshot_version=1,
+        demands=(demand,),
+        availability=(
+            _window(D0, 8 * 60, 9 * 60),
+            _window(D0, 8 * 60 + 30, 9 * 60 + 45),
+        ),
+    )
+    result = _solve(problem)
+    assert result.proposal.status in (
+        ScheduleProposal.SolverStatus.OPTIMAL,
+        ScheduleProposal.SolverStatus.FEASIBLE,
+    )
+    block = result.proposal.blocks[0]
+    assert block.start_utc >= _utc(D0, 8 * 60)
+    assert block.end_utc <= _utc(D0, 9 * 60 + 45)
+    # O bloco cruza a emenda 9:00: não está contido em nenhuma janela única.
+    assert block.start_utc < _utc(D0, 9 * 60) < block.end_utc
+    validation = verify_schedule(
+        problem, result.proposal, clock=lambda: _utc(D0, 6 * 60)
+    )
+    assert validation.passed is True
+    assert validation.issues == []
+
+
+def test_j3_verificador_valida_uniao_e_rejeita_vao_entre_janelas():
+    # Emenda adjacente: bloco 8:15–10:15 (120 min) coberto pela união das
+    # janelas 8:15–9:15 e 9:15–10:15 é aceito pelo verificador…
+    adjacent_demand = _demand(1, duration=120, mandatory=True)
+    adjacent_problem = SchedulingProblem(
+        user_id="u",
+        horizon_start=D0,
+        local_timezone=None,
+        snapshot_version=1,
+        demands=(adjacent_demand,),
+        availability=(
+            _window(D0, 8 * 60 + 15, 9 * 60 + 15),
+            _window(D0, 9 * 60 + 15, 10 * 60 + 15),
+        ),
+    )
+    proposal = _fabricated(
+        [_block(11, 1, 8 * 60 + 15, 10 * 60 + 15)],
+        diff=ScheduleProposal.PlanDiff(
+            added=[str(_uid(11))], moved=[], removed=[], deficit_minutes=0
+        ),
+    )
+    validation = verify_schedule(
+        adjacent_problem, proposal, clock=lambda: _utc(D0, 6 * 60)
+    )
+    assert validation.passed is True
+    assert validation.issues == []
+
+    # …mas o vão entre janelas disjuntas (9:00–10:00) não é cobertura:
+    # bloqueios para fora (§9) continuam valendo no verificador.
+    gap_demand = _demand(2, duration=180, mandatory=True)
+    gap_problem = SchedulingProblem(
+        user_id="u",
+        horizon_start=D0,
+        local_timezone=None,
+        snapshot_version=1,
+        demands=(gap_demand,),
+        availability=(
+            _window(D0, 8 * 60, 9 * 60),
+            _window(D0, 10 * 60, 11 * 60),
+        ),
+    )
+    gap_proposal = _fabricated(
+        [_block(12, 2, 8 * 60, 11 * 60)],
+        diff=ScheduleProposal.PlanDiff(
+            added=[str(_uid(12))], moved=[], removed=[], deficit_minutes=0
+        ),
+    )
+    gap_validation = verify_schedule(
+        gap_problem, gap_proposal, clock=lambda: _utc(D0, 6 * 60)
+    )
+    assert gap_validation.passed is False
+    assert any(
+        "fora das janelas de disponibilidade" in issue
+        for issue in gap_validation.issues
+    )
+
+
+def test_j4_identidade_do_diff_preservada_e_sem_colisao_de_ocorrencias():
+    # Preview (diff) e proposta compartilham a identidade (§15.5): movida
+    # mantém block_id/uid; ocorrências distintas nunca colidem na mesma
+    # identidade (block/uid derivados de occurrence_ids distintos).
+    moved_demand = _demand(1, occurrence_id=_uid(101))
+    existing = ExistingOccurrence(
+        occurrence_id=_uid(101),
+        block_id=_uid(201),
+        demand_id=moved_demand.demand_id,
+        start_utc=_utc(D0, 9 * 60),
+        end_utc=_utc(D0, 9 * 60 + 30),
+        uid=_uid(301),
+    )
+    added_demand = _demand(2)
+    problem = SchedulingProblem(
+        user_id="u",
+        horizon_start=D0,
+        local_timezone=None,
+        snapshot_version=2,
+        demands=(moved_demand, added_demand),
+        availability=(
+            _window(D0, 10 * 60, 12 * 60),  # 09:00 deixou de estar disponível
+        ),
+        existing=(existing,),
+    )
+    result = _solve(problem)
+    proposal = result.proposal
+    blocks_by_id = {str(b.block_id): b for b in proposal.blocks}
+    # A movida do preview é a mesma identidade na proposta, com uid preservado.
+    assert proposal.diff.moved == [_uid(201)]
+    moved_block = blocks_by_id[str(_uid(201))]
+    assert moved_block.uid == _uid(301)
+    assert moved_block.start_utc == _utc(D0, 10 * 60)  # mudou de horário
+    # Adição separada, sem colisão com a movida.
+    assert len(proposal.diff.added) == 1
+    assert set(proposal.diff.added).isdisjoint(proposal.diff.moved)
+    # Duas ocorrências distintas nunca colidem na mesma identidade.
+    identities = [(b.block_id, b.uid) for b in proposal.blocks]
+    assert len(identities) == len(set(identities)) == 2
+    assert len({b.uid for b in proposal.blocks}) == 2
+    # Derivação determinística: mesma ocorrência gera block_id e uid
+    # distintos entre si; ocorrências distintas geram identidades distintas.
+    first = sched._mint_identity(added_demand, None)
+    second = sched._mint_identity(_demand(3), None)
+    assert first[1] != first[2]  # block|occ ≠ uid|occ
+    assert (first[1], first[2]) != (second[1], second[2])
+    validation = verify_schedule(
+        problem, proposal, clock=lambda: _utc(D0, 6 * 60)
+    )
+    assert validation.passed is True
