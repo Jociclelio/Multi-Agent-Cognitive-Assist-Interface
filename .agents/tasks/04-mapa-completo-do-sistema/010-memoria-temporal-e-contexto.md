@@ -1,6 +1,6 @@
 # Task 010: Memória temporal, contexto com checagem e correção/deleção (mapa §7, §13.6)
 
-Estado: aguardando revisão
+Estado: aguardando subtask (010a)
 Depende de: 009
 Origem: nenhuma
 
@@ -45,13 +45,14 @@ Implementar o Bibliotecário (mapa §7) em `eduagent/agents/librarian.py`, `edua
 - Arquivos: `eduagent/services/memory.py`, `eduagent/context.py`, `eduagent/agents/librarian.py`, `eduagent/storage/migrations.py`, `tests/test_task010_memory_context.py`
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: master do ciclo (sd2/GLM-5.3-Flash), sessão própria; rodada em modo **paralelo** (testes locais isolados em diretórios temporários, sem portas/GPU/benchmarks — sem disputa de recursos compartilhados).
+- Alvo: base `17881ff782a8295cae0ca23d27a21af7c40e609f`; entrega `e106baf326698eb8f83c81e6572d07fbae7aafbd`; registro `a7217da15fe14194ffe755d3164d5af32d558fcc` (versão "aguardando revisão", árvore limpa conferida).
+- Avaliações: sd2/GLM-5.3-Flash 7/10 (corrigir); openai/gpt-6-luna 6/10 provisória (corrigir; não executou a suíte — ambiente sem `rank_bm25`); opencode/beam-free 8/10 (corrigir; reproduziu suíte integral 336 passed e os 23 testes novos). Falhas registradas nesta rodada: opencode/mimo-v2.6-flash-free — rate limit 429 (FreeUsageLimitError) em três tentativas; opencode/minimax-m3.1-flash-free — retorno corrompido (loop de repetição, parecer ilegível); opencode/nemotron-super-vl-free — modelo indisponível; opencode/big-pickle — rate limit 429; sorgan-qwen/qwen3-27b — recusado pelo plugin (fora da lista do ciclo). Substituições feitas via `task_cycle config` até completar o quórum de três modelos distintos (GLM, Luna, Beam).
+- Achados relevantes: (i) **verificador de números aceita substring** (GLM A-01, sonda reproduzida: "12" casa com "120") — desvio direto da cláusula "checar exatamente" do §7; (ii) **`_fit_sources` assume que as fontes mantidas são prefixo** (convergente Luna A2 e Beam A1, reproduzido por Beam: fonte mantida reaparece no resto, duplicando segmentação/síntese); (iii) **percurso de correção-substituição com três achados independentes**: Luna A1 (refs de `_apply_corrections` não casam com os eventos emitidos — substituição por correção não demonstrada nesse caminho), Beam A2 (duplicação quando original e correção coexistem na seleção), GLM A-03 (segunda correção de fato com sucessor ativo deixa dois fatos ativos como contradição); (iv) menores: docstring de BFS imprecisa (GLM A-02), `preview_delete` com ID inexistente → `TypeError` em vez de recusa tipada (GLM A-05), reconstituição de projeções fora do commit idempotente (GLM A-04), `projections_reconstituted=False` em escopo `facts` (Beam A3), polaridade checada sem negação/inversão (Luna A3). C1 e C2 parciais; C3 e C4 verificados pelos três.
+- Divergências: Luna não rodou a suíte por limitação de ambiente (não usa `.venv`), mas GLM e Beam reproduziram independentemente 336 passed — a nota provisória de Luna é tratada como limitação de ambiente, não como contradição; seus achados de código foram confirmados/refinados por Beam (A2/A1 convergentes).
+- Nota final: 7/10 — núcleo temporal (supersedes/projeções), tombstones, orçamento pós-serialização e propagação de invalidação sólidos e provados; nota retida pelos desvios confirmados na checagem exata de números e na seleção/resto de fontes, mais o percurso de correção-substituição com três achados independentes. Pendências essenciais não podem fechar: exigem correção delimitada.
+- Decisão: corrigir → subtask 010a (entrega preservada; sem reversão).
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: 010a corrige os achados A-01/A-05 (verificador exato e recusas tipadas), o corte de fontes (`_fit_sources`) e o percurso `_apply_corrections`/correção sucessiva, com regressões dedicadas; depois nova rodada de revisão da família.
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
