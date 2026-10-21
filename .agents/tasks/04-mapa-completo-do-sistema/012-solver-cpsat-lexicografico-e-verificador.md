@@ -64,6 +64,6 @@ Implementar o solver e o verificador (mapa §9 e §15.5) em `eduagent/services/s
 - Reversão: não se aplica — entrega preservada.
 - Próximo passo: subtask `012a-correcao-janelas-adjacentes-e-verificador.md` criada; após seu fechamento, liberar a 013.
 
-<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/012a-correcao-janelas-adjacentes-e-verificador.md","family":".agents/tasks/04-mapa-completo-do-sistema/012-solver-cpsat-lexicografico-e-verificador.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/012a-correcao-janelas-adjacentes-e-verificador.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
