@@ -1,6 +1,6 @@
 # Task 012: Solver CP-SAT lexicográfico e verificador independente (mapa §9, §15.5, §13.7 parte 1)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks
 Depende de: 011
 Origem: nenhuma
 
@@ -50,13 +50,20 @@ Implementar o solver e o verificador (mapa §9 e §15.5) em `eduagent/services/s
 6/10 — A modelagem CP-SAT e o protocolo de status do §15.5 foram diretos após ler §9/§15.5; a dificuldade concentrou-se em (a) acertar a semântica de identidade do diff (block_id vs occurrence_id) sem campo de ocorrência no contrato `PlanBlock`, resolvida com identidade estável derivada de ocorrência; (b) a ordem round-trip×fold na detecção de instante inexistente vs ambíguo (bug encontrado pelo próprio teste G14 e corrigido); e (c) desenhar testes de protocolo determinísticos para FEASIBLE/UNKNOWN/MODEL_INVALID sem depender de timing do CP-SAT (resolvido sobrescrevendo apenas o status reportado por etapa). Dois testes tiveram matemática de janela errada no primeiro corte (G7 sem ciclo real, L10/L11 com empates de solução) — corrigidos antes da entrega.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in.
+- Alvo: base `a0b29c4`; entrega (código) `34fe505`; registro `0df7c37`; árvore limpa; mapa normativo e submodule intocados confirmados por inspeção Git.
+- Modo da rodada: **sequencial** — os três revisores reproduzem a suite integral no mesmo `.venv` (recurso compartilhado; mesmo critério da rodada da 011).
+- Avaliações:
+  - GLM-5.3-Flash — 8/10, aprovada. A1 **médio**: enumerador constrói runs sobre a **união** de janelas adjacentes/sobrepostas (`scheduling.py:1793-1848`) enquanto o verificador exige contenção em **janela única** (`2286-2296`); sonda reproduzida em `/tmp/opencode` mostra `INTERNAL_FAILURE` para entrada confirmada legítima (janelas 8:15–9:15 e 9:15–10:15, demanda obrigatória de 90 min) — fail-safe, mas atingível pela ferramenta pública. A2 baixo: deslocamento em minutos (teto) vs slots de §15.5. A3 informativo: `bound` recebe valor da etapa 1. C1–C4 verificados com evidência de linha; suite 410 passed reproduzida.
+  - gpt-6-luna — 8/10 provisória, inconclusiva; achado alto A1 sobre identidade de ocorrências sem evidência de linha. **Esclarecimento solicitado e achado RETIRADO**: reinspeção própria de `_mint_identity` (`1374-1391`) e `_expected_diff` (`2363-2393`) contra §15.5 (linhas 279–281) não encontrou colisão nem perda de identidade; persistência definitiva na confirmação é da task 013.
+  - beam-free — 9/10, aprovada; residuais baixos (teto de deslocamento `horizon_days*1440`; `verify_schedule` exige settings coerentes do chamador). C1–C4 verificados; suite 410 passed reproduzida.
+- Quórum: três modelos distintos, sem falha de transporte; suite integral 410 passed reproduzida pelos três.
+- Nota final: **8/10** — critérios obrigatórios C1–C4 provados com reprodução por três modelos e protocolo lexicográfico fiel ao §15.5; desconto pelo defeito médio A1 (janelas adjacentes/sobrepostas rejeitadas como falha interna) e pela nota provisória/inconclusiva inicial de luna, retirada após esclarecimento.
+- Parecer: entrega coesa e provada, mas o A1 do GLM é atingível por entrada confirmada legítima pela ferramenta pública e classifica erro de dados legítimo como defeito interno — não deve ser apenas residual; divergência essencial de luna foi resolvida por esclarecimento (retirada).
+- Decisão: **corrigir** — entrega preservada; subtask 012a delimitada ao alinhamento enumerador×verificador da semântica de janelas adjacentes/sobrepostas com teste de regressão (e teste que fixe a identidade do diff, respondendo ao ponto retirado de luna com prova). A2/A3 do GLM e residuais do beam ficam documentados como correção pontual futura, sem reabrir a família.
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: criar `012a-correcao-janelas-adjacentes-e-verificador.md` (pendente de criação); após fechamento da 012a, liberar a 013.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/012a-correcao-janelas-adjacentes-e-verificador.md","family":".agents/tasks/04-mapa-completo-do-sistema/012-solver-cpsat-lexicografico-e-verificador.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
