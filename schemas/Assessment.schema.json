@@ -96,7 +96,8 @@
     "EvidenceKind": {
       "enum": [
         "present",
-        "missing"
+        "missing",
+        "undecidable"
       ],
       "title": "EvidenceKind",
       "type": "string"
@@ -163,7 +164,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``Assessment`` — avaliação por critérios com spans (mapa §4/§8/§15.2).\nSpan existe salvo ``evidence_kind='missing'``; ``missing`` exige span nulo\ne descrição do critério ausente em ``reason`` (§15.2).",
+  "description": "``Assessment`` — avaliação por critérios com spans (mapa §4/§8/§15.2).\nSpan existe salvo ``evidence_kind='missing'``; ``missing`` exige span nulo\ne descrição do critério ausente em ``reason`` (§15.2).\n\n``evidence_kind='undecidable'`` (§15.2: \"``undecidable`` não atualiza\ncompetência\") marca critério essencial que o julgamento NÃO decidiu —\nmarcador não inferencial, no mesmo rol dos marcadores de abstinência:\nnível 0 é marcador (nunca veredito), span é nulo (nunca inventar span\npara silêncio, §15.2) e ``reason`` descreve o motivo. A regra de §4\n\"span existe salvo evidence_kind=missing\" governa evidência julgada\n(present/missing); ``undecidable`` é a exceção não inferencial fechada\naqui — nível>0 sem span válido continua impossível por construção\n(invariante F4 da revisão da 009).",
   "properties": {
     "assessment_revision": {
       "minimum": 1,

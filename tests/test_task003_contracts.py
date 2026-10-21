@@ -520,6 +520,30 @@ def test_assessment_span_invariants():
         )
 
 
+def test_assessment_undecidable_evidence_invariants():
+    # 009a-F2/F4/C3: evidence_kind='undecidable' é marcador não inferencial
+    # (§15.2: "undecidable não atualiza competência") — span nulo (nunca
+    # inventar span para silêncio) e nível 0 (nunca veredito fabricado).
+    marker = C.Assessment.CriterionResult(
+        criterion_id="c1", topic_ids=[UID], level=0,
+        evidence_kind="undecidable", response_span=None,
+        reason="critério essencial indecidível: motivo descritivo",
+    )
+    assert marker.evidence_kind is C.Assessment.EvidenceKind.UNDECIDABLE
+    with pytest.raises(Exception, match="nulo"):
+        C.Assessment.CriterionResult(
+            criterion_id="c1", topic_ids=[UID], level=0,
+            evidence_kind="undecidable", response_span=(0, 5),
+            reason="indecidível com span",
+        )
+    with pytest.raises(Exception, match="marcador"):
+        C.Assessment.CriterionResult(
+            criterion_id="c1", topic_ids=[UID], level=2,
+            evidence_kind="undecidable", response_span=None,
+            reason="nível>0 sem evidência julgada",
+        )
+
+
 def test_tutor_hint_level_invariants():
     with pytest.raises(Exception, match="hint"):
         C.TutorTurn(skill_id="graduated_hint", skill_version=1,

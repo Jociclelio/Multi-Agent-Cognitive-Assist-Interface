@@ -17,15 +17,19 @@ Regras do mapa implementadas neste módulo:
   span inventado, item ambíguo, ausência de fonte e divergência formal.
   Em abstinência nenhum nível é atribuído inferencialmente: os resultados
   por critério usam ``evidence_kind='missing'`` com ``response_span=null``,
-  nível 0 **marcador não inferencial** e a descrição do motivo (§15.2:
-  ``missing`` exige span=null e descrição; nunca inventar span para
-  silêncio). O redutor (``eduagent/services/assessment.py``) nunca usa
-  assessment em abstinência para atualizar competência — feedback pode ser
-  útil sem atualização inferencial (§8).
+  nível 0 **marcador não inferencial** e a descrição do motivo — que cita a
+  descrição publicada do critério na rubrica (§15.2: ``missing`` exige
+  span=null e descrição; nunca inventar span para silêncio). O redutor
+  (``eduagent/services/assessment.py``) nunca usa assessment em abstinência
+  para atualizar competência — feedback pode ser útil sem atualização
+  inferencial (§8).
 - Critério essencial indecidível (nível não atribuído pelo julgamento) torna
   a avaliação ``correctness='undecidable'`` (§15.2: indecidível não atualiza
-  competência); o critério indecidível é **omitido** de ``criterion_results``
-  em vez de receber nível fabricado.
+  competência); o critério indecidível é **emitido** nos
+  ``criterion_results`` com ``evidence_kind='undecidable'``, nível 0
+  marcador não inferencial e span nulo — nunca nível fabricado, nunca span
+  inventado (invariante de nível>0 sem span: divergência formal vira
+  abstinência, não ``missing`` aceito como veredito).
 
 BKT não é implementado aqui nem em qualquer ponto do redutor (mapa §8:
 módulo futuro em shadow mode; não inventar priors).
@@ -416,10 +420,50 @@ class Monitor:
         for proposal in proposals:
             criterion = by_id[proposal.criterion_id]
             if proposal.level is None:
-                # §15.2: indecidível essencial não atualiza competência —
-                # critério omitido dos resultados (nível nunca é fabricado).
+                # §15.2: indecidível essencial não atualiza competência — o
+                # critério é EMITIDO como evidence_kind='undecidable' (nível 0
+                # marcador não inferencial, span nulo — nunca nível fabricado
+                # nem span inventado). Proposta indecidível com span é
+                # divergência formal (marcador não carrega evidência).
+                if proposal.span_text:
+                    return self._abstain(
+                        data,
+                        AbstentionTrigger.FORMAL_DIVERGENCE,
+                        ErrorCode.SCHEMA_INVALID,
+                        "proposta indecidível com span para critério "
+                        f"{proposal.criterion_id!r}: marcador undecidable "
+                        "não carrega evidência (§15.2)",
+                    )
                 undecided = True
+                results.append(
+                    Assessment.CriterionResult(
+                        criterion_id=criterion.criterion_id,
+                        topic_ids=list(criterion.topic_ids),
+                        level=_ABSTAIN_MARKER_LEVEL,
+                        evidence_kind=Assessment.EvidenceKind.UNDECIDABLE,
+                        response_span=None,
+                        reason=(
+                            "critério essencial indecidível: "
+                            f"{proposal.reason} — não atualiza competência "
+                            "(§15.2)"
+                        ),
+                        misconception_code=None,
+                    )
+                )
                 continue
+            if proposal.level > 0 and not proposal.span_text:
+                # Invariante de §15.2 (revisão da 009, F4): veredito com
+                # nível>0 exige span válido da resposta; `missing` significa
+                # critério ausente (nível 0). Nível>0 sem span é divergência
+                # formal → abstinência, nunca missing aceito como veredito.
+                return self._abstain(
+                    data,
+                    AbstentionTrigger.FORMAL_DIVERGENCE,
+                    ErrorCode.SCHEMA_INVALID,
+                    f"nível {proposal.level} sem span da resposta para "
+                    f"critério {proposal.criterion_id!r}: veredito exige "
+                    "evidência; missing é só para critério ausente (§15.2)",
+                )
             if proposal.span_text:
                 index = data.response.find(proposal.span_text)
                 if index < 0 or not data.response:
@@ -451,15 +495,6 @@ class Monitor:
                     reason=reason,
                     misconception_code=proposal.misconception_code,
                 )
-            )
-        if not results:
-            # Nenhum critério decidível: sem resultado contrato-válido, a
-            # avaliação inteira abstém por ambiguidade de julgamento.
-            return self._abstain(
-                data,
-                AbstentionTrigger.AMBIGUOUS_ITEM,
-                ErrorCode.AMBIGUOUS_INPUT,
-                "nenhum critério decidível na proposta de julgamento",
             )
         correctness = self._aggregate(levels=[r.level for r in results],
                                       undecided=undecided)
@@ -528,10 +563,8 @@ class Monitor:
         # Abstinência contrato-conforme (§4/§15.2): cada critério como
         # missing (span=null, descrição do motivo), nível 0 é MARCADOR não
         # inferencial — o redutor ignora assessments abstidos por completo.
-        marker_reason = _short(
-            f"avaliação abstida ({trigger.value}): {detail} — nível não "
-            "atribuído; feedback sem atualização inferencial (§8)"
-        )
+        # O motivo cita a descrição publicada do critério (revisão da 009,
+        # A2: não apenas o motivo genérico).
         results = [
             Assessment.CriterionResult(
                 criterion_id=criterion.criterion_id,
@@ -539,7 +572,12 @@ class Monitor:
                 level=_ABSTAIN_MARKER_LEVEL,
                 evidence_kind=Assessment.EvidenceKind.MISSING,
                 response_span=None,
-                reason=marker_reason,
+                reason=_short(
+                    f"critério {criterion.criterion_id!r} "
+                    f"({criterion.description}): avaliação abstida "
+                    f"({trigger.value}): {detail} — nível não atribuído; "
+                    "feedback sem atualização inferencial (§8)"
+                ),
                 misconception_code=None,
             )
             for criterion in data.rubric

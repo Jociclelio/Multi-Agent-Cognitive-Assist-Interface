@@ -535,6 +535,27 @@ class DomainStore:
             return None
         return _decode_receipt(row["receipt_json"], operation_id)
 
+    def receipt_by_digest(
+        self, user_id: str, digest: str
+    ) -> Receipt | None:
+        """Recibo de operação committed pelo digest do payload (§11).
+
+        Usado na recuperação idempotente de tentativa repetida por
+        ``attempt_id``: o digest identifica o payload canônico da operação
+        (tentativas distintas têm payloads distintos); o recibo da operação
+        committed correspondente é reutilizado com ``was_retry=True``.
+        Sem operação committed correspondente → ``None``.
+        """
+        row = self._conn.execute(
+            "SELECT id, receipt_json FROM operations "
+            "WHERE user_id = ? AND digest = ? AND state = 'committed' "
+            "ORDER BY rowid LIMIT 1",
+            (user_id, digest),
+        ).fetchone()
+        if row is None or not row["receipt_json"]:
+            return None
+        return _decode_receipt(row["receipt_json"], str(row["id"]))
+
     # ------------------------------------------------------------------
     # Outbox: lease, ACK e estados terminais (§11, §15.1)
     # ------------------------------------------------------------------
