@@ -43,13 +43,16 @@ Se o download/carregamento for inviável no hardware local (tamanho, VRAM/RSS), 
 6/10 — O risco principal era hardware, não código: a GPU estava ocupada por processo do usuário, mas o gate seguiu viável em CPU (`-ngl 0`), sustentado pelo commit exato da tag candidata que introduz kernels CPU para PTQ1_0 — exigiu verificação de ancestralidade de commits do fork (tag candidata `prism-b10743-adfffbe` vs binário `84445367f` disponível) para não presumir compatibilidade. A lentidão da CPU (≈1,6 s/token) forçou duas rodadas de depuração do próprio gate (rota `/tokenize` fora do prefixo `/v1`; condição de admissão da fila que permitia estouro antes do worker acordar) e reexecuções de ~5 min cada; `max_tokens` e deadline dos gates foram reduzidos como orçamento de ensaio, documentados no manifest sem alterar os defaults do sistema. Nenhuma substituição de modelo, nenhum resultado apresentado como medido.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (sd2), sessão master do ciclo opt-in.
+- Alvo: base `fca2ad0`; entrega `dfe18a9` (model_adapter.py, gate task002, manifest.json); registro `c26449b` (task.md); HEAD confirmado, árvore limpa. Modo da rodada: **paralelo** — revisão por leitura/verificação pontual, sem disputa de recursos compartilhados (GPU estava ocupada; nenhum revisor reexecutou o gate).
+- Avaliações: (1) `sd2/GLM-5.3-Flash` — 9/10, aprovada; verificou SHA do GGUF, tag/ancestralidade do fork via GitHub API, LICENSE/NOTICE, reexecutou lógica offline G6/G7/G8. (2) `openai/gpt-6-luna` — 8/10, aprovada; inspeção de diff, manifest e gate_report; limitações de rede dependem da configuração do runtime. (3) `opencode/mimo-v2.6-flash-free` — 8,5/10, aprovada; recomputei SHA do GGUF, conferiu 12 versões de pacotes no .venv, tag/ancestralidade no clone, reexercitou adaptador com mock loopback. Registro de falha: o mimo falhou na 1ª tentativa (resposta vazia) e foi retentado com sucesso na 2ª; substituto do pool (`sorgan-qwen/qwen3-27b`) recusado pelo plugin por estar fora da lista de revisores do ciclo.
+- Síntese: C1–C4 verificados por três modelos independentes; achados convergentes e de baixo impacto — F1 validação de `tool_calls` em papéis permitidos (GLM F1/MiMo; sugerido na task 003/suíte), F3 binário do gate `84445367f` é descendente direto (1 commit, só kernel SYCL) da tag candidata `adfffbe41`, transparente no manifest (GLM F2/MiMo F3; decidir no congelamento 017), evidência volátil do gate_report sem SHA no manifest (GLM F3; 017), timeout de transporte sem gate dedicado (MiMo F1; suíte etapa 8), assinatura fraca de `thinking_separado` (MiMo F2). Pendências aceitas como documentadas: gate CPU-only (`-ngl 0`, GPU ocupada) e comparativo thinking não executado — §3.1 o define como comparativo em desenvolvimento, não gate de admissão; registrado no manifest.
+- Nota final: 8,7/10 — entrega correta, isolada e com evidência que resistiu a verificação independente por três modelos; descontos por validação de política de ferramentas incompleta e fixação de runtime em descendente da tag candidata, ambos não bloqueantes e encaminhados.
+- Parecer: MODEL_ADMITTED com perfil non-thinking `.7/.8/20/min_p=0` registrado; nenhum resultado apresentado como medido; nenhuma substituição de modelo.
+- Decisão: fechar
+- Reversão: não se aplica — entrega aprovada.
+- Próximo passo: task 003-contratos-pydantic-e-erros-tipados.md (§4). Achados F1 (política de ferramentas) naturalmente absorvíveis nos contratos da 003; F3/evidência volátil e decisão de runtime exato no congelamento (017); timeout de transporte e asserção de thinking na suíte (etapa 8).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/003-contratos-pydantic-e-erros-tipados.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)

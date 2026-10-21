@@ -119,7 +119,7 @@ Aceite funcional do mapa §13.235, verificável por inspeção/execução:
 | Ordem | Task | Cobertura (mapa) | Depende de | Estado |
 |---|---|---|---|---|
 | 1 | [001-scaffold-e-configuracao.md](../../tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md) | §3 stack/diretórios/config | nenhuma | fechada |
-| 2 | [002-manifesto-hardware-e-gate-de-modelo.md](../../tasks/04-mapa-completo-do-sistema/002-manifesto-hardware-e-gate-de-modelo.md) | §3.1, §13.1 | 001 | pendente |
+| 2 | [002-manifesto-hardware-e-gate-de-modelo.md](../../tasks/04-mapa-completo-do-sistema/002-manifesto-hardware-e-gate-de-modelo.md) | §3.1, §13.1 | 001 | fechada (8,7/10, fechar; gate MODEL_ADMITTED non-thinking; runtime em descendente da tag e política de tool_calls em papéis permitidos encaminhados a 003/017) |
 | 3 | [003-contratos-pydantic-e-erros-tipados.md](../../tasks/04-mapa-completo-do-sistema/003-contratos-pydantic-e-erros-tipados.md) | §4 | 002 | pendente |
 | 4 | [004-armazenamento-ddl-migracoes-snapshot.md](../../tasks/04-mapa-completo-do-sistema/004-armazenamento-ddl-migracoes-snapshot.md) | §5, §15.1 | 003 | pendente |
 | 5 | [005-commit-idempotente-e-recuperacao.md](../../tasks/04-mapa-completo-do-sistema/005-commit-idempotente-e-recuperacao.md) | §11, §13.2 | 004 | pendente |
