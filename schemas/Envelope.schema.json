@@ -19,6 +19,7 @@
       "type": "string"
     },
     "EnvelopeStatus": {
+      "description": "Estados do envelope (mapa §4). Catálogo default de ensaio; alterar\nexige revisão de contrato (como em Operation.Action).",
       "enum": [
         "pending",
         "running",

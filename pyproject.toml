@@ -24,7 +24,8 @@ eduagent = "eduagent.cli:main"
 
 [dependency-groups]
 # Ferramentas de desenvolvimento/teste (fora do runtime do MVP).
-dev = ["pytest>=8,<9"]
+# jsonschema: verificação dos JSON Schemas exportados nos testes (mapa §4).
+dev = ["pytest>=8,<9", "jsonschema>=4,<5"]
 
 [build-system]
 requires = ["hatchling"]

@@ -387,6 +387,56 @@ def test_estimate_must_be_none_in_mvp():
         _topic_state(estimate=0.42)
 
 
+def _study_demand(**over):
+    base = dict(
+        demand_id=UID,
+        topic_ids=[UID],
+        kind="practice",
+        duration_minutes=30,
+        earliest=NOW,
+        deadline="2026-10-30",
+        mandatory=False,
+        priority_class=3,
+        duration_status="estimated",
+    )
+    base.update(over)
+    return C.StudyDemand(**base)
+
+
+def test_mandatory_study_demand_requires_confirmed_duration():
+    """A1/003a — mapa §4: "restrição dura exige confirmação"; §15.3:
+    "rótulo estimated e mandatory=false. Usuário pode editar e confirmar
+    para obrigatória"; §8: "não converter incerteza em obrigação".
+    Demanda obrigatória só com duration_status='confirmed'."""
+    # Aceitação: estimada e opcional; confirmada e obrigatória.
+    C.StudyDemand.model_validate(_study_demand().model_dump())
+    confirmed = C.StudyDemand.model_validate(
+        _study_demand(mandatory=True, duration_status="confirmed").model_dump()
+    )
+    assert confirmed.duration_status is C.StudyDemand.DurationStatus.CONFIRMED
+    # Rejeição: probe do revisor — mandatory=True com estimated é negado.
+    with pytest.raises(Exception, match="confirmed"):
+        _study_demand(mandatory=True, duration_status="estimated")
+
+
+def test_topic_state_error_codes_restricted_to_typed_enum():
+    """A2/003a — mapa §4: ``error_codes`` carrega os 12 códigos tipados;
+    string arbitrária é rejeitada e o JSON Schema sai com ``enum`` fechado."""
+    state = _topic_state(error_codes=["TIMEOUT", "NO_EVIDENCE"])
+    assert set(state.error_codes) == {
+        C.ErrorCode.TIMEOUT,
+        C.ErrorCode.NO_EVIDENCE,
+    }
+    with pytest.raises(Exception):
+        _topic_state(error_codes=["ERRO_INVENTADO"])
+    schema = C.TopicState.model_json_schema(mode="validation")
+    ref = schema["properties"]["error_codes"]["items"]["$ref"]
+    def_name = ref.rsplit("/", 1)[-1]
+    assert set(schema["$defs"][def_name]["enum"]) == {
+        code.value for code in C.ErrorCode
+    }
+
+
 @pytest.mark.parametrize(
     "bad_ref",
     [
@@ -620,17 +670,31 @@ def test_numeric_and_boolean_strictness():
 
 
 def test_payload_external_sender_role_does_not_grant_permission():
-    """Payload externo não muda papel/permissões (mapa §4; achado F1/002)."""
-    # Um payload externo alegando ser 'monitor' não autoriza o tutor:
-    # a permissão é avaliada contra o papel atribuído pelo dispatcher.
+    """Payload externo não muda papel/permissões (mapa §4; achado F1/002).
+
+    O ``sender_role`` que chega no payload é papel **ALEGADO**: a decisão de
+    permissão é tomada contra o papel atribuído pelo dispatcher a partir do
+    contexto autenticado local. Aqui um payload externo alegando papel
+    privilegiado (``monitor``, permitido para ``assessment.check``) é
+    avaliado contra o papel real do chamador (``tutor``) e negado. A garantia
+    definitiva de descarte do papel alegado na fronteira é responsabilidade
+    do dispatcher (task 014) — este contrato avalia só o papel recebido.
+    """
+    # Payload externo com papel alegado 'monitor' (privilegiado para a
+    # ferramenta) é aceito como dado — quem decide é o dispatcher:
+    external = C.ToolRequest.model_validate(
+        {"tool": "assessment.check", "sender_role": "monitor"}
+    )
+    # Papel real atribuído pelo dispatcher (tutor) → negado, mesmo com o
+    # payload alegando 'monitor':
     with pytest.raises(C.EduAgentError) as exc:
-        C.ToolRequest(tool="assessment.check", sender_role="tutor")
+        C.validate_tool_request(external.tool, C.SenderRole.TUTOR)
     assert exc.value.code is C.ErrorCode.TOOL_DENIED
-    # Papéis legítimos da tabela §10 passam:
-    C.ToolRequest(tool="assessment.check", sender_role="monitor")
-    C.ToolRequest(tool="document.search", sender_role="curator")
-    C.ToolRequest(tool="document.search", sender_role="tutor")
-    C.ToolRequest(tool="domain.commit", sender_role="system")
+    # O papel legítimo da tabela §10, atribuído pelo dispatcher, passa:
+    C.validate_tool_request(external.tool, C.SenderRole.MONITOR)
+    C.validate_tool_request(C.ToolName.DOCUMENT_SEARCH, C.SenderRole.CURATOR)
+    C.validate_tool_request(C.ToolName.DOCUMENT_SEARCH, C.SenderRole.TUTOR)
+    C.validate_tool_request(C.ToolName.DOMAIN_COMMIT, C.SenderRole.SYSTEM)
     for tool, roles in C.TOOL_PERMISSIONS.items():
         assert roles, tool  # toda ferramenta tem ao menos um papel
 

@@ -44,6 +44,7 @@
         "timezone": {
           "anyOf": [
             {
+              "maxLength": 100,
               "pattern": "^[A-Za-z_]+/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?$",
               "type": "string"
             },
@@ -97,6 +98,25 @@
       ],
       "title": "Contradiction",
       "type": "object"
+    },
+    "ErrorCode": {
+      "description": "Os 12 códigos de erro do mapa §4.",
+      "enum": [
+        "SCHEMA_INVALID",
+        "SOURCE_UNRESOLVED",
+        "AMBIGUOUS_INPUT",
+        "VERSION_CONFLICT",
+        "TOOL_DENIED",
+        "MODEL_NOT_ADMITTED",
+        "NO_EVIDENCE",
+        "RESOURCE_LIMIT",
+        "TIMEOUT",
+        "UNKNOWN_EFFECT",
+        "CANCELLED",
+        "INTERNAL_FAILURE"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
     },
     "EventKind": {
       "enum": [
@@ -373,10 +393,7 @@
         },
         "error_codes": {
           "items": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-            "type": "string"
+            "$ref": "#/$defs/ErrorCode"
           },
           "maxItems": 64,
           "title": "Error Codes",

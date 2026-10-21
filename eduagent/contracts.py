@@ -466,6 +466,10 @@ def validate_tool_request(tool: ToolName, sender_role: SenderRole) -> None:
     ``sender_role`` vindo de fora) não muda papel/permissões (mapa §4;
     absorve o achado F1 da revisão da task 002). JSON correto para ação
     proibida é negado por código (``TOOL_DENIED``), nunca interpretado.
+
+    Nota de escopo: a garantia definitiva de que o papel alegado no payload
+    é descartado na fronteira de entrada é responsabilidade do dispatcher
+    (task 014) — este contrato avalia apenas o papel que lhe é passado.
     """
     allowed = TOOL_PERMISSIONS.get(tool)
     if allowed is None:
@@ -572,7 +576,10 @@ class AcademicFact(_StrictModel):
         Annotated[
             str,
             StringConstraints(
-                pattern=r"^[A-Za-z_]+/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?$"
+                # Limite de tamanho: default de ensaio (nomes IANA conhecidos
+                # ficam bem abaixo); não é resultado medido.
+                max_length=100,
+                pattern=r"^[A-Za-z_]+/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?$",
             ),
         ]
     ] = None
@@ -804,7 +811,7 @@ class TopicState(_StrictModel):
     assisted_attempt_ids: UUIDList = Field(
         default_factory=list, max_length=256
     )
-    error_codes: list[_ShortId] = Field(
+    error_codes: list[ErrorCode] = Field(
         default_factory=list, max_length=_MAX_LIST
     )
     last_attempt_at: Optional[UtcDatetime] = None
@@ -843,6 +850,25 @@ class StudyDemand(_StrictModel):
     priority_class: StrictInt = Field(ge=1, le=3)
     evidence_ids: UUIDList = Field(default_factory=list, max_length=_MAX_LIST)
     duration_status: DurationStatus
+
+    @model_validator(mode="after")
+    def _mandatory_requires_confirmed(self) -> "StudyDemand":
+        # Mapa §4: "restrição dura exige confirmação"; §15.3: "rótulo
+        # estimated e mandatory=false. Usuário pode editar e confirmar para
+        # obrigatória. Não converter percentual de domínio em duração";
+        # §8 (replanejamento): "a duração recomendada é explicitamente
+        # estimada e confirmada quando virar obrigatória … não converter
+        # incerteza em obrigação". Demanda obrigatória só com duração
+        # confirmada — estimated não sustenta obrigação.
+        if (
+            self.mandatory
+            and self.duration_status is not StudyDemand.DurationStatus.CONFIRMED
+        ):
+            raise ValueError(
+                "demanda obrigatória (mandatory=true) exige "
+                "duration_status='confirmed'"
+            )
+        return self
 
 
 class ScheduleProposal(_StrictModel):
@@ -974,6 +1000,9 @@ class MemoryPack(_StrictModel):
     por usuário no snapshot (mapa §15.1)."""
 
     class EventKind(str, Enum):
+        # Catálogo de kinds de evento: default de ensaio (mapa §7 lista o
+        # campo ``kind`` sem fechar os valores); novos kinds exigem revisão
+        # de contrato (como em OperationAction).
         ATTEMPT = "attempt"
         HINT = "hint"
         ASSESSMENT = "assessment"
@@ -1045,6 +1074,9 @@ MemoryPack.model_rebuild()
 
 
 class EnvelopeStatus(str, Enum):
+    """Estados do envelope (mapa §4). Catálogo default de ensaio; alterar
+    exige revisão de contrato (como em Operation.Action)."""
+
     PENDING = "pending"
     RUNNING = "running"
     WAITING_STUDENT = "waiting_student"
