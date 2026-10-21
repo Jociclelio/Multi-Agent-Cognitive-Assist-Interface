@@ -17,6 +17,7 @@ dependencies = [
     "rank-bm25>=0.2.2,<1",
     "torch>=2.6,<3",
     "torchvision>=0.21,<1",
+    "pyyaml>=5.3,<7",
 ]
 
 [project.scripts]

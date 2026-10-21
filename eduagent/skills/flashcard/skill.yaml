@@ -1,16 +1,68 @@
-# Stub declarativo da skill (mapa §8: id, version, tasks, input_schema,
-# preconditions, steps, allowed_tools, output_schema, postconditions,
-# stop_conditions, max_calls, cases). Preenchido na task 008; não é catálogo
-# final. Hash/version registrados quando implementado.
+# Skill "flashcard" (mapa §8: catálogo obrigatório — flashcard).
+# Flashcard com pergunta/verso separados, conceito atômico e indicação de
+# fonte. A revisão inicial em 1/3/7 dias é POLÍTICA CONFIGURÁVEL
+# (TutorConfig.review_intervals_days; agendamento efetivo é da política de
+# demandas, §15.3) — os prazos aqui são default de ensaio, não resultado
+# medido.
 id: flashcard
-version: "0.0.0-stub"
-tasks: []
-input_schema: {}
-preconditions: []
-steps: []
-allowed_tools: []
-output_schema: {}
-postconditions: []
-stop_conditions: []
-max_calls: null
-cases: []
+version: 1
+tasks:
+  - flashcard
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [message]
+  properties:
+    message:
+      type: string
+      description: "pedido de flashcard do estudante"
+preconditions:
+  - "existe pacote de evidência com ao menos um chunk para indicar a fonte (mapa §8)"
+steps:
+  - "Receber as fontes rotuladas do snapshot e o pedido do estudante."
+  - "Gerar por JSON com schema: conceito atômico (curto, um conceito por cartão), pergunta (frente) e verso (resposta) separados."
+  - "Verificar política: pergunta e verso distintos, conceito atômico e fontes resolvidas para source_refs."
+  - "Publicar o cartão pelo commit idempotente (verso armazenado separado da pergunta) e emitir TutorTurn com objective=attempt e terminal waiting_student."
+allowed_tools:
+  - document.search
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [concept, question, verse, citations]
+  properties:
+    concept:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: "conceito atômico do cartão"
+    question:
+      type: string
+      minLength: 1
+      description: "frente do cartão apresentada ao estudante"
+    verse:
+      type: string
+      minLength: 1
+      description: "verso do cartão — armazenado separado da pergunta"
+    citations:
+      type: array
+      items:
+        type: integer
+        minimum: 0
+      description: "índices dos chunks usados como fonte do cartão"
+postconditions:
+  - "LearningItem kind=flashcard com pergunta (prompt) e verso (expected_answer_ref) separados e fonte indicada"
+  - "Conceito atômico: um conceito por cartão (verificação de política antes de publicar)"
+  - "Agendamento de revisão segue a política configurável de intervalos (default de ensaio 1/3/7 dias; §8/§15.3)"
+stop_conditions:
+  - "Cartão publicado; aguardando resposta do estudante (waiting_student)"
+  - "Sem evidência para indicar fonte: erro tipado NO_EVIDENCE, sem cartão fictício"
+max_calls: 3
+cases:
+  - name: "cartão com fonte"
+    input:
+      message: "Cria um flashcard sobre WAL no SQLite."
+    expectation: "cartão com pergunta/verso separados, conceito atômico e fonte; terminal waiting_student"
+  - name: "cartão sem evidência documental"
+    input:
+      message: "Cria um flashcard sobre qualquer coisa."
+    expectation: "erro tipado NO_EVIDENCE: cartão exige indicação de fonte"

@@ -1,16 +1,77 @@
-# Stub declarativo da skill (mapa §8: id, version, tasks, input_schema,
-# preconditions, steps, allowed_tools, output_schema, postconditions,
-# stop_conditions, max_calls, cases). Preenchido na task 008; não é catálogo
-# final. Hash/version registrados quando implementado.
+# Skill "autoexplicação" (mapa §8: catálogo obrigatório — autoexplicação).
+# O estudante explica com as próprias palavras; o enunciado pede a explicação
+# e aguarda resposta (terminal waiting_student). A avaliação é do Monitor
+# (task 009) com rubrica por critério — o Tutor não se autoavalia (mapa §8).
 id: self_explain
-version: "0.0.0-stub"
-tasks: []
-input_schema: {}
-preconditions: []
-steps: []
-allowed_tools: []
-output_schema: {}
-postconditions: []
-stop_conditions: []
-max_calls: null
-cases: []
+version: 1
+tasks:
+  - self_explain
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [message]
+  properties:
+    message:
+      type: string
+      description: "pedido de autoexplicação do estudante"
+preconditions:
+  - "existe pacote de evidência com ao menos um chunk para ancorar o conceito a explicar"
+steps:
+  - "Receber as fontes rotuladas do snapshot e o pedido do estudante."
+  - "Gerar por JSON com schema: enunciado que pede a explicação com as próprias palavras, gabarito de referência e rubrica por critério."
+  - "Verificar separação enunciado/solução e resolver as fontes citadas."
+  - "Publicar o item (kind=self_explanation) pelo commit idempotente e emitir TutorTurn com objective=self_explain e terminal waiting_student."
+allowed_tools:
+  - document.search
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [prompt, expected_answer, rubric, citations]
+  properties:
+    prompt:
+      type: string
+      minLength: 1
+      description: "enunciado que pede a autoexplicação"
+    expected_answer:
+      type: string
+      minLength: 1
+      description: "explicação de referência para o Monitor — separada do enunciado"
+    rubric:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [criterion_id, description]
+        properties:
+          criterion_id:
+            type: string
+            minLength: 1
+          description:
+            type: string
+            minLength: 1
+          critical:
+            type: boolean
+    citations:
+      type: array
+      items:
+        type: integer
+        minimum: 0
+      description: "índices dos chunks usados como fonte"
+postconditions:
+  - "LearningItem kind=self_explanation publicado com gabarito/rubrica separados do enunciado"
+  - "TutorTurn com objective=self_explain, item_ref e terminal waiting_student"
+  - "Avaliação da resposta é do Monitor com rubrica; feedback sem atualização inferencial não conta como aprendizagem (mapa §8)"
+stop_conditions:
+  - "Enunciado publicado; aguardando a autoexplicação do estudante (waiting_student)"
+  - "Sem evidência para ancorar o conceito: erro tipado NO_EVIDENCE"
+max_calls: 3
+cases:
+  - name: "pedido de autoexplicação com fonte"
+    input:
+      message: "Quero me autoexplicar sobre snapshot e domain_revision."
+    expectation: "enunciado de autoexplicação publicado com rubrica; terminal waiting_student"
+  - name: "sem evidência"
+    input:
+      message: "Quero me autoexplicar sobre tópico fora do material."
+    expectation: "erro tipado NO_EVIDENCE: sem item fictício"

@@ -1,16 +1,56 @@
-# Stub declarativo da skill (mapa §8: id, version, tasks, input_schema,
-# preconditions, steps, allowed_tools, output_schema, postconditions,
-# stop_conditions, max_calls, cases). Preenchido na task 008; não é catálogo
-# final. Hash/version registrados quando implementado.
+# Skill "explicar" (mapa §8: catálogo obrigatório — explicar). Um turno
+# principal por chamada; intenção direta (ask) recebe explicação direta.
+# Sem evidência documental, a explicação é rotulada como geral e não recebe
+# nenhuma citação (mapa §6.8 — nenhuma citação fictícia).
 id: explain
-version: "0.0.0-stub"
-tasks: []
-input_schema: {}
-preconditions: []
-steps: []
-allowed_tools: []
-output_schema: {}
-postconditions: []
-stop_conditions: []
-max_calls: null
-cases: []
+version: 1
+tasks:
+  - ask
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [message]
+  properties:
+    message:
+      type: string
+      description: "pedido direto do estudante"
+    evidence_coverage:
+      type: string
+      enum: [supported, partial, none]
+      description: "cobertura do EvidencePack do snapshot (dados rotulados)"
+preconditions:
+  - "pedido do estudante não vazio"
+  - "pacote de evidência do snapshot não contém instruções de servidor (mapa §4/§10)"
+steps:
+  - "Receber o pedido e as fontes rotuladas (document.search, Curador/Tutor)."
+  - "Se não houver evidência documental, rotular a resposta como explicação geral e não citar nenhuma fonte."
+  - "Gerar a explicação direta citando somente os tokens de citação fornecidos nos dados rotulados."
+  - "Validar a saída com schema/parse/política; reparos consomem o orçamento da skill (mapa §12)."
+allowed_tools:
+  - document.search
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      minLength: 1
+postconditions:
+  - "TutorTurn emitido com objective=explain e terminal completed (não aguarda resposta)"
+  - "Toda citação do texto pertence ao pacote de evidência; explicação sem fonte vem rotulada e sem citação"
+stop_conditions:
+  - "Explicação direta entregue ao estudante"
+  - "Orçamento de chamadas esgotado: erro tipado, sem saída parcial silenciosamente aprovada"
+max_calls: 2
+cases:
+  - name: "pergunta direta com evidência"
+    input:
+      message: "Explique o que é RRF no contexto da recuperação."
+      evidence_coverage: supported
+    expectation: "explicação direta com citações somente do pacote; terminal completed"
+  - name: "pergunta sem evidência documental"
+    input:
+      message: "Expline o que é RRF."
+      evidence_coverage: none
+    expectation: "explicação rotulada como geral, zero citações; terminal completed"

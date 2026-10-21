@@ -1,16 +1,64 @@
-# Stub declarativo da skill (mapa §8: id, version, tasks, input_schema,
-# preconditions, steps, allowed_tools, output_schema, postconditions,
-# stop_conditions, max_calls, cases). Preenchido na task 008; não é catálogo
-# final. Hash/version registrados quando implementado.
+# Skill "pistas graduadas" (mapa §8: catálogo obrigatório — pistas).
+# Pistas 1=conceito, 2=próximo passo, 3=exemplo análogo; após três, oferecer
+# solução comentada ou encerramento (decisão determinística do Tutor, sem
+# chamada de modelo). Pedido de solução, recusa e cancelamento encerram sem
+# insistência (mapa §8).
 id: graduated_hint
-version: "0.0.0-stub"
-tasks: []
-input_schema: {}
-preconditions: []
-steps: []
+version: 1
+tasks:
+  - request_hint
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [message, help_level, pending_prompt]
+  properties:
+    message:
+      type: string
+      description: "pedido de ajuda do estudante"
+    help_level:
+      type: integer
+      minimum: 1
+      maximum: 3
+      description: "nível da pista solicitada (1=conceito, 2=próximo passo, 3=exemplo análogo)"
+    pending_prompt:
+      type: string
+      description: "enunciado do item pendente — SEM a solução"
+preconditions:
+  - "existe item de prática pendente para o estudante"
+  - "a solução do item NÃO entra no contexto da pista (separação enunciado/solução, mapa §8)"
+steps:
+  - "Determinar o nível da pista: help_level corrente + 1 (1=conceito, 2=próximo passo, 3=exemplo análogo)."
+  - "Se os três níveis já foram dados, o Tutor oferece solução comentada ou encerramento por texto determinístico — sem chamar o modelo e sem insistir."
+  - "Gerar o texto da pista para o nível determinado, sem revelar a solução nem torná-la trivial."
+  - "Emitir TutorTurn com objective=hint, hint_level do nível dado e terminal waiting_student."
 allowed_tools: []
-output_schema: {}
-postconditions: []
-stop_conditions: []
-max_calls: null
-cases: []
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      minLength: 1
+postconditions:
+  - "TutorTurn com objective=hint, hint_level em 1..3 e terminal waiting_student"
+  - "A pista não contém a solução do item (verificação de política antes de publicar)"
+  - "Revelação de solução nunca acontece como efeito de pista; só por pedido explícito, registrado"
+stop_conditions:
+  - "Pista entregue; aguardando nova tentativa do estudante"
+  - "Três pistas já dadas: oferta determinística de solução comentada ou encerramento"
+  - "Pedido de solução, recusa ou cancelamento: encerramento sem insistência"
+max_calls: 2
+cases:
+  - name: "primeira pista"
+    input:
+      message: "Não sei por onde começar."
+      help_level: 1
+      pending_prompt: "Explique por que o commit idempotente confere operation_id antes de expected_version."
+    expectation: "pista de CONCEITO (nível 1), terminal waiting_student, solução não revelada"
+  - name: "quatro pistas seguidas"
+    input:
+      message: "Mais uma pista, por favor."
+      help_level: 4
+      pending_prompt: "Explique por que o commit idempotente confere operation_id antes de expected_version."
+    expectation: "oferta determinística de solução comentada ou encerramento, sem nova geração de pista"

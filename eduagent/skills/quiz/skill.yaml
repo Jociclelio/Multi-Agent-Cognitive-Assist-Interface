@@ -1,16 +1,94 @@
-# Stub declarativo da skill (mapa §8: id, version, tasks, input_schema,
-# preconditions, steps, allowed_tools, output_schema, postconditions,
-# stop_conditions, max_calls, cases). Preenchido na task 008; não é catálogo
-# final. Hash/version registrados quando implementado.
+# Skill "quiz" (mapa §8: catálogo obrigatório — quiz; também serve a
+# transferência). Para prática, criar item com fonte e gabarito/rubrica
+# prévios, separando a solução do enunciado; a solução só é revelada por
+# pedido explícito, e a revelação é registrada (mapa §8/§15.2). Transferência
+# usa família identificada e não conta cópia como aprendizagem independente
+# (a exposição prévia da solução da família no turno é registrada para o
+# redutor da task 009).
 id: quiz
-version: "0.0.0-stub"
-tasks: []
-input_schema: {}
-preconditions: []
-steps: []
-allowed_tools: []
-output_schema: {}
-postconditions: []
-stop_conditions: []
-max_calls: null
-cases: []
+version: 1
+tasks:
+  - practice
+  - transfer
+  - request_solution
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [message]
+  properties:
+    message:
+      type: string
+      description: "pedido de prática/transferência do estudante"
+    kind:
+      type: string
+      enum: [quiz, open_response]
+    family_id:
+      type: string
+      format: uuid
+      description: "família do item — obrigatória e identificada para transferência (mapa §8)"
+preconditions:
+  - "existe pacote de evidência com ao menos um chunk para ancorar o item (mapa §8: item com fonte)"
+  - "para transferência, família identificada (item.family_id); sem família é erro tipado"
+steps:
+  - "Receber as fontes rotuladas do snapshot e o pedido do estudante."
+  - "Gerar o item por JSON com schema: enunciado, gabarito (expected_answer) e rubrica por critério; o enunciado NÃO contém a solução."
+  - "Verificar separação enunciado/solução e resolver as fontes citadas para source_refs do item."
+  - "Publicar o item pelo commit idempotente (gabarito/rubrica armazenados separados do enunciado) e emitir TutorTurn com objective=attempt, item_ref e terminal waiting_student."
+allowed_tools:
+  - document.search
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [prompt, expected_answer, rubric, citations]
+  properties:
+    prompt:
+      type: string
+      minLength: 1
+      description: "enunciado apresentado ao estudante — sem a solução"
+    expected_answer:
+      type: string
+      minLength: 1
+      description: "gabarito prévio, armazenado separado do enunciado"
+    rubric:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [criterion_id, description]
+        properties:
+          criterion_id:
+            type: string
+            minLength: 1
+          description:
+            type: string
+            minLength: 1
+          critical:
+            type: boolean
+    citations:
+      type: array
+      items:
+        type: integer
+        minimum: 0
+      description: "índices dos chunks usados como fonte do item"
+postconditions:
+  - "LearningItem publicado com expected_answer_ref/rubric_ref separados do prompt (mapa §4/§8)"
+  - "TutorTurn com objective=attempt, item_ref preenchido e terminal waiting_student"
+  - "Revelação da solução só por pedido explícito e registrada (evento para o redutor; §15.2)"
+  - "Transferência: item carrega a família identificada e a exposição prévia da solução é registrada — cópia não conta como aprendizagem independente"
+stop_conditions:
+  - "Item publicado; aguardando resposta do estudante (waiting_student)"
+  - "Pedido de solução: solução comentada revelada e registrada; encerramento sem insistência"
+  - "Sem evidência para ancorar o item: erro tipado NO_EVIDENCE, sem item fictício"
+max_calls: 3
+cases:
+  - name: "pedido de prática com fonte"
+    input:
+      message: "Me dá um exercício sobre RRF."
+      kind: quiz
+    expectation: "item com fonte e gabarito/rubrica separados; terminal waiting_student"
+  - name: "transferência sem família identificada"
+    input:
+      message: "Faz uma variação desse exercício."
+      kind: quiz
+    expectation: "erro tipado AMBIGUOUS_INPUT: transferência exige família identificada"

@@ -1,0 +1,31 @@
+{
+  "nota": "Registro de hash/version das skills (mapa §8). Alterações de skill só por revisão offline: edite o skill.yaml e regenere este arquivo com 'python -m eduagent.skills --rehash' (mapa §8: sem autoedição ao vivo).",
+  "schema_version": "1",
+  "skills": {
+    "explain": {
+      "file": "explain/skill.yaml",
+      "sha256": "ffd7b6842f07e16f19ea70a62f8a336af48ff5672e7bb916e8f257ed6cd6daa9",
+      "version": 1
+    },
+    "flashcard": {
+      "file": "flashcard/skill.yaml",
+      "sha256": "8e8829a1f68ff9d8592286700269e651a68ba7dc5fa4680683c4d74af70ea993",
+      "version": 1
+    },
+    "graduated_hint": {
+      "file": "graduated_hint/skill.yaml",
+      "sha256": "8217bca55e97ebfa10cc6c5bf54a979ce984e0bed8719fafa37b25a0843aff6a",
+      "version": 1
+    },
+    "quiz": {
+      "file": "quiz/skill.yaml",
+      "sha256": "97ac8aedad52d9df3104dd69a6541607dd684ad8854e8463d6b8e2278159a8c8",
+      "version": 1
+    },
+    "self_explain": {
+      "file": "self_explain/skill.yaml",
+      "sha256": "0ba37d2d4aae17eae6109ff4d3c73d46ed0fa792b392730a97e74afcb5941714",
+      "version": 1
+    }
+  }
+}
