@@ -8,9 +8,9 @@ Origem: nenhuma
 Conferir que a especificação abaixo dos componentes C06–C08 reproduz **fielmente** as características exigidas e os critérios verificáveis de `fase2/documentos/02_componentes_e_requisitos.md` (documento-fonte normativo, que permanece intocado). Registrar em Evidências a conferência item a item. Desvio de fidelidade: corrija apenas o texto desta task em dif mínimo e registre em Evidências.
 
 Especificação a validar (extraída da tabela do documento-fonte):
-- **C06 — Tutor e skills:** socrático, explicação e prática graduada; habilidades versionadas para explicar, pistas, quiz, flashcards, autoexplicação; pré/pós-condições; resposta direta quando apropriada; não interrogar indefinidamente.
-- **C07 — Monitor formativo:** gabarito ou rubrica explícita, evidência de resposta, erros por tópico, incerteza e opção de abster; separar corretude, ajuda recebida e domínio; validação contra anotação humana. *(Ambiguidade pendente 2: um único episódio correto não basta para estimar domínio — o monitor precisa dos estados "evidência insuficiente" e "avaliável"; como operacionalizá-los ainda não está definido.)*
-- **C08 — Estado de aprendizagem:** modelo atualizável e auditável por tópico, distinção entre observado e inferido; cold-start; revisão temporal; evitar parâmetros cognitivos arbitrários tratados como calibrados.
+- **C06 — Tutor e skills:** socrático, explicação e prática graduada; habilidades versionadas para explicar, pistas, quiz, flashcards, autoexplicação; pré/pós-condições; resposta direta quando apropriada; não interrogar indefinidamente
+- **C07 — Monitor formativo:** gabarito ou rubrica explícita, evidência de resposta, erros por tópico, incerteza e opção de abster; separar corretude, ajuda recebida e domínio; validação contra anotação humana *(Ambiguidade pendente 2: um único episódio correto não basta para estimar domínio — o monitor precisa dos estados "evidência insuficiente" e "avaliável"; como operacionalizá-los ainda não está definido.)*
+- **C08 — Estado de aprendizagem:** modelo atualizável e auditável por tópico, distinção entre observado e inferido; cold-start; revisão temporal; evitar parâmetros cognitivos arbitrários tratados como calibrados
 
 Além da fidelidade, conferir que: os IDs são permanentes/estáveis; nada acrescenta requisito, número ou métrica além do fonte; C06/C07/C08 ocupam a posição correta da cadeia do núcleo (C01 → C02/C03 → C04/C09 → **C06/C07/C08** → C11); a ambiguidade 2 aparece apenas como decisão pendente.
 
