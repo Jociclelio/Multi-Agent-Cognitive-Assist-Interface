@@ -1,6 +1,6 @@
 # Task 003: Validar decisões de método — recuperação e curadoria (C04 e C05)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 002
 Origem: nenhuma
 

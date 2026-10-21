@@ -1,6 +1,6 @@
 # Task 006: Validar decisões de método — agenda e orquestração (C12 e C13/C14)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 005
 Origem: nenhuma
 

@@ -1,6 +1,6 @@
 # Plano: Metodologias de implementação — decisões reconciliadas da etapa 3
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: concluído — família 001→009 fechada (todas as tasks com decisão "fechar"); critérios de conclusão com evidência na task 009 (Parte 2c); pendências de etapa permanecem registradas, não resolvidas por este plano.
 
 ## Objetivo
 Consolidar, em plano acionável, a implementação da primeira versão do EduAgent-OS segundo as decisões metodológicas reconciliadas no documento-fonte (síntese da etapa 3, requisitos C01–C20), sem reabrir a pesquisa: os métodos já foram selecionados e os conflitos de parâmetros já foram resolvidos para a etapa 4.
@@ -43,12 +43,12 @@ Consolidar, em plano acionável, a implementação da primeira versão do EduAge
 |---|---|---|---|---|
 | 1 | [001-validar-decisao-inferencia-local-c01-c20.md](../../tasks/03-metodologias-de-implementacao/001-validar-decisao-inferencia-local-c01-c20.md) | C01, C20 | nenhuma | fechada |
 | 2 | [002-validar-decisao-ingestao-ontologia-c02-c03.md](../../tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md) | C02, C03 | 001 | fechada |
-| 3 | [003-validar-decisoes-recuperacao-curadoria-c04-c05.md](../../tasks/03-metodologias-de-implementacao/003-validar-decisoes-recuperacao-curadoria-c04-c05.md) | C04, C05 | 002 | liberada |
-| 4 | [004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md](../../tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md) | C06, C07, C08 | 003 | pendente |
+| 3 | [003-validar-decisoes-recuperacao-curadoria-c04-c05.md](../../tasks/03-metodologias-de-implementacao/003-validar-decisoes-recuperacao-curadoria-c04-c05.md) | C04, C05 | 002 | fechada |
+| 4 | [004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md](../../tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md) | C06, C07, C08 | 003 | fechada |
 | 5 | [005-validar-decisoes-memoria-planejamento-c09-c10-c11.md](../../tasks/03-metodologias-de-implementacao/005-validar-decisoes-memoria-planejamento-c09-c10-c11.md) | C09, C10, C11 | 004 | fechada |
 | 6 | [006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md](../../tasks/03-metodologias-de-implementacao/006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md) | C12, C13, C14 | 005 | fechada |
 | 7 | [007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md](../../tasks/03-metodologias-de-implementacao/007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md) | C15, C16, C17 | 006 | fechada |
 | 8 | [008-validar-dependencia-externa-avaliacao-c18-c19.md](../../tasks/03-metodologias-de-implementacao/008-validar-dependencia-externa-avaliacao-c18-c19.md) | C18, C19 | 007 | fechada |
-| 9 | [009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md](../../tasks/03-metodologias-de-implementacao/009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md) | orçamentos da etapa 4 + limites bibliográficos + consolidação 20/20 | 008 | liberada |
+| 9 | [009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md](../../tasks/03-metodologias-de-implementacao/009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md) | orçamentos da etapa 4 + limites bibliográficos + consolidação 20/20 | 008 | fechada |
 
 Partição segue as 13 linhas da tabela "Decisões reconciliadas" do documento-fonte, agrupadas em 8 tasks de decisão (001–008) mais a consolidação de orçamentos, limites bibliográficos e cobertura (task 009). Pendências preservadas e não resolvidas por esta família: posicionamento de C10 na cadeia do núcleo; validação de C04 em português; ambiguidades 1–6 da etapa 2; pesquisa específica das etapas 6–7 (C18–C19); feature flag da agenda remota; orçamentos tratados como escolhas iniciais configuráveis, nunca como resultados medidos.

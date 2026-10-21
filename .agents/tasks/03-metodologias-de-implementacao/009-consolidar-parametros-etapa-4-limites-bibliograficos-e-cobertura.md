@@ -1,6 +1,6 @@
 # Task 009: Consolidar orçamentos da etapa 4, limites bibliográficos e cobertura C01–C20
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 008
 Origem: nenhuma
 
@@ -69,13 +69,18 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não deri
 2/10 — Conferência textual direta com o fonte disponível; o risco principal (transcrição dígito a dígito dos orçamentos) não se concretizou — todos os números bateram na primeira passada. A Parte 2 foi cruzamento de cabeçalhos de tasks e do plano, sem derivação de valores; única atenção foi não recalcular a entrada máxima a partir das reservas e tratar as paráfrases dos limites bibliográficos como fiéis sem "melhorá-las".
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — task-master do ciclo opt-in, sessão própria, sem acesso à conversa do executor.
+- Alvo: esta task na versão do commit de registro `dccef75` (base `0923d8d`; sem commit de entrega — sem artefatos; árvore limpa; documento-fonte e submódulo intocados). Modo da rodada: **paralelo** (padrão) — revisão de leitura de documentos, sem disputa de recursos compartilhados do sistema.
+- Avaliações (quórum de três modelos distintos, sem falhas nem substituições):
+  - `sd2/GLM-5.3-Flash` — 9/10, aprovada. Observou que a tabela de estados do plano estava defasada para 003/004 (ajuste documental de acompanhamento do master, não desvio da task) e que a frase meta do fonte (l. 42) foi omitida em paráfrase declarada, sem alterar sentido.
+  - `openai/gpt-6-luna` — 9/10, aprovada. Sem achado material; ressalva de C2: cobertura das tasks anteriores apoiada nos registros, não reauditada integralmente — limite de prova aceitável para task de validação/registro.
+  - `opencode/mimo-v2.6-flash-free` — 9,5/10, aprovada. Verificou a fidelidade numérica por diff de conjuntos de tokens entre task e fonte (idênticos); apontou como informativo que a linha 5 do fonte ("Método e documentos integrantes") não é reproduzida na task — o prompt da Parte 2 não a exigia; correção opcional, não bloqueante.
+- Nota final: 9/10 — fidelidade item a item às seções do fonte confirmada por três verificações independentes (uma com varredura numérica automatizada); cobertura 20/20 comprovada por três leituras independentes da partição; todos os números rotulados como escolhas iniciais configuráveis; regras de prevalência e não combinação explícitas; pendências preservadas. Deduções: omissões declaradas/informativas (frase meta do fonte; linha 5 do fonte), apoio da consolidação da família em registros anteriores e identidade de executor autodeclarada — nada essencial pendente.
+- Parecer: síntese dos achados — (i) fidelidade C1 confirmada pelos três revisores, sem número derivado nem seleção entre alternativas abertas (PTQ1_0/PQ2_0 e reranker não tocados); (ii) C2 confirmado com a partição 20/20 batida contra os títulos das tasks 001–008 e a tabela do plano, e contagens declaradas (18 núcleos/18 itens) confirmadas sem reabrir conteúdo; (iii) C3 confirmado — nenhum resultado medido, prevalência e não combinação explícitas, pendências abertas; (iv) C4 confirmado por `git diff` (apenas o task.md alterado; fonte e submódulo intocados). Divergências: nenhuma essencial entre revisores; os achados A1/A2 de cada parecer são informativos e convergentes (estados desatualizados de tasks 003/004/006 e do plano — corrigidos pelo master neste fechamento; omissões declaradas sem distorção de sentido). Observação registrada: o revisor GLM-5.3-Flash compartilha o modelo do executor (pool fixado pelo ciclo); independência garantida por processo (sessões distintas, leitura própria das fontes).
+- Decisão: fechar — todos os critérios obrigatórios C1–C4 comprovados com evidência independente; task de validação/registro cumprida. Com este fechamento, a família 001→009 está integralmente fechada e os critérios de conclusão do plano têm evidência na Parte 2c desta task; o plano `03-metodologias-de-implementacao` é marcado concluído, com as pendências de etapa permanecendo registradas (não resolvidas por este plano).
+- Reversão: não se aplica — sem artefatos.
+- Próximo passo: plano concluído; nenhuma task sucessora nesta família. Pendências de etapa (C10, C04 em português, ambiguidades 1–6 da etapa 2, pesquisa das etapas 6–7 para C18–C19, feature flag da agenda remota) seguem registradas para etapas futuras.
+
+<!-- task-cycle: {"decision":"concluido","next_task":null,"family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)

@@ -1,6 +1,6 @@
 # Task 004: Validar decisões de método — pedagogia e avaliação do aluno (C06 e C07/C08)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 003
 Origem: nenhuma
 
