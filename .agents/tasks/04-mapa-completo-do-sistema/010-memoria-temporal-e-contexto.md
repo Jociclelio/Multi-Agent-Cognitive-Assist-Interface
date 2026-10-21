@@ -55,4 +55,6 @@ Implementar o Bibliotecário (mapa §7) em `eduagent/agents/librarian.py`, `edua
 - Reversão: não se aplica — entrega preservada.
 - Próximo passo: 010a corrige os achados A-01/A-05 (verificador exato e recusas tipadas), o corte de fontes (`_fit_sources`) e o percurso `_apply_corrections`/correção sucessiva, com regressões dedicadas; depois nova rodada de revisão da família.
 
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/010a-correcao-verificacao-exata-corte-de-fontes-e-correcao-sucessiva.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
