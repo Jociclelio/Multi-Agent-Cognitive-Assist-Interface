@@ -1,6 +1,6 @@
 # Task 009a: Correção — decidibilidade por tópico, erro crítico e invariantes de evidência (mapa §8, §15.2, §11)
 
-Estado: aguardando revisão
+Estado: aguardando subtask 009b (decisão corrigir)
 Depende de: 009
 Origem: 009 — correção
 
@@ -66,13 +66,21 @@ Restrições: fonte normativa `fase2/documentos/04_mapa_completo_do_sistema.md` 
 7/10 — O F2 exigiu mudança simultânea de contrato (novo valor de enum), Monitor (emissão do marcador) e redutor (decidibilidade/elegibilidade por tópico), com interação sutil entre F1 e F2 (erro crítico detectado em tentativa topicamente indecidível deve contar para `last_critical` sem atualizar ids/idade — resolvido separando `entries` (detecção) de `decided` (composição/estado)). O F3 exigiu desenhar a reconstrução do resultado de retry (`_replay_check`/`_existing_attempt` por digest) sem quebrar a unicidade lógica, e o A2 (luna) dependeu de descobrir que a rubrica publicada só existe no payload do evento `item_published` (ref `items.rubric_ref`), o que forçou atualização da fixture de teste. Nenhuma dificuldade ficou sem resolução.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in — sessão própria, sem participação na execução.
+- Alvo: base `db57f68785da24bfe88c96ef752fbc08d5c49981` (entrega da 009 preservada); entrega `563acd6e26a4f1adf53a1a1a2f701edafafa8e38` (7 arquivos de código/schemas/testes); registro `d4bb28db53bad0fede8249b97f9f1cea91f53bd7` (só o task.md). Árvore limpa e inalterada durante a rodada; commits entrega/registro separados confirmados pelos revisores.
+- Modo da rodada: **sequencial** — a revisão exige rodar a suíte de testes no mesmo repositório (recursos compartilhados: venv, SQLite, `/tmp/opencode`), rodando um revisor por vez, cada um em sessão nova.
+- Falha registrada: a primeira tentativa da revisão 2, solicitada a `openai/gpt-6-luna`, foi lançada pelo plugin com `sd2/GLM-5.3-Flash` (modelo confirmado pelo runtime e autodeclarado no parecer) — inválida para o quórum por modelo duplicado; o mesmo pedido foi reenviado a `openai/gpt-6-luna` e executado corretamente na segunda tentativa. Nenhum parecer simulado.
+- Avaliações (contrato `.agents/contrato-revisor.md`, na ordem da rodada):
+  1. **sd2/GLM-5.3-Flash — 9/10, aprovada (fechar).** C1–C7 verificados com suíte integral em cópia isolada (309 passed, 1 skipped — smoke BGE-M3, declarado). Observações baixas: N1 (a exceção de span nulo em §4 agora cobre `missing` E `undecidable`; §4 literal isenta só `missing` — extensão de contrato documentada e justificada por §15.2, a registrar como divergência textual conhecida, não defeito); N2 (em `record_attempt`, checks de schema de payload precedem a consulta do recibo; sem efeito para retry genuíno); N3 (fronteira do F6: tópico com avaliação aceita não atualiza `last_attempt_at` por tentativa posterior abstida — coerente com R8, observação registrada).
+  2. **openai/gpt-6-luna — 8/10 provisória, inconclusiva.** C1–C6 verificados por leitura e testes focados (114 passed). C7 não comprovado independentemente: a suíte integral falhou na coleta por `rank_bm25` ausente na cópia isolada do revisor (problema de ambiente do revisor, não da entrega — executor e revisor 1 rodaram a suíte integral verde com dependências). Recomendação (corrigir) condicionada exclusivamente à obtenção da evidência de suíte integral, atendida pelo executor, pelo revisor 1 e pelo revisor 3. Observação baixa: retry de `record_attempt` com `attempt_id` gerado pelo servidor (não reproduzido pelo chamador) gera digest divergente e falha — comportamento map-conforme (§11), fora do escopo obrigatório do F3.
+  3. **opencode/mimo-v2.6-flash-free — 8/10, requer correções.** Suíte integral reproduzida no repositório: **310 passed**; base em cópia isolada: 296 passed, 1 skipped (=297). Achados: **A-01 (alto, reproduzido com sondas em `/tmp/opencode/reviewer-mimo-009a/`)** — o invariante do F4 foi aplicado apenas a `undecidable`; `CriterionResult(level>0, evidence_kind='missing', response_span=None)` constrói sem erro em `contracts.py` e um assessment assim é **aceito** por `check()`, compondo competência (`mixed` + tentativa em `independent_attempt_ids`) — a classe de defeito do F4 permanece alcançável contornando o Monitor, e o C3 ("nunca `missing` com nível>0") não está integralmente atendido contra o F4 obrigatório do Prompt ("`missing` significa critério ausente; nível não pode ser >0"). **A-02 (baixo)** — `_published_critical_ids` não confere `kind='item_published'` na resolução de `items.rubric_ref` (robustez). Observação de escopo (não achado): tentativa sem nenhum assessment não gera estado — coerente com o redutor como função pura de tentativas+avaliações.
+- Divergências e resolução: GLM-5.3-Flash considerou o C3 "fechado por construção" avaliando o invariante do `undecidable`; o mimo provou por execução que o invariante de `missing` (exigido pelo F4 obrigatório) não exige `level==0` e o caminho permanece aberto na fronteira do serviço. As leituras são compatíveis (o revisor 1 não sondou `missing`); sem contradição essencial a esclarecer, prevalece a evidência reproduzida do A-01. A inconclusiva de luna em C7 foi suprida por duas execuções independentes da suíte integral com dependências (revisor 1 em cópia isolada e revisor 3 no repositório, ambas verdes).
+- Nota final: **7,5/10** — todas as correções obrigatórias F1, F2, A2 (luna) e as delimitadas F3, F5, F6, A2 (GLM) estão implementadas, provadas por 13 regressões novas e reproduzidas independentemente (suíte 310 passed confirmada por dois revisores de modelos distintos); a nota é retida porque o F4 obrigatório permanece parcialmente aberto na fronteira do contrato/serviço (A-01), apesar do caminho do Monitor estar corretamente fechado (M13).
+- Parecer: entrega substancialmente sólida e map-conforme, com um único achado obrigatório remanescente (A-01), pequeno e cirúrgico (invariante `level==0` também para `missing` + teste de contrato + recusa equivalente na consistência formal de `check()`), sem justificar reinício nem divisão. Observações baixas N1–N3 (GLM), A-02 (mimo) e a ressalva de luna sobre `attempt_id` gerado pelo servidor ficam registradas como não bloqueantes; N1 deve constar como divergência textual conhecida de §4 (exceção estendida a `undecidable` por §15.2).
+- Decisão: **corrigir** — preserva a entrega; cria subtask 009b delimitada ao A-01 (obrigatório) e A-02 (recomendado).
+- Reversão: não se aplica — entrega preservada (a própria 009a preservou a entrega da 009; sem commit de reversão).
+- Próximo passo: subtask 009b (pendente de criação): invariante `level==0` para `evidence_kind='missing'` em `Assessment.CriterionResult`, recusa equivalente na consistência formal de `check()` e casos de contrato/serviço; inclui A-02 (conferir `kind='item_published'` em `_published_critical_ids`). Suíte integral e regressões da 009a devem permanecer verdes.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/009b-correcao-invariante-missing-e-rubrica-publicada.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
