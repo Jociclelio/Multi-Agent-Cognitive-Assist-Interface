@@ -8,9 +8,9 @@ Origem: nenhuma
 Conferir que a especificação abaixo dos componentes C13–C15 reproduz **fielmente** as características exigidas e os critérios verificáveis de `fase2/documentos/02_componentes_e_requisitos.md` (documento-fonte normativo, que permanece intocado). Registrar em Evidências a conferência item a item. Desvio de fidelidade: corrija apenas o texto desta task em dif mínimo e registre em Evidências.
 
 Especificação a validar (extraída da tabela do documento-fonte):
-- **C13 — Orquestração:** LangGraph com rotas fixas, checkpoints, pausa humana, dependências e terminais; ausência de ciclos não limitados; política para divergências; mesmas ferramentas no baseline.
-- **C14 — Comunicação e contratos:** JSON Schema/Pydantic, envelope com task/trace/version, referência em vez de cópia integral, leitura de snapshot; erros tipados; MCP nas fronteiras de ferramentas; A2A somente como extensão de serviços. *(Ambiguidade pendente 5: A2A não é requisito para comunicação interna — acrescentar serviços remotos ao MVP ampliaria os pontos de falha sem benefício demonstrado.)*
-- **C15 — Política de ferramentas:** allowlist por papel, argumentos validados, tool result como dados, rede opcional, escrita mediada; JSON correto não basta: validar também intenção e efeito.
+- **C13 — Orquestração:** LangGraph com rotas fixas, checkpoints, pausa humana, dependências e terminais; ausência de ciclos não limitados; política para divergências; mesmas ferramentas no baseline
+- **C14 — Comunicação e contratos:** JSON Schema/Pydantic, envelope com task/trace/version, referência em vez de cópia integral, leitura de snapshot; erros tipados; MCP nas fronteiras de ferramentas; A2A somente como extensão de serviços *(Ambiguidade pendente 5: A2A não é requisito para comunicação interna — acrescentar serviços remotos ao MVP ampliaria os pontos de falha sem benefício demonstrado.)*
+- **C15 — Política de ferramentas:** allowlist por papel, argumentos validados, tool result como dados, rede opcional, escrita mediada; JSON correto não basta: validar também intenção e efeito
 
 Além da fidelidade, conferir que: os IDs são permanentes/estáveis; nada acrescenta requisito, número ou métrica além do fonte; C13–C17/C20 estão registrados como camada que **sustenta o núcleo desde o início** (não como fase posterior); a ambiguidade 5 aparece apenas como decisão pendente.
 
