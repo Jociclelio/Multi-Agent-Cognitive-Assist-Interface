@@ -1,6 +1,6 @@
 # Task 005: Commit idempotente, recibo e recuperação (mapa §11, §13.2)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 004
 Origem: nenhuma
 
@@ -43,13 +43,19 @@ Implementar o commit idempotente do mapa §11 em `eduagent/services/effects.py`/
 5/10 — A ordem dedup→version e a máquina de estados do lease foram diretas porque a 004 já pré-implementou a dedup na camada de dados; o peso extra veio de três pontos: (i) a FK do outbox referencia `operations(id)`, forçando o outbox a ser inserido por último na transação (a primeira versão falhava com `FOREIGN KEY constraint failed`); (ii) simular crash real exigiu subprocesso com `os._exit` — `sqlite3.Connection` é imutável, e o crash pré-commit precisou de trace callback (invocado antes do statement); o cenário pós-efeito deu falso negativo na primeira tentativa porque um claim manual criava lease que o próprio dispatcher via como recuperado; (iii) a tentativa de colunas extras no outbox para persistir o motivo de `UNKNOWN_EFFECT` esbarrou na equivalência de schema registrada pela 004a — decisão documentada de usar o estado terminal `failed` sem migração.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — task-master do ciclo opt-in; rodada em modo **paralelo** (testes Python com SQLite temporário isolado por processo, sem disputa de build/GPU/portas; `/tmp/opencode` para cópias de revisão).
+- Alvo: base `5d8df51cb7c9670122d39fb881d3da3acee147c6`; entrega `17c1392a2978e8d430ec23c6b2ab6897232c5a02`; registro `62d3fa5`; árvore limpa; mapa e submodule intocados (confirmados pelo orquestrador antes da rodada).
+- Avaliações (três modelos distintos, quórum completo, sem falhas nem substituições):
+  - GLM-5.3-Flash (`sd2`) — **9/10**, aprovada. C1–C4 verificados por execução em cópia isolada (130 passed; base confirmada em 107). Achados: A1 baixo — perda de lease durante efeito lento com segundo dispatcher levanta `INTERNAL_FAILURE` e interrompe o lote (não ocorre com dispatcher único do MVP); A2 baixo — linha recuperada sem `probe` vai a `UNKNOWN_EFFECT` mesmo que o crash tenha sido antes do efeito (consequência direta do §11, mitiga em 014/015); A3 info — `SCHEMA_INVALID` para dedup conflitante, código não fixado pelo mapa.
+  - GPT-6 Luna (`openai`) — **7/10**, requer correções. Achado A1 alto — `ack/requeue/fail` não validam posse do lease (token/geração); com processamento além da expiração e dispatcher concorrente, o dispatcher antigo poderia alterar estado do claim novo. C1/C2/C4 verificados; C3 marcado parcial.
+  - MiMo v2.6 Flash (`opencode`) — **9/10**, aprovada. C1–C4 verificados por diff e scripts independentes em `/tmp/opencode`; achado A1 baixo/informativo — ausência de requeue manual para linhas `failed` (§11 exige apenas "sem retry automático"; melhoria futura em 014/015).
+- Síntese e resolução da divergência: o único achado de severidade alta (A1 da Luna) pressupõe **despacho concorrente** com lease expirado. O contrato não exige essa proteção: o schema do outbox no mapa (§11: `outbox(id PK, operation_id FK UNIQUE, target, payload_json, lease_until, state)`) não define coluna de token/posse de lease, e §11 declara "Entrega pode ser ao menos uma vez; não há promessa de exactly-once distribuído", com reconciliação por identidade como mecanismo de cobertura. No MVP há um único dispatcher; GLM registrou o mesmo comportamento como achado baixo e não bloqueante. Exigir token de posse alteraria o DDL normativo e extrapolaria o escopo. Achado registrado como melhoria de robustez para as tasks 014 (traces/reconciliação operacional) e 015, sem condicionar esta entrega. Divergência resolvida pelo contrato, não por desempate de opinião.
+- Nota final: **9/10** — não é média automática: todos os critérios obrigatórios C1–C4 foram verificados de forma independente pelos três revisores, dois deles com execução própria da suíte (130 passed, base 107 confirmada) e scripts independentes; a implementação é fiel ao §11/§15.1 e as decisões de ensaio estão registradas como escolhas, não como resultados medidos. A ressalva da Luna é melhoria de robustez além do contrato, devidamente registrada.
+- Parecer: entrega corresponde ao prompt e aos critérios; sem pendências essenciais.
+- Decisão: **fechar**
+- Reversão: não se aplica — sem artefatos a reverter.
+- Próximo passo: liberar task 006 (ingestão Docling/OCR, proveniência e fatos).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/006-ingestao-docling-ocr-proveniencia-fatos.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
