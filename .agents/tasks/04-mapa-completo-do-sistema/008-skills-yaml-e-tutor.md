@@ -1,6 +1,6 @@
 # Task 008: Skills YAML e Tutor (mapa §8 tutor/skills, §13.5 parte 1)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (corrigir → 008a)
 Depende de: 007
 Origem: nenhuma
 
@@ -58,13 +58,21 @@ Implementar o Tutor e o catálogo de skills (mapa §8) em `eduagent/agents/tutor
 5/10 — Na média esperada. Pontos que exigiram mais atenção: (i) fronteira sink↔Tutor — o `item_id` precisa ser único entre quem decide (Tutor) e quem persiste (sink); a primeira versão gerava IDs distintos e a projeção não resolvia; resolvido passando o `item_id` do Tutor ao sink; (ii) `LearningItem.topic_ids` obrigatório (contrato §4, mín. 1) quando o `EvidencePack` pode vir sem tópicos — resolvido com cadeia override→pacote→item pendente (transferência) e erro tipado se vazio; (iii) a política de `allowed_tools` precisou ser no papel do Tutor (a tabela §10 tem `web.search` válida para Curador, mas não para o Tutor) — validação no carregador do catálogo; (iv) teto duplo de orçamento (turno §3 × `max_calls` da skill §8) com reparos consumindo chamadas — implementado como mín dos dois com teto separado de reparos. Nenhum impedimento.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: sd2/GLM-5.3-Flash (master do ciclo, sessão ses_ea08c92c2ffe01vJuSCtyAsRiX).
+- Alvo: base `6680654bea6d02b7409492f7bd0a926ee5a58ea6`; entrega `093f6f980ee5c21fdf59b2425a8fd9a20e518d2c` (código/testes); registro `b6433465f0e435be5fbde0297f1a67be0a6276c6` (HEAD, main). Árvore limpa conferida; diff da entrega = 13 arquivos declarados; mapa e submódulo intocados (C4 ok).
+- Modo da rodada: **paralelo** — revisão é leitura de código/testes com backend fake (sem GPU, portas ou build compartilhado); três revisores em sessões novas com o mesmo pedido.
+- Avaliações (rodada 1):
+  - sd2/GLM-5.3-Flash — 9/10, aprovada; achados cosméticos A1 (linha morta em `tests/test_task008_tutor.py:478`) e A2 (import interno em `loader.py:266`); re-conferiu hashes e rodou a suíte (252 passed).
+  - openai/gpt-6-luna — 9/10, aprovada; sem achados; suíte não executada (dependência ausente fora do `.venv`); C1–C4 verificados por inspeção.
+  - opencode/mimo-v2.6-flash-free — 6,5/10, corrigir; achados F1 (alto), F2/F3 (médios), F4 (baixo), com scripts reproduzíveis em `/tmp/opencode/rev008`; suíte 252 passed.
+- Esclarecimento (contradição essencial 2×1; rodada pontual enviada a GLM e Luna):
+  - sd2/GLM-5.3-Flash — reproduziu F1, F2 e F3 integralmente (F1: prática A + 3 pistas → prática B → 1ª pista de B devolve `objective=close` com zero pistas no item B e `exposure.help_level=3` persistido; F2: prompt de 4001 chars → linha órfã em `items`/`events`/`operations` com 0 turnos; F3: `critical:"false"`→`true` e campos extras aceitos sem reparo com capacidade `json_schema` ausente). Nota escopada 6/10, corrigir.
+  - openai/gpt-6-luna — confirmou F2 (publicação precede validação de `LearningItem`/`TutorTurn`, limite 4000 de `_MAX_TEXT`) e F3 (coerção bool e validação local parcial); F1 não reproduzida na sequência alegada, mas confirma a raiz: `help_level` é campo da sessão (`tutor.py:470-479`) incrementado sem reset na troca de item. Nota escopada 6/10, corrigir.
+- Síntese: F1 (alto, confirmado por 2 reproduções independentes + inspeção) — contador de pistas por sessão e não por item, quebrando a escada 1=conceito/2=próximo passo/3=exemplo do mapa §8 e contaminando o payload de exposição consumido pela 009 (§15.2 é por tentativa); F2 (médio, confirmado) — item commitado no sink antes da validação do `LearningItem`/`TutorTurn` (limite 4000 chars §4), produzindo efeito parcial órfão sem reparo possível; F3 (médio, confirmado) — coerção `bool("false")→True` na rubrica e ausência de validação local contra o schema declarado quando o runtime não tem `json_schema` verificada (§3.1 exige parse/schema/política sempre); F4 (baixo, só MiMo — verificar na correção) — caso "quatro pistas" do `graduated_hint/skill.yaml` declara `help_level: 4` acima do `maximum: 3` do próprio `input_schema`; aproveitar A1/A2 (cosméticos) na mesma passagem. Divergência inicial resolvida com evidência executável; os dois aprovantes da rodada 1 reverteveram para corrigir.
+- Nota final: **6/10** — entrega ampla, bem testada e fiel em C2/C4 e na maior parte de C1/C3, mas F1 é defeito funcional do comportamento central das pistas e F2/F3 violam contrato persistido; não é fechável nesta versão. Correções são locais e a entrega é preservada (sem reinício nem divisão).
+- Parecer: aprovado com correção delimitada — C1 parcial (F1), C2 atendido (ressalva F4), C3 atendido com pendências (F2, F3), C4 atendido.
+- Decisão: **corrigir**
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: subtask 008a (correção de F1–F4 + A1/A2), a criar; encaminhamento pendente de criação/commit.
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
