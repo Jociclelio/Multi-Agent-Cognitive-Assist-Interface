@@ -8,10 +8,10 @@ Origem: nenhuma
 Conferir que a especificação abaixo dos componentes C18 e C19 reproduz **fielmente** as características exigidas e os critérios verificáveis de `fase2/documentos/02_componentes_e_requisitos.md` (documento-fonte normativo, que permanece intocado). Registrar em Evidências a conferência item a item. Desvio de fidelidade: corrija apenas o texto desta task em dif mínimo e registre em Evidências.
 
 Especificação a validar (extraída da tabela do documento-fonte):
-- **C18 — Dados de avaliação:** corpus autorizado, casos com ouro de fontes, tópicos, respostas e agenda; trajetórias longitudinais; splits por famílias de documentos; prevenir contaminação e registrar anotação.
-- **C19 — Avaliação experimental:** comparação pareada com agente único, orçamento controlado, ablações, métricas por saída/falha, oráculos independentes, IC e análise de custo; juízes humanos e LLM calibrados.
+- **C18 — Dados de avaliação:** corpus autorizado, casos com ouro de fontes, tópicos, respostas e agenda; trajetórias longitudinais; splits por famílias de documentos; prevenir contaminação e registrar anotação
+- **C19 — Avaliação experimental:** comparação pareada com agente único, orçamento controlado, ablações, métricas por saída/falha, oráculos independentes, IC e análise de custo; juízes humanos e LLM calibrados
 
-Além da fidelidade, conferir que: os IDs são permanentes/estáveis; nada acrescenta requisito, número ou métrica além do fonte; C18/C19 estão registrados conforme a prioridade do fonte — **devem começar antes da otimização**, para impedir que o conjunto de teste oriente escolhas; "comparação pareada com agente único" é registrada como desenho experimental futuro, não como resultado obtido (a hipótese da etapa 1 permanece condicionada a essa avaliação futura).
+Além da fidelidade, conferir que: os IDs são permanentes/estáveis; nada acrescenta requisito, número ou métrica além do fonte; C18/C19 estão registrados conforme a prioridade do fonte — **devem começar antes da otimização** para impedir que o conjunto de teste oriente escolhas; "comparação pareada com agente único" é registrada como desenho experimental futuro, não como resultado obtido (a hipótese da etapa 1 permanece condicionada a essa avaliação futura).
 
 Restrições: não alterar o documento-fonte nem criar documento novo; não resolver ambiguidades (inclui a ambiguidade 6: toda recomendação de pesquisa deve declarar hipótese, alternativa, custo, limitação e teste de seleção — registrar como pendência, não aplicá-la); prosa em português; commit de registro separado, sem amend/force-push/commits vazios.
 
