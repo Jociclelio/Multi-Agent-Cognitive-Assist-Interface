@@ -39,4 +39,16 @@ Consolidar, em plano acionável, a implementação da primeira versão do EduAge
 - Validação dos parâmetros de recuperação (C04) em português ainda pendente, conforme apontado no documento.
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Componentes | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-validar-decisao-inferencia-local-c01-c20.md](../../tasks/03-metodologias-de-implementacao/001-validar-decisao-inferencia-local-c01-c20.md) | C01, C20 | nenhuma | pendente |
+| 2 | [002-validar-decisao-ingestao-ontologia-c02-c03.md](../../tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md) | C02, C03 | 001 | pendente |
+| 3 | [003-validar-decisoes-recuperacao-curadoria-c04-c05.md](../../tasks/03-metodologias-de-implementacao/003-validar-decisoes-recuperacao-curadoria-c04-c05.md) | C04, C05 | 002 | pendente |
+| 4 | [004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md](../../tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md) | C06, C07, C08 | 003 | pendente |
+| 5 | [005-validar-decisoes-memoria-planejamento-c09-c10-c11.md](../../tasks/03-metodologias-de-implementacao/005-validar-decisoes-memoria-planejamento-c09-c10-c11.md) | C09, C10, C11 | 004 | pendente |
+| 6 | [006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md](../../tasks/03-metodologias-de-implementacao/006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md) | C12, C13, C14 | 005 | pendente |
+| 7 | [007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md](../../tasks/03-metodologias-de-implementacao/007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md) | C15, C16, C17 | 006 | pendente |
+| 8 | [008-validar-dependencia-externa-avaliacao-c18-c19.md](../../tasks/03-metodologias-de-implementacao/008-validar-dependencia-externa-avaliacao-c18-c19.md) | C18, C19 | 007 | pendente |
+| 9 | [009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md](../../tasks/03-metodologias-de-implementacao/009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md) | orçamentos da etapa 4 + limites bibliográficos + consolidação 20/20 | 008 | pendente |
+
+Partição segue as 13 linhas da tabela "Decisões reconciliadas" do documento-fonte, agrupadas em 8 tasks de decisão (001–008) mais a consolidação de orçamentos, limites bibliográficos e cobertura (task 009). Pendências preservadas e não resolvidas por esta família: posicionamento de C10 na cadeia do núcleo; validação de C04 em português; ambiguidades 1–6 da etapa 2; pesquisa específica das etapas 6–7 (C18–C19); feature flag da agenda remota; orçamentos tratados como escolhas iniciais configuráveis, nunca como resultados medidos.
