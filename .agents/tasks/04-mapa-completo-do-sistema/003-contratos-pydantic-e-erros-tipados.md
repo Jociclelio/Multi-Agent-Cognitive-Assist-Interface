@@ -1,6 +1,6 @@
 # Task 003: Contratos Pydantic, envelope e erros tipados (mapa §4)
 
-Estado: aguardando revisão
+Estado: resolvida por subtasks (003a fechada em 9/10, fechar; A1/A2 corrigidos e verificados, A3–A6 aproveitados)
 Depende de: 002
 Origem: nenhuma
 
@@ -45,9 +45,9 @@ Implementar em `eduagent/contracts.py` (e módulos afins) todos os contratos do 
 - Síntese: convergência plena em C2 (envelope, grafo, 12 erros, F1), C3 (15 schemas regeneráveis, round-trip) e C4 (mapa/plano/submódulo intocados, commits separados). Divergência essencial em C1: o parecer reprovador apresenta evidência concreta e específica de duas invariantes da tabela §4 não implementadas, que os outros dois revisores não exercitaram; por contrato, o master não desempata abrindo fontes ou rodando testes — a verificação normativa cabe à subtask de correção. Pendência essencial não pode ser escondida atrás da aprovação majoritária.
 - Nota final: 8/10 — entrega extensa (~1.300 linhas), isolada e com evidência forte e verificada de forma independente por três modelos; desconto pela pendência essencial de C1 (A1/A2) a esclarecer e corrigir.
 - Parecer: entrega preservada; correção delimitada aos invariantes disputados da tabela §4 e achados acessórios aproveitáveis; nenhuma reversão necessária.
-- Decisão: corrigir
+- Decisão: corrigir → resolvida por subtasks (003a fechada)
 - Reversão: não se aplica — entrega preservada.
-- Próximo passo: subtask `.agents/tasks/04-mapa-completo-do-sistema/003a-correcao-invariantes-studydemand-e-enum-erros.md` (A1/A2 obrigatórios; A3–A6 aproveitáveis). Ao fechar a 003a, a família 003 estará resolvida.
+- Próximo passo: subtask `.agents/tasks/04-mapa-completo-do-sistema/003a-correcao-invariantes-studydemand-e-enum-erros.md` (A1/A2 obrigatórios; A3–A6 aproveitáveis). Ao fechar a 003a, a família 003 estará resolvida. **Fechada:** 003a concluída com decisão fechar (base `860942f`, entrega `b0de70c`, registro `a5dd3f6`, nota 9/10); família 003 resolvida.
 
 <!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/003a-correcao-invariantes-studydemand-e-enum-erros.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 

@@ -1,6 +1,6 @@
 # Task 003a: Correção dos invariantes de `StudyDemand` e enum de `error_codes` (mapa §4)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 003
 Origem: 003 — correção
 
@@ -52,13 +52,16 @@ Restrições: preservar a entrega da 003 (sem reverter); commits SEPARADOS — (
 2/10 — Correção delimitada e bem especificada; o único cuidado extra foi conferir a seção exata de cada citação normativa (§4 linha 87, §8 linha 158, §15.3 linha 266) antes de fixar o validador, e validar que a mudança de `error_codes` para o enum produziu `enum` no JSON Schema sem efeitos colaterais (MemoryPack inclui TopicState e mudou junto, como esperado).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (sd2), sessão master do ciclo opt-in.
+- Alvo: base `860942f3bc3f05396098cf2cb5d5d3a2252709dd`; entrega `b0de70c40cfc73bb1554763d845c4e6d2e98aeb8`; registro `a5dd3f643457885ff0617f04e3deffec3f8b4adb` (HEAD confirmado, árvore limpa durante toda a rodada). Modo da rodada: **paralelo** — revisão por leitura de fontes, probes de contratos e suíte curta em cópias isoladas em `/tmp/opencode`; sem disputa de recursos compartilhados do sistema (sem GPU/portas/benchmarks).
+- Avaliações: (1) `sd2/GLM-5.3-Flash` — 9/10, aprovada; citações normativas conferidas no mapa (linhas 87/158/266), probe A1 reproduzido fora da suíte, suíte 63 passed em cópia isolada, `--check` byte a byte real; achados baixos: `jsonschema` dev declarado com lock mas não exercitado pelos testes; mensagem cosmética do `--check` pré-existente. (2) `openai/gpt-6-luna` — 10/10, aprovada; C1–C4 verificados com pais dos commits, testes e `--check` em cópia isolada; sem achados. (3) `opencode/mimo-v2.6-flash-free` — 9/10, aprovada com ressalva baixa; probes independentes (A1 rejeitado/aceito, enum de 12 códigos, `diff -r` byte a byte, `uv lock --check --offline` rc=0, submodule ponteiro inalterado); achados baixos: F1 — a evidência de A5 no registro superestima o efeito (`EventKind` recebeu comentário `#`, não docstring; schema de `EventKind` sai sem `description`, apenas `EnvelopeStatus` tem), não reabre o critério pois A5 está rotulado no código e o próprio prompt da task era autocontraditório (padrão citado, `OperationAction`, também usa comentário); F2 — novo teste A2 usa `pytest.raises(Exception)` sem `match` (convenção pré-existente do arquivo, rejeição real confirmada por probe).
+- Síntese: convergência plena dos três revisores em C1 (leitura normativa das três passagens do mapa sustenta a regra implementada, validador e testes verificados), C2 (enum tipado com `$ref`+enum fechado nos schemas, suíte 63 verde reproduzida independentemente), C3 (regeneração byte a byte, A3–A6 registrados item a item) e C4 (isolamento, commits separados, entrega da 003 preservada). Divergências: apenas dois achados baixos do revisor MiMo (F1 imprecisão documental em A5; F2 asserção de teste sem `match`), nenhum essencial, nenhum reabrindo critério; sem contradição entre pareceres.
+- Nota final: 9/10 — correção delimitada, completa e verificada de forma independente por três modelos distintos; desconto pela imprecisão documental F1 e pela asserção fraca F2, ambos de baixo impacto e sem risco aos invariantes entregues.
+- Parecer: os critérios obrigatórios C1–C4 estão comprovados com evidência independente; os achados remanescentes são documentais/estilísticos e não justificam novo ciclo de correção.
+- Decisão: fechar — família 003 (003 + 003a) resolvida.
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: liberar task 004 (`004-armazenamento-ddl-migracoes-snapshot.md`).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/004-armazenamento-ddl-migracoes-snapshot.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
