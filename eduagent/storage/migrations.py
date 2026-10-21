@@ -39,6 +39,10 @@ Contratos do mapa §5 implementados aqui:
   migração ``0003``): coluna aditiva com UNIQUE ``(version_id, block_id)`` e
   backfill pela fórmula ``p{page}b{order%10⁴+1}``; a PK UUID do DDL §5
   permanece e a citação fecha pela coluna armazenada.
+- ``tombstones`` (§5/§15.1, task 010 — migração ``0005``): catálogo de
+  tombstones **sem payload** para impedir ressurreição de artefatos
+  excluídos, com ``backup_pending_until`` (backup identificado como
+  pendente até expiração) e **nenhum hash reversível** do texto excluído.
 
 Nota de runtime: o mapa §3 pede SQLite com as correções WAL documentadas
 (3.51.3 ou backport). O interpretador do projeto (CPython 3.12, ``uv``)
@@ -627,6 +631,42 @@ CREATE INDEX idx_attempts_family ON attempts(user_id, family_id);
 """
 
 
+def _migration_0005() -> str:
+    """Catálogo de tombstones sem payload (§5/§15.1 — task 010).
+
+    A deleção explícita precisa de catálogo para impedir ressurreição do
+    artefato excluído (§5: "catálogo de tombstones sem payload") e para
+    identificar o backup como **pendente até expiração** (§15.1: "backups
+    identificados como pendentes até expiração"). Regras:
+
+    - Nenhum payload: a tabela guarda apenas a referência (ID+versão), o
+      motivo e o instante — **nenhum hash reversível do texto excluído**
+      (§5: "não manter hash reversível de texto excluído"; o motivo é texto
+      de política, não conteúdo do artefato).
+    - ``backup_pending_until``: retenção de backup proposta de 30 dias
+      (default de ensaio, §5/§15.1) para escopos parciais; deleção que
+      remove todos os dados do usuário (backup conteria apenas esse
+      usuário) registra ``NULL`` — remoção já na solicitação.
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- tombstones (§5 linha 125 / §15.1): catálogo sem payload
+-- ---------------------------------------------------------------------------
+CREATE TABLE tombstones (
+    id                   TEXT PRIMARY KEY,         -- UUID
+    user_id              TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    artifact_ref         TEXT NOT NULL,            -- '<prefixo>:<uuid>@<versão>'
+    kind                 TEXT NOT NULL
+        CHECK (kind IN ('fact','event','summary','data')),
+    reason               TEXT NOT NULL,
+    tombstoned_at        TEXT NOT NULL,
+    backup_pending_until TEXT                       -- NULL = remoção na solicitação
+);
+CREATE INDEX idx_tombstones_user ON tombstones(user_id);
+CREATE INDEX idx_tombstones_ref ON tombstones(user_id, artifact_ref);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -658,6 +698,14 @@ def _load_builtin() -> None:
             "determinístico (famílias distintas e independência da "
             "tentativa) — §15.2, task 009",
             _migration_0004(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            5,
+            "catálogo de tombstones sem payload com backup pendente até "
+            "expiração — §5/§15.1, task 010",
+            _migration_0005(),
         )
     )
 
