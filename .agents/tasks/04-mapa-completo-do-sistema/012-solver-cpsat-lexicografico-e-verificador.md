@@ -1,6 +1,6 @@
 # Task 012: Solver CP-SAT lexicográfico e verificador independente (mapa §9, §15.5, §13.7 parte 1)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 011
 Origem: nenhuma
 
@@ -12,18 +12,42 @@ Implementar o solver e o verificador (mapa §9 e §15.5) em `eduagent/services/s
 - Demandas/atividades (011), storage (004), contratos (003).
 
 ## Corretude
-- [ ] C1 — Modelo CP-SAT com todas as restrições do §9; grade/UTC/horizonte conforme §15.5; dependência cíclica → erro explícito (teste).
-- [ ] C2 — Lexicografia com orçamento de 10 s: testes cobrem OPTIMAL fixado, FEASIBLE interrompendo com provas por etapa, UNKNOWN→incumbent anterior, INFEASIBLE provado; nunca publicar relaxação.
-- [ ] C3 — Verificador separado valida em minutos/instantes originais e rejeita proposta inválida (teste com violação só visível fora da matriz); preview com diff por identidade de ocorrência.
-- [ ] C4 — `solver_budget_s=10`, `slot_minutes=15`, `horizon_days=7`, `seed=0`, `num_workers=1` da config; mapa intocado; commits separados.
+- [x] C1 — Modelo CP-SAT com todas as restrições do §9; grade/UTC/horizonte conforme §15.5; dependência cíclica → erro explícito (teste).
+- [x] C2 — Lexicografia com orçamento de 10 s: testes cobrem OPTIMAL fixado, FEASIBLE interrompendo com provas por etapa, UNKNOWN→incumbent anterior, INFEASIBLE provado; nunca publicar relaxação.
+- [x] C3 — Verificador separado valida em minutos/instantes originais e rejeita proposta inválida (teste com violação só visível fora da matriz); preview com diff por identidade de ocorrência.
+- [x] C4 — `solver_budget_s=10`, `slot_minutes=15`, `horizon_days=7`, `seed=0`, `num_workers=1` da config; mapa intocado; commits separados.
 
 ## Notas
+
+### Execução (registro do executor)
+
+- **Identidade real do modelo**: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — informada pelo runtime do agente.
+- **SHA base**: `a0b29c4` (`a0b29c4415407c52d166de2d865329e6c5590a8e`, revisão da 011 liberando a 012).
+- **SHA da entrega**: `34fe505` (`34fe5058d362e1b225a07cb20e7810b839d8d447`) — código em `eduagent/services/scheduling.py` (seção nova do solver/verificador após o `DemandService`) e `tests/test_task012_solver_verifier.py`.
+- **Arquivos da entrega**: `eduagent/services/scheduling.py`; `tests/test_task012_solver_verifier.py`. Mapa normativo, `docs/playground-llmagenticsystem` (submódulo) e `config/default.yaml` intocados (`git status` limpo após commits; ortools já pinado em `pyproject.toml`/`uv.lock` da task 001).
+
+#### Evidências por critério
+
+- **C1** — Testes G1–G15: obrigatória `Σ=1`/opcional `≤1` (G1), earliest (G2), deadline datetime (G3) e só de dia valendo até a meia-noite seguinte (G4), precedência `end_i≤start_j` (G5), `presence_j≤presence_i` com pré-requisito obrigatório (G6), ciclo/auto-dependência → `SCHEMA_INVALID` explícito, não INFEASIBLE (G7), exclusividade por slot com INFEASIBLE provado (G8), candidatos não atravessam meia-noite (G9), horizonte de 7 datas com dia 7 fora (G10), capacidade em minutos reservados `ceil(duração/15)*15` (G11), compromisso arredondado para fora sem contar como estudo (G12), bloco fixo de estudo contando na capacidade (G13), instantes locais inexistentes (04/11/2018, America/Sao_Paulo — zona explícita do teste, não default) e ambíguos (16/02/2019) rejeitados com `AMBIGUOUS_INPUT` (G14), settings inválidos tipados (G15).
+- **C2** — Testes L1–L8: 6 etapas lexicográficas (`max_class1/2/3`, `min_changes`, `min_displacement_min`, `max_preferences`) todas OPTIMAL com defaults da config (L1), classe1 vence classe2 no mesmo slot (L2), FEASIBLE interrompendo a lexicografia com provas por etapa e solução válida (L3), primeira fase UNKNOWN → UNKNOWN sem publicar nada (L4), UNKNOWN posterior → incumbent anterior publicado como FEASIBLE com provas (L5), INFEASIBLE provado com a mensagem obrigatória "inviável na grade conservadora de 15 min; viabilidade contínua não determinada" (L6, G8), MODEL_INVALID como defeito sem blocos (L7), orçamento dividido por `remaining_seconds/remaining_stages` com tempo não consumido reaproveitado e recortes crescentes dentro do teto (L8). Fixação do valor anterior somente com OPTIMAL implementada em `_LexicographicDriver.run`/`_fix`; incumbent é validado pelo verificador independente após cada etapa e solução que falhar na validação levanta `INTERNAL_FAILURE` (nada é publicado). Testes de protocolo (L3/L4/L5/L7) sobrescrevem apenas o **status** reportado por etapa via monkeypatch de `_LexicographicDriver._solve_stage`, mantendo a seleção real do CP-SAT.
+- **C3** — Testes V1–V8: verificador separado (`_verify_placement`/`verify_schedule`) que não consulta a matriz de slots nem o modelo do solver; V2 é a violação **só visível fora da matriz** (duração original de 20 min com instantes cobrindo 15 min — uma checagem que só conta slots livres veria 2 slots disponíveis e aprovaria); V3 conflito, V4 snapshot divergente, V5 obrigatória ausente, V6 diff inconsistente com a identidade, V7 status sem solução publicando blocos; V8 preview com diff por identidade (movida mantém `block_id`/`uid`, adicionada nova ocorrência, déficit 0).
+- **C4** — `SolverSettings`/`load_solver_settings` leem `config/default.yaml` (`solver_budget_s=10`, `slot_minutes=15`, `horizon_days=7`, `seed=0`, `num_workers=1`) com fallback tipado para defaults de ensaio espelhando o yaml (K1); `slot_minutes` e `horizon_days` da config governam o solve (K2); `num_workers`/`seed` vão direto aos parâmetros do CP-SAT. Ferramenta `schedule.solve` negada a papéis que não o Planejador (R1). Mapa e submódulo intocados verificados por `git status`/`git diff`.
+
+#### Decisões de codificação registradas
+
+1. **Identidade de diff por `block_id`** (§15.5 usa block_id como identidade de alteração): ocorrência aprovada reagenda com o **mesmo** `block_id`/`uid`; ocorrência nova recebe `occurrence_id`/`block_id`/`uid` determinísticos (uuid5). A persistência definitiva da identidade fica para a confirmação (task 013).
+2. **Deadline só de dia** vale até a meia-noite local seguinte (a fronteira do dia é a própria regra; nenhum horário é inventado, §6.3/§15.3).
+3. **Sem zona confirmada** (`local_timezone=None`) o dia local é o dia UTC — escolha conservadora já documentada na task 011; UTC não tem transição, então os testes de ambiguidade passam zona IANA explícita (não é default).
+4. **Round-trip antes de fold** na resolução de instante local: lacuna → "não existe"; repetição com round-trip ok → "ambíguo" (ambos `AMBIGUOUS_INPUT`, rejeitados até confirmação).
+5. **INFEASIBLE em etapa posterior a incumbent válido** é tratado como contradição interna (`INTERNAL_FAILURE`), pois as restrições fixadas por OPTIMAL mantêm o modelo satisfatível — não é conflito novo de dados.
+6. **`verify_schedule` público** reusa a grade default para a regra de arredondamento e aceita `settings` explícito; a checagem de capacidade/duração usa a duração original da demanda.
+7. **Nenhuma medida de tempo publicada no artefato**: a proposta registra apenas status por etapa e valores de objetivo; os segundos do orçamento são operacionais e não entram em `explanation`.
 
 ### Dificuldade esperada
 7/10 — CP-SAT + lexicografia com orçamento e verificador independente; muitos casos de status e de grade local.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+6/10 — A modelagem CP-SAT e o protocolo de status do §15.5 foram diretos após ler §9/§15.5; a dificuldade concentrou-se em (a) acertar a semântica de identidade do diff (block_id vs occurrence_id) sem campo de ocorrência no contrato `PlanBlock`, resolvida com identidade estável derivada de ocorrência; (b) a ordem round-trip×fold na detecção de instante inexistente vs ambíguo (bug encontrado pelo próprio teste G14 e corrigido); e (c) desenhar testes de protocolo determinísticos para FEASIBLE/UNKNOWN/MODEL_INVALID sem depender de timing do CP-SAT (resolvido sobrescrevendo apenas o status reportado por etapa). Dois testes tiveram matemática de janela errada no primeiro corte (G7 sem ciclo real, L10/L11 com empates de solução) — corrigidos antes da entrega.
 
 ### Revisão
 - Orquestrador: —
