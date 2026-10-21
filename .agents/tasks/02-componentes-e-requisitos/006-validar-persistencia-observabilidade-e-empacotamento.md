@@ -8,9 +8,9 @@ Origem: nenhuma
 Conferir que a especificação abaixo dos componentes C16, C17 e C20 reproduz **fielmente** as características exigidas e os critérios verificáveis de `fase2/documentos/02_componentes_e_requisitos.md` (documento-fonte normativo, que permanece intocado). Registrar em Evidências a conferência item a item. Desvio de fidelidade: corrija apenas o texto desta task em dif mínimo e registre em Evidências.
 
 Especificação a validar (extraída da tabela do documento-fonte):
-- **C16 — Persistência e recuperação:** transações, outbox, controle otimista de versão, migrações, backup, retomada e deduplicação; teste de crash antes/depois de efeitos.
-- **C17 — Observabilidade e limites:** trace por turno, tokens, tempo, RSS/VRAM, hashes de modelo/prompt, solver status; orçamento de chamadas, tempo e reparos; cancelamento e resposta controlada. *(Questão aberta do plano: as definições dos orçamentos de C17 não constam do documento-fonte e não devem ser inventadas nesta etapa.)*
-- **C20 — Empacotamento e execução:** manifesto/lock de versões e hashes, configuração documentada, instalação offline possível, smoke test e CLI; hardware real registrado; extensões não obrigatórias para fechar o núcleo.
+- **C16 — Persistência e recuperação:** transações, outbox, controle otimista de versão, migrações, backup, retomada e deduplicação; teste de crash antes/depois de efeitos
+- **C17 — Observabilidade e limites:** trace por turno, tokens, tempo, RSS/VRAM, hashes de modelo/prompt, solver status; orçamento de chamadas, tempo e reparos; cancelamento e resposta controlada *(Questão aberta do plano: as definições dos orçamentos de C17 não constam do documento-fonte e não devem ser inventadas nesta etapa.)*
+- **C20 — Empacotamento e execução:** manifesto/lock de versões e hashes, configuração documentada, instalação offline possível, smoke test e CLI; hardware real registrado; extensões não obrigatórias para fechar o núcleo
 
 Além da fidelidade, conferir que: os IDs são permanentes/estáveis; nada acrescenta requisito, número ou métrica além do fonte (em especial, nenhum valor de orçamento para C17); C16/C17/C20 estão registrados como camada que sustenta o núcleo desde o início.
 
