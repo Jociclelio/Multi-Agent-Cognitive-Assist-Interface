@@ -50,13 +50,15 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não recl
 1/10 — Conferência textual de duas linhas de tabela já cobertas por tarefas análogas (001–005); nenhuma correção foi necessária e as fronteiras núcleo/opcional de C12 e A2A fora do MVP estavam coerentes no texto da task.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: sd2/GLM-5.3-Flash (task-master, ciclo opt-in)
+- Alvo: esta task; base `775054c`; commit de entrega: nenhum ("não se aplica — sem artefatos", conferência não encontrou desvio de fidelidade); commit de registro `7ff945d` (único commit base→HEAD, somente este arquivo); árvore limpa; fonte normativo e submódulo intocados.
+- Modo da rodada: paralelo — conferência textual sem recursos compartilhados do sistema; três revisores do pool fixo do ciclo, sessões novas.
+- Avaliações: sd2/GLM-5.3-Flash — 9,5/10, aprovada; openai/gpt-6-luna — 10/10, aprovada; opencode/mimo-v2.6-flash-free — 9,5/10, aprovada. Nenhum revisor falhou; sem substituições.
+- Nota final: 9,5/10 — fidelidade das linhas 24 e 25 do fonte confirmada por comparação textual independente (dois revisores com script de normalização em `/tmp/opencode`); as 8 chaves confirmadas em `fase2/references.bib` (uma ocorrência cada); fronteiras núcleo/opcional de C12, feature flag da agenda remota e as duas ambiguidades pendentes (A2A fora do MVP; reconciliação de prazos) preservadas; `verificar_documentos.py` passed; integridade Git verificada por todos os revisores. Desconto pela natureza de registro documental da entrega.
+- Parecer: achados apenas informativos, pré-existentes na base e não imputáveis ao executor — (A1, GLM-5.3-Flash) casing de "offline"/"Offline" no bullet C12 difere da célula do fonte, sem efeito de conteúdo; (O1, MiMo) a evidência descreve o campo fixo `failures: 24` do verificador como "contagem de categorias monitoradas", formulação aproximada cuja substância (não são falhas; `status: passed`) está correta. Nenhum bloqueia; sem correção exigida.
+- Decisão: fechar — todos os critérios C1–C3 comprovados por evidência independente; pendências registradas, não resolvidas.
+- Reversão: não se aplica — sem artefatos a reverter.
+- Próximo passo: liberar task 007 (C15/C16/C17 — persistência/observabilidade), dependência cumprida.
 
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/03-metodologias-de-implementacao/007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md","family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)
