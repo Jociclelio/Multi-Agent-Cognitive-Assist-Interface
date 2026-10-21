@@ -278,6 +278,10 @@ def _minimal_payload(model):
                     prompt="p", expected_answer_ref=_ref(), rubric_ref=_ref(),
                     source_refs=[_source_ref()], kind="quiz",
                     published_at=NOW)
+    if model is C.RubricCriterion:
+        return dict(criterion_id="c1", topic_ids=[UID],
+                    description="resposta usa a unidade correta",
+                    critical=False)
     if model is C.TutorTurn:
         return dict(skill_id="explain", skill_version=1, objective="explain",
                     text="t", hint_level=0, next_state="close",

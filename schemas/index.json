@@ -8,6 +8,7 @@
     "LearningItem": "LearningItem.schema.json",
     "MemoryPack": "MemoryPack.schema.json",
     "Operation": "Operation.schema.json",
+    "RubricCriterion": "RubricCriterion.schema.json",
     "ScheduleProposal": "ScheduleProposal.schema.json",
     "SourceRef": "SourceRef.schema.json",
     "StudyDemand": "StudyDemand.schema.json",

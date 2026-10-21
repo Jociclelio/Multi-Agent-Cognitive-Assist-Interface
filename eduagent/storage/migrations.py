@@ -604,6 +604,29 @@ CREATE UNIQUE INDEX uq_blocks_version_block ON blocks(version_id, block_id);
 """
 
 
+def _migration_0004() -> str:
+    """Colunas de redução em ``attempts`` (§15.2 — task 009).
+
+    O redutor determinístico precisa, por tentativa, da família do item
+    (regra ``favorable``: famílias distintas) e do julgamento de
+    independência (hint_level 0, sem reveal, sem acesso prévio à solução da
+    família na sessão corrente — §15.2). ``family_id`` é derivável por JOIN
+    com ``items``, mas ``independent`` é julgamento do commit (exposição da
+    sessão) que precisa sobreviver ao purge de payloads de eventos (§5):
+    coluna aditiva, default conservador 1 para linhas pré-existentes (nenhuma
+    no MVP — tabela escrita a partir desta task).
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- attempts: família e independência para o redutor (§15.2, task 009)
+-- ---------------------------------------------------------------------------
+ALTER TABLE attempts ADD COLUMN family_id TEXT;
+ALTER TABLE attempts ADD COLUMN independent INTEGER NOT NULL DEFAULT 1
+    CHECK (independent IN (0,1));
+CREATE INDEX idx_attempts_family ON attempts(user_id, family_id);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -626,6 +649,15 @@ def _load_builtin() -> None:
             "blocks.block_id determinístico persistido com UNIQUE "
             "(version_id, block_id) e backfill — §6.7, correção da 006a",
             _migration_0003(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            4,
+            "attempts.family_id e attempts.independent para o redutor "
+            "determinístico (famílias distintas e independência da "
+            "tentativa) — §15.2, task 009",
+            _migration_0004(),
         )
     )
 

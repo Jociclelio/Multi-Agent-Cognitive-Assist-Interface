@@ -70,6 +70,7 @@ __all__ = [
     "EvidencePack",
     "MemoryPack",
     "LearningItem",
+    "RubricCriterion",
     "TutorTurn",
     "Assessment",
     "TopicState",
@@ -660,6 +661,29 @@ class LearningItem(_StrictModel):
     published_at: UtcDatetime
 
 
+class RubricCriterion(_StrictModel):
+    """``RubricCriterion`` — critério de rubrica por tópico (mapa §15.2):
+    id, ``topic_ids`` não vazio, níveis 0/1/2 (0=incorreto/ausente, 1=parcial,
+    2=adequado — inerente ao contrato, não campo), ``critical``,
+    ``accepted_equivalences`` e ``evidence_refs``. Critério de múltiplos
+    tópicos deve ser decomposto pelo autor da rubrica quando não permitir
+    atribuição separada (§15.2); o redutor não atualiza o estado dos tópicos
+    cobertos por critério multicomponente não decomposto."""
+
+    criterion_id: _ShortId
+    topic_ids: UUIDList = Field(min_length=1, max_length=_MAX_LIST)
+    description: Annotated[
+        str, StringConstraints(min_length=1, max_length=_MAX_MESSAGE)
+    ]
+    critical: StrictBool = False
+    accepted_equivalences: list[Annotated[str, StringConstraints(
+        min_length=1, max_length=_MAX_TEXT
+    )]] = Field(default_factory=list, max_length=_MAX_LIST)
+    evidence_refs: list[SourceRef] = Field(
+        default_factory=list, max_length=_MAX_LIST
+    )
+
+
 class TutorTurn(_StrictModel):
     """``TutorTurn`` — um turno principal por chamada com terminal de
     invocação explícito (mapa §4/§8)."""
@@ -1226,6 +1250,8 @@ class GraphState(_StrictModel):
 SCHEMA_VERSION = "1.0"
 
 ALL_CONTRACT_MODELS: tuple[type[BaseModel], ...] = (
+    # Os 11 artefatos da tabela do mapa §4 vêm primeiro (invariante testado);
+    # ``RubricCriterion`` é contrato do fechamento de auditoria (§15.2).
     SourceRef,
     AcademicFact,
     EvidencePack,
@@ -1237,6 +1263,7 @@ ALL_CONTRACT_MODELS: tuple[type[BaseModel], ...] = (
     StudyDemand,
     ScheduleProposal,
     Operation,
+    RubricCriterion,
     TypedError,
     Envelope,
     ToolRequest,
