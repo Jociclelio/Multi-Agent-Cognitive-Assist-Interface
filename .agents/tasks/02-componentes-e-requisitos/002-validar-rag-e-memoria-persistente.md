@@ -8,8 +8,8 @@ Origem: nenhuma
 Conferir que a especificação abaixo dos componentes C04 e C09 reproduz **fielmente** as características exigidas e os critérios verificáveis de `fase2/documentos/02_componentes_e_requisitos.md` (documento-fonte normativo, que permanece intocado). Registrar em Evidências a conferência item a item contra o fonte. Desvio de fidelidade: corrija apenas o texto desta task em dif mínimo e registre em Evidências.
 
 Especificação a validar (extraída da tabela do documento-fonte):
-- **C04 — RAG documental:** busca lexical e semântica local, filtros por disciplina/versão, reranking, budget e abstinência; citações resolvíveis para documento e página; medição de recall e sustentação.
-- **C09 — Memória persistente:** eventos originais imutáveis, perfil corrigível, estado derivado versionado e sínteses com IDs de origem; recuperação temporal; correção, exclusão e isolamento por usuário.
+- **C04 — RAG documental:** busca lexical e semântica local, filtros por disciplina/versão, reranking, budget e abstinência; citações resolvíveis para documento e página; medição de recall e sustentação
+- **C09 — Memória persistente:** eventos originais imutáveis, perfil corrigível, estado derivado versionado e sínteses com IDs de origem; recuperação temporal; correção, exclusão e isolamento por usuário
 
 Além da fidelidade, conferir que: os IDs são permanentes/estáveis; nada acrescenta requisito, número ou métrica além do fonte; C04 e C09 ocupam a posição correta da cadeia do núcleo (C01 → C02/C03 → **C04/C09** → C06/C07/C08 → C11); "medição de recall" em C04 é registrada como critério verificável de avaliação futura, não como resultado medido.
 
