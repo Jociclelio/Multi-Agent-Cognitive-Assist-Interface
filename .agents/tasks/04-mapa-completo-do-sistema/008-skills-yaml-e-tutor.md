@@ -1,6 +1,6 @@
 # Task 008: Skills YAML e Tutor (mapa §8 tutor/skills, §13.5 parte 1)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 007
 Origem: nenhuma
 
@@ -12,10 +12,42 @@ Implementar o Tutor e o catálogo de skills (mapa §8) em `eduagent/agents/tutor
 - Adaptador de modelo (002), retrieval (007), storage (004).
 
 ## Corretude
-- [ ] C1 — Máquina de estados do Tutor conforme mapa, com terminal `waiting_student` e encerramento sem insistência em recusa/cancelamento.
-- [ ] C2 — Cinco skills YAML no schema do mapa, com hash/version registrados; nenhum caminho de autoedição em runtime.
-- [ ] C3 — Item de prática tem gabarito/rubrica prévia separado da solução; flashcard separa pergunta/verso com fonte; transferência exige família identificada.
-- [ ] C4 — Mapa intocado; commits separados; submódulo não tocado.
+- [x] C1 — Máquina de estados do Tutor conforme mapa, com terminal `waiting_student` e encerramento sem insistência em recusa/cancelamento.
+- [x] C2 — Cinco skills YAML no schema do mapa, com hash/version registrados; nenhum caminho de autoedição em runtime.
+- [x] C3 — Item de prática tem gabarito/rubrica prévia separado da solução; flashcard separa pergunta/verso com fonte; transferência exige família identificada.
+- [x] C4 — Mapa intocado; commits separados; submódulo não tocado.
+
+## Execução
+- Modelo: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime.
+- Base: `6680654bea6d02b7409492f7bd0a926ee5a58ea6` (árvore limpa; 007 fechada pelo master).
+- Entrega: `093f6f980ee5c21fdf59b2425a8fd9a20e518d2c` (código/testes).
+- Arquivos da entrega:
+  - `eduagent/skills/` — catálogo de skills YAML (mapa §8):
+    - `loader.py` — `SkillSpec` estrita (Pydantic, `extra='forbid'`) com EXATAMENTE os 12 campos do §8 (`id, version, tasks, input_schema, preconditions, steps, allowed_tools, output_schema, postconditions, stop_conditions, max_calls, cases`); `SkillCatalog.load()` carrega os cinco `skill.yaml`, valida schema, confere hash SHA-256 e version de cada arquivo contra o registro `catalog.json` (commitado) — divergência falha tipada `SCHEMA_INVALID` apontando a revisão offline; catálogo obrigatório (explicar/pistas/quiz/flashcard/autoexplicação) verificado no carregamento; `allowed_tools` validado contra a tabela §10 **no papel do Tutor** (ferramenta não proposável pelo Tutor é rejeitada — p.ex. `web.search`); instâncias imutáveis (`MappingProxyType`), sem nenhum caminho de escrita em runtime; única via de alteração é a revisão offline `python -m eduagent.skills --rehash` (regenera o registro; edição + commit).
+    - `catalog.json` — registro de hash/version das 5 skills (SHA-256 de cada YAML + versão + arquivo).
+    - `__init__.py`/`__main__.py` — API do pacote e CLI offline (`--rehash`/`--check`).
+    - 5 `skill.yaml` preenchidos com o conteúdo do mapa: `explain` (explicação direta, sem evidência → rotulada geral e sem citação), `graduated_hint` (1=conceito, 2=próximo passo, 3=exemplo análogo; após três, oferta determinística de solução comentada ou encerramento), `quiz` (prática/transferência/solução; enunciado sem solução, gabarito+rubrica prévios), `flashcard` (conceito atômico, pergunta/verso separados, fonte obrigatória), `self_explain` (autoexplicação com rubrica; avaliação é do Monitor). `max_calls` por skill limita o orçamento do turno (mínimo com `max_llm_calls` do §3).
+  - `eduagent/agents/tutor.py` — Tutor completo (mapa §8):
+    - **Estados/terminais**: `explain, attempt, hint, self_explain, transfer, close` com transições determinísticas; terminal `waiting_student` sempre que pede resposta (prática, pista, oferta pós-3-pistas); `explain` termina `completed` sem esperar; recusa → `completed`, cancelamento → `cancelled`, ambos encerram a sessão sem insistência; sessão encerrada rejeita novos movimentos com `AMBIGUOUS_INPUT`.
+    - **Um turno principal por chamada**: cada `handle` faz exatamente uma geração principal + reparos orçados (reparo consome chamada; orçamento = mín(`max_llm_calls` §3, `max_calls` da skill; teto de reparos `max_repairs_total` §3); esgotado → `SCHEMA_INVALID` com "Nenhuma saída parcial é aprovada silenciosamente" (§12).
+    - **Geração pela 002**: contrato `generate(messages, schema, sampler, deadline, seed)`; perfil non-thinking admitido no gate (`NON_THINKING_SAMPLER`, `.7/.8/20/min_p=0`); JSON schema enviado ao runtime SOMENTE com `capabilities.json_schema` verificada (§3.1) — parse/validação/política permanecem obrigatórios sempre; erros do adaptador propagam tipados (p.ex. `TIMEOUT`).
+    - **Política de citação**: tokens de citação `[doc:uuid@ordinal:página:bloco]` permitidos só do pacote rotulado (`TutorEvidence` alinhado ao `EvidencePack` da 007); citação fora do pacote → reparo → erro tipado (sem citação fictícia, §6.8); sem evidência, explicação sai rotulada "[explicação geral, sem fonte documental]" e zero citações.
+    - **Prática (C3)**: item criado por JSON com schema (prompt/expected_answer/rubrica/índices de fonte); verificação determinística de separação enunciado↔solução (substring bidirecional casefold) — vazamento → reparo → erro; fonte obrigatória (sem chunk → `NO_EVIDENCE`; tópicos do snapshot exigidos — override, pacote ou herdados do item pendente na transferência); publicação por `EventItemSink` sobre o **commit idempotente da 005** (`item.publish` + evento `item_published` com o payload separado + projeção na tabela `items` §5; refs `event:<uuid>@1` para gabarito/rubrica; bump de `domain_revision`).
+    - **Pistas**: nível = ajuda corrente+1, nunca revelando a solução (teste prova que o gabarito separado não entra nas mensagens de pista); após três, oferta determinística SEM chamar o modelo.
+    - **Revelação registrada**: pedido de solução resolve o gabarito do sink, gera solução comentada, grava `tutor.reveal` no recorder, marca `revealed`/`family_solution_seen` na sessão e encerra sem insistência (§15.2: acesso prévio à solução na sessão corrente não é independente — consumido pelo redutor da 009).
+    - **Transferência**: exige família identificada (`family_id` do item de origem; sem ela → `AMBIGUOUS_INPUT`); item mantém `family_id` com `version = max+1` na família; exposição da solução da família registrada no payload de publicação e no `TutorOutcome.solution_exposed_in_session` — cópia não conta como aprendizagem independente.
+    - **Flashcard**: pergunta (prompt) e verso (gabarito separado) distintos, conceito atômico com teto declarado de 200 chars (heurística de ensaio), fonte obrigatória; revisão inicial 1/3/7 dias como política CONFIGURÁVEL (`TutorConfig.review_intervals_days`, default dado pelo próprio mapa §8; agendamento efetivo é da política de demandas §15.3, task 011).
+    - **Recorder** (`TutorRecorder` Protocol + `NullRecorder` default): eventos `tutor.hint`/`tutor.reveal`/`tutor.item_published`/`tutor.refusal`/`tutor.cancelled`; a gravação definitiva como evento de domínio fica no grafo (task 014).
+  - `tests/test_task008_tutor.py` — 40 testes novos (C1: 10 testes de máquina de estados incluindo sequência de pistas 1→2→3→oferta, revelação registrada, recusa/cancelamento sem insistência, isolamento da solução no contexto de pista; C2: 8 testes de catálogo incluindo hash/version conferidos, carga sem mutação de arquivos, YAML adulterado/arquivo ausente/ferramenta não-Tutor/campo extra/catálogo incompleto todos falhando tipados; C3: 10 testes de itens incluindo gabarito/rubrica separados resolvíveis por ref, flashcard pergunta/verso+fonte, transferência com família/versionamento/exposição, `NO_EVIDENCE`, vazamento de solução e item sem fonte rejeitados; adapter/política: schema só com capacidade verificada, sampler non-thinking, reparo e esgotamento de orçamento, citação inventada rejeitada, erro do adaptador tipado).
+  - `pyproject.toml`/`uv.lock` — `pyyaml>=5.3,<7` declarado como dependência direta (importado pelo carregador; já estava presente no lock como transitiva de docling-core/transformers — diff do lock: 2 linhas).
+- Evidências:
+  - Suíte: `python -m pytest tests/ -q` → **252 passed** (212 pré-existentes verdes + 40 novos), 35,9 s. Testes locais de curta duração com backend de geração injetado (`FakeBackend` determinístico) — nenhuma chamada ao modelo real, nenhuma afirmação de qualidade do conteúdo gerado.
+  - C1 — `ask` direto → 1 turno, 1 chamada, `objective=explain`, terminal `completed`, citações ⊆ pacote; sem evidência → texto rotulado geral com zero citações; prática → `waiting_student` com `item_ref`; pistas 1/2/3 progressivas e a 4ª requisição devolve oferta determinística SEM chamada ao modelo; pedido de solução → `revealed=True`, evento `tutor.reveal` gravado, terminal `completed`, sessão encerrada; recusa → `completed` e cancelamento → `cancelled`, ambos sem insistência e sem aceitar novos movimentos (`AMBIGUOUS_INPUT`); pista/solução sem item pendente → `AMBIGUOUS_INPUT`; gabarito separado nunca aparece nas mensagens de pista.
+  - C2 — os 5 skills carregam com exatamente os 12 campos do §8; `catalog.json` registra SHA-256/version de cada YAML e o carregamento reconfere (hash adulterado → `SCHEMA_INVALID` com "revisão offline" na mensagem); carregar não altera nenhum arquivo (hashes antes/depois idênticos — sem autoedição ao vivo); `web.search` em skill do Tutor é rejeitada na revisão offline (não proposável pelo papel, tabela §10); campo extra (`auto_editavel: true`), arquivo registrado mas ausente e catálogo obrigatório incompleto falham tipados.
+  - C3 — item de prática: `prompt` sem a solução, gabarito/rubrica resolvíveis por refs `event:<uuid>@1` (payload separado lido do evento), linha em `items` (§5) com refs ID+versão, `domain_revision` incrementado por commit idempotente; flashcard: `prompt` = pergunta, verso distinto no gabarito separado, `source_refs` preenchidos; pergunta==verso → reparo corrige; transferência sem família → `AMBIGUOUS_INPUT` (zero itens publicados), com família → mesmo `family_id`, `version=2`, `exposure.transfer=true`, e `family_solution_seen_in_session` marcado quando a solução da família foi exposta; prática sem evidência → `NO_EVIDENCE`; enunciado que contém a solução e item sem citação de fonte → reparos esgotados → `SCHEMA_INVALID`, nada publicado.
+  - Adapter/política — schema enviado ao runtime só com capacidade verificada (sem capacidade: `schema=None` e parse/política seguem obrigatórios); sampler non-thinking `.7/.8/20` com seed do §3; JSON malformado → 1 reparo → sucesso; esgotamento (2 chamadas, 1 reparo) → `SCHEMA_INVALID` sem saída parcial; orçamento limitado pelo `max_calls` da skill (explain=2); citação inventada fora do pacote → reparo → erro com "citação fictícia"; `TIMEOUT` do adaptador propaga tipado retentável.
+  - Intocabilidade: `fase2/documentos/04_mapa_completo_do_sistema.md` sem diff; submodule `docs/playground-llmagenticsystem` inalterado (`git submodule status` idêntico); `config/` intocado; `schemas/` atualizado (`python -m eduagent.contracts --check` → ok); `git diff --check` limpo; temporários somente em `/tmp/opencode` (nenhum arquivo temporário persistido); entrega e registro em commits separados.
+  - **Pendências registradas (não decididas aqui):** conteúdo gerado pelo modelo real não foi exercitado (backend fake; a qualidade das pistas/itens com o Bonsai 2 é da validação/ensaio longitudinal, tasks 014/017); contagem de tokens do contexto do turno (janela §7) fica para o montador de contexto (task 010); gravação definitiva dos eventos do turno como eventos de domínio fica para o grafo (task 014); o redutor (009) definirá o consumo exato dos flags de exposição.
 
 ## Notas
 
@@ -23,7 +55,7 @@ Implementar o Tutor e o catálogo de skills (mapa §8) em `eduagent/agents/tutor
 5/10 — Estados e skills bem especificados; risco em JSON estrito com o modelo local.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+5/10 — Na média esperada. Pontos que exigiram mais atenção: (i) fronteira sink↔Tutor — o `item_id` precisa ser único entre quem decide (Tutor) e quem persiste (sink); a primeira versão gerava IDs distintos e a projeção não resolvia; resolvido passando o `item_id` do Tutor ao sink; (ii) `LearningItem.topic_ids` obrigatório (contrato §4, mín. 1) quando o `EvidencePack` pode vir sem tópicos — resolvido com cadeia override→pacote→item pendente (transferência) e erro tipado se vazio; (iii) a política de `allowed_tools` precisou ser no papel do Tutor (a tabela §10 tem `web.search` válida para Curador, mas não para o Tutor) — validação no carregador do catálogo; (iv) teto duplo de orçamento (turno §3 × `max_calls` da skill §8) com reparos consumindo chamadas — implementado como mín dos dois com teto separado de reparos. Nenhum impedimento.
 
 ### Revisão
 - Orquestrador: —
