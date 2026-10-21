@@ -1,6 +1,6 @@
 # Task 007: RAG — chunking, BM25, denso, RRF, citação e abstinência (mapa §6.4–8, §13.4)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 006
 Origem: nenhuma
 
@@ -50,13 +50,19 @@ Implementar a recuperação (mapa §6 itens 4–8) em `eduagent/services/retriev
 5/10 — Na média esperada. Os pontos que exigiram mais atenção: (i) a semântica real de "versão publicada" — `activate_version` da 006 marca `documents.active_version`, não `status='active'`, o que exigiu corrigir o filtro default da busca para `d.active_version = dv.id`; (ii) interações do chunking com os testes — blocos pequenos se agrupam num chunk único (correto pelo §6.4), o que obrigou a redesenhar os dados de teste para exercitar janelamento, orçamento e fusão de forma discriminante; (iii) scores lexicais ≤ 0 do `BM25Okapi` para termos ubíquos (idf negativo): a escolha declarada foi excluir hits sem pontuação positiva do ranking lexical, documentada no docstring; (iv) limites do contrato (`query` ≤ 512, `Chunk.text` ≤ 4000) exigiram guarda tipada no serviço e teto secundário de chars no chunking. O download do BGE-M3 foi trivial (27 s) e o smoke confirmou vetores normalizados de 1024 dims.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: master do ciclo opt-in — GLM-5.3-Flash (provider `sd2`), sessão task-master. Modo da rodada: **sequencial** — a verificação pode envolver execução da suíte de testes e carga do modelo BGE-M3 (recursos compartilhados: `.venv`, RAM/disco, pesos locais), evitando disputa entre revisores; motivo registrado.
+- Alvo: base `23ec588`; entrega `ea61c54` (código/testes: `eduagent/services/retrieval.py`, `tests/test_task007_retrieval.py`, `.gitignore`); registro `2e75cc7` (task.md). Árvore limpa e inalterada durante a rodada; mapa, submodule, `config/`, `pyproject.toml` e `uv.lock` sem diff.
+- Avaliações (três modelos distintos, quórum completo, sem falhas nem substituições):
+  1. `sd2/GLM-5.3-Flash` — 9/10, aprovada. Suíte completa reproduzida (212 passed); smoke real do BGE-M3 executado na sessão (hash do `pytorch_model.bin` confere com o pin). Achados: F1 (baixo) — asserção quase tautológica em `tests:680`; F2 (baixo) — ranking lexical exclui candidatos com BM25 ≤ 0 (idf negativo), escolha declarada no docstring que altera a fusão RRF quando só hits negativos existem (reafirmar como item de validação).
+  2. `openai/gpt-6-luna` — 9/10, aprovada. Verificação por leitura dos fontes + subconjunto da suíte (34 passed, 1 skipped, rodada fora da árvore em `/tmp/opencode`); C1–C4 verificados; contagem heurística de tokens julgada pendência honesta registrada, não omissão.
+  3. `opencode/mimo-v2.6-flash-free` — 8,5/10, aprovada. Verificação independente em `/tmp/opencode/reviewer-mimo-task007`: suíte 35/35 da task + probes próprios + smoke real do BGE-M3 re-executado (hash confere). Achados: A1 (baixo) — teto de 3000 chars só vale no caminho de bloco inteiro; janelas de tokens densos podem exceder 4000 chars de `EvidencePack.Chunk.text`, falhando em `ValidationError` do pydantic em vez de erro tipado (contradiz a afirmação do registro de que o teto "nunca viola" o limite); A2 (baixo) — manifesto confere hashes de 6 dos 7 arquivos pinados (`sentence_bert_config.json` fora de `_FILES`); A3 (baixo) — `resolve_citation` não confere o componente de página contra `blocks.page` (mapa §6.7 exige IDs/offsets/versão, que são conferidos; página solta fica divergente do original).
+- Divergências: nenhum veredicto divergente — os três aprovam e recomendam fechar. Não há contradição factual entre os achados; F2 (revisor 1) e A1–A3 (revisor 3) são complementares e de impacto baixo, sem atingir critério obrigatório: A1 exige entrada rara (texto densíssimo) e falha barulhenta, não silenciosa; A3 não viola o que o mapa §6.7 exige conferir. Pendências de validação (reranker, contador exato de tokens, semântica de `coverage`, limiar de abstinência) estão registradas na task e coerentes com o plano (linha 142) e o mapa §6.6–8.
+- Nota final: **9/10** — C1–C4 comprovados por dois revisores com execução independente (suíte 212 passed reproduzida; smoke do BGE-M3 com hash conferido por dois revisores), determinismo do RRF provado com frações exatas, isolamento entre usuários testado com conteúdo idêntico, publicação do índice atômica e abstinência sem citação fictícia; C4 integral (mapa/submodule/lock intocados; commits entrega/registro separados). O desconto reflete os achados menores F1–F2/A1–A3, absorvíveis como ajustes pontuais futuros (validação/task 017), sem justificar ciclo de correção nesta task.
+- Parecer: entrega sólida e bem testada; os pontos de atenção (teto de chars em janelas densas, hash faltante no manifesto, página da citação não conferida, filtro de scores ≤ 0) devem ser levados à etapa de validação como itens de confirmação.
+- Decisão: **fechar** — todos os critérios obrigatórios comprovados; libera a task 008.
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: encaminhar `.agents/tasks/04-mapa-completo-do-sistema/008-skills-yaml-e-tutor.md` (executor `sd2/GLM-5.3-Flash`; alternativo `opencode/big-pickle`).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/008-skills-yaml-e-tutor.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
