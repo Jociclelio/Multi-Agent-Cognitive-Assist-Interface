@@ -1,6 +1,6 @@
 # Task 009: Monitor, redutor determinístico e estado de tópico (mapa §8, §15.2, §13.5 parte 2)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (009a)
 Depende de: 008
 Origem: nenhuma
 
@@ -108,13 +108,16 @@ pela revisão.
   injetado determinístico); BKT não implementado por contrato (§8).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — sessão master do ciclo 04-mapa-completo-do-sistema.
+- Alvo: base `b8dac576a8f5c917b004dc0da62b9fd72ea363bd`; entrega `db57f68785da24bfe88c96ef752fbc08d5c49981` (8 arquivos, +2634/−3); registro `65554c688231fac7cb42aca8c34955fe48e9bfbc`; árvore limpa em HEAD, commits entrega/registro separados conferidos; mapa e submodule sem diff. Rodada em modo **paralelo** (padrão — revisão por leitura de código e testes de CPU com temporários isolados em `/tmp/opencode`; sem GPU, portas, diretórios de build ou benchmarks em disputa), três revisores de modelos distintos, mesmos paths/SHAs, sem compartilhar pareceres entre si.
+- Avaliações:
+  - `sd2/GLM-5.3-Flash` — 9/10, aprovada; reproduziu a suíte da task (36 passed) e a integral (297 passed); C1–C4 verificados com referências de linha; classificou o desvio de decidibilidade (global vs. por tópico) como conservador e não bloqueante (A1), com A2 (reason genérico por critério na abstinência) e A3 (`insufficient` para tópico multicomponente) baixos.
+  - `openai/gpt-6-luna` — 7/10, corrigir; suíte da task 36 passed (`-p no:cacheprovider`, suíte integral não repetida — limitação declarada); A1 alto — assessment globalmente indecidível ainda atualiza `last_attempt_at`/`independent_attempt_ids` dos tópicos tocados (`assessment.py:182-220,252-265`), contra "undecidable não atualiza competência" (§15.2); A2 médio — `critical_criterion_ids` recebido livre, sem validação contra a rubrica publicada do item (`assessment.py:464-477,224-235`).
+  - `opencode/mimo-v2.6-flash-free` — 7/10, corrigir; suíte integral em cópia isolada (`/tmp/opencode/rev009-a` via `git archive`): 296 passed, 1 skipped (smoke BGE-M3 sem pesos na cópia — declarado); sondas ponta a ponta reproduzindo: F1 — `_critical_error` gated por `correctness` global: critério critical nível 0 presente + outro omitido (formato M9) mantém `favorable` após erro crítico aceito (esperado `mixed`); F2 — elegibilidade/interrupção usa o `correctness` global em vez de decidibilidade **no tópico** (§8), com desvio reproduzido nas DUAS direções (favorable mantido indevidamente e favorable suprimido indevidamente); F3 — `check()` valida unicidade/revision antes de consultar o recibo por `operation_id` (§11: retry idempotente pós-sucesso não recupera recibo); F4 — proposta com `level>0` e `span_text=None` vira `evidence_kind=missing` aceita como `correct` (veredito correto sem evidência); F5 — tabela M8 promete critério duplicado mas `parametrize` não cobre, e ramo `len(rubric)!=1` sem teste; F6 — tópico com tentativa sem avaliação aceita não populado em `last_attempt_at` (idade de §8 perdida).
+- Nota final: 7/10 — não é média automática: o R1 subestimou o desvio de decidibilidade porque o tratou como unicamente conservador, mas a sonda reproduzida do R3 mostra desvio nas duas direções e o F1 produz falso `favorable` após erro crítico — quebra direta de C3 e da segurança da regra favorable; o F4 aceita veredito `correct` sem evidência, violando os invariantes de `evidence_kind` de §15.2. Os pontos fortes (estrutura do monitor/redutor, suíte de 36 casos, recálculo desde eventos, isolamento, sem invenções) são reais e preservados; a base é sólida, porém C3 não pode ser aprovado como "regra exata" enquanto F1/F2 persistirem.
+- Parecer: Divergência essencial resolvida por evidência: R1 disse conservador, R3 demonstrou com sonda reproduzida em ambas as direções + F1 — prevalece R3/R2 (dois de três) com evidência concreta; sem necessidade de esclarecimento adicional. Correções obrigatórias na subtask: F1 (erro crítico julgado por critério, não gated por indecidibilidade global), F2 (decidibilidade/elegibilidade por tópico, em mecanismo que respeite os enums de §4/§15.2 — o executor documentou que o contrato 003 só tem `evidence_kind` present/missing; a solução NÃO pode inventar valores fora do mapa), F4 (nível>0 sem span não pode virar `missing` aceito como correct) e A2 do R2 (validar `critical_criterion_ids` contra a rubrica publicada). Também delimitadas: F3 (recibo por `operation_id` antes das validações, §11), F5 (completar tabela M8 e ramo `len(rubric)!=1`), F6 (`last_attempt_at` populado das tentativas), A2 do R1 (descrição do critério no reason da abstinência). A3 do R1 e escolha 6 (janela de corrida MVP) ficam como observações registradas, não bloqueantes. Nenhuma pendência essencial escondida.
+- Decisão: **corrigir** — entrega preservada (sem reversão); subtask 009a criada para os achados acima.
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: subtask [009a-correcao-decidibilidade-por-topico-erro-critico-e-invariantes-de-evidencia.md](009a-correcao-decidibilidade-por-topico-erro-critico-e-invariantes-de-evidencia.md) (pendente de criação neste registro; criada e ligada no commit seguinte). Após 009a fechada, família 009 resolve e libera 010.
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
