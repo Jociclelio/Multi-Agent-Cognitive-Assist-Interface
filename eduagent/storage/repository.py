@@ -21,7 +21,11 @@ Contratos implementados (task 004):
 - **Snapshot materializado** (§15.1, linha 245): ``materialize_snapshot`` copia
   fatos/agenda/projeções/versões ativas/ref hashes para um artefato imutável
   (JSON + SHA-256 + ``snapshot_version``) em transação de leitura curta; a
-  leitura não mantém conexão aberta e registra o usuário (ownership). Escrita
+  leitura não mantém conexão aberta e registra o usuário (ownership). Na 004a
+  a imutabilidade virou efetiva: ``Snapshot`` é ``frozen``, o ``content`` é
+  canonizado/copiado na materialização e o digest é calculado uma única vez —
+  mutação pós-materialização não altera digest/``to_json()``/conteúdo.
+  Usuário inexistente levanta ``EduAgentError(SOURCE_UNRESOLVED)``. Escrita
   nova após leitura exige reload — ``require_fresh`` compara a revisão vista
   com a atual e recusa commit com revisão velha.
 - **Ownership** (§15.1, linha 249): consultas de leitura são sempre
@@ -113,25 +117,67 @@ class Receipt:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Snapshot:
     """Artefato imutável de snapshot (mapa §15.1, linha 245).
+
+    Imutabilidade efetiva (correção da 004 — 004a):
+
+    - dataclass ``frozen=True``: atributos não podem ser reatribuídos;
+    - ``content`` é canonizado (JSON canônico, chaves ordenadas) e armazenado
+      como string na materialização — cada acesso devolve uma **cópia nova**
+      desserializada, então mutação do dict retornado (ou de estruturas
+      internas) nunca alcança o artefato nem o dict original lido do banco;
+    - ``digest`` é calculado **uma única vez** na materialização e armazenado
+      (não recalculado sob demanda): mutação pós-materialização não altera
+      digest, ``to_json()`` nem conteúdo.
 
     ``version`` é a ``users.domain_revision`` congelada na materialização;
     ``content`` é um dict serializável (fatos, topic_states, planos ativos,
     versões ativas de documentos, ref hashes de dependências). ``digest`` é o
-    SHA-256 do JSON canônico — imutabilidade verificável.
+    SHA-256 do JSON canônico do conteúdo — imutabilidade verificável.
     """
 
     user_id: str
     version: int
     materialized_at: str
-    content: dict[str, Any] = field(default_factory=dict)
+    _content_json: str = field(default="{}", repr=False)
+    _digest: str = field(default="", repr=False)
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        user_id: str,
+        version: int,
+        materialized_at: str,
+        content: dict[str, Any],
+    ) -> "Snapshot":
+        """Materializa o artefato: canoniza o conteúdo e calcula o digest
+        uma única vez, no momento da criação (§15.1)."""
+        canonical = json.dumps(content, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return cls(
+            user_id=user_id,
+            version=version,
+            materialized_at=materialized_at,
+            _content_json=canonical,
+            _digest=digest,
+        )
 
     @property
     def digest(self) -> str:
-        canonical = json.dumps(self.content, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        """Digest SHA-256 armazenado na materialização (não recalcula)."""
+        return self._digest
+
+    @property
+    def content(self) -> dict[str, Any]:
+        """Cópia nova (desserialização do JSON canônico) do conteúdo.
+
+        Mutar o retorno não afeta o artefato: o estado canônico vive na string
+        imutável interna do dataclass frozen.
+        """
+        return json.loads(self._content_json)
 
     def to_json(self) -> str:
         return json.dumps(
@@ -448,13 +494,22 @@ class DomainStore:
 
         Escritas novas após esta leitura exigem reload (``require_fresh`` /
         ``expected_version``) — o controle conservador no MVP é por usuário.
+
+        Usuário inexistente levanta ``EduAgentError(SOURCE_UNRESOLVED)`` —
+        mesmo contrato de ``write_transaction``/``commit_operation``/
+        ``domain_revision`` (correção da 004: antes vazava ``TypeError``).
         """
         with self.read_transaction() as tx:
-            revision = int(
-                tx.execute(
-                    "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
-                ).fetchone()["domain_revision"]
-            )
+            row = tx.execute(
+                "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            if row is None:
+                raise EduAgentError(
+                    ErrorCode.SOURCE_UNRESOLVED,
+                    f"usuário {user_id} não existe no domínio",
+                    diagnostic="eduagent/storage/repository.py",
+                )
+            revision = int(row["domain_revision"])
             facts = [
                 dict(r)
                 for r in tx.execute(
@@ -514,7 +569,9 @@ class DomainStore:
             "active_versions": active_versions,
             "ref_hashes": ref_hashes,
         }
-        return Snapshot(
+        # Canonização + digest calculados uma única vez, aqui (§15.1):
+        # o artefato retornado é frozen e imune a mutação externa.
+        return Snapshot.create(
             user_id=user_id,
             version=revision,
             materialized_at=_utc_now_iso(),

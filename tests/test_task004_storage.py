@@ -1,5 +1,7 @@
 """Testes de aceite da task 004 — DDL, migrações, snapshot e domain_revision
-(mapa §5 e §15.1).
+(mapa §5 e §15.1) — estendidos pela 004a (ownership no nível do banco em FKs
+simples, snapshot imutável efetivo e contrato de erros de
+``materialize_snapshot``).
 
 Não é a suíte quantitativa da etapa 8 (mapa de testes): são testes locais de
 curta duração que verificam os critérios C1–C3 da task. C4 (mapa intocado,
@@ -9,6 +11,7 @@ registrado no task.md.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sqlite3
 import threading
@@ -28,6 +31,7 @@ from eduagent.storage.migrations import (
 from eduagent.storage.repository import (
     SQLITE_WAL_FLOOR,
     DomainStore,
+    Snapshot,
     require_wal_capable_sqlite,
 )
 
@@ -65,6 +69,135 @@ EXPECTED_TABLES = {
 
 def _uuid() -> str:
     return str(uuid.uuid4())
+
+
+def _insert_fact(
+    store: DomainStore,
+    user_id: str,
+    fact_id: str,
+    *,
+    supersedes: str | None = None,
+    status: str = "candidate",
+) -> None:
+    store.execute_write(
+        user_id,
+        [
+            (
+                "INSERT INTO facts(id, user_id, kind, value_json, authority, "
+                "recorded_at, supersedes, status) VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    fact_id,
+                    user_id,
+                    "date",
+                    "{}",
+                    "document",
+                    "2026-10-21T12:00:00Z",
+                    supersedes,
+                    status,
+                ),
+            )
+        ],
+    )
+
+
+def _seed_item(store: DomainStore, user_id: str, item_id: str) -> None:
+    store.execute_write(
+        user_id,
+        [
+            (
+                "INSERT INTO items(id, user_id, family_id, version, prompt, "
+                "answer_ref, rubric_ref) VALUES (?,?,?,?,?,?,?)",
+                (item_id, user_id, "fam", 1, "p", "a", "r"),
+            )
+        ],
+    )
+
+
+def _seed_event(store: DomainStore, user_id: str, event_id: str) -> None:
+    store.execute_write(
+        user_id,
+        [
+            (
+                "INSERT INTO events(id, user_id, kind, occurred_at, "
+                "recorded_at) VALUES (?,?,?,?,?)",
+                (
+                    event_id,
+                    user_id,
+                    "user_answer",
+                    "2026-10-21T12:00:00Z",
+                    "2026-10-21T12:00:00Z",
+                ),
+            )
+        ],
+    )
+
+
+def _seed_attempt(
+    store: DomainStore,
+    user_id: str,
+    attempt_id: str,
+    *,
+    item_id: str,
+    response_event_id: str | None = None,
+) -> None:
+    store.execute_write(
+        user_id,
+        [
+            (
+                "INSERT INTO attempts(id, user_id, item_id, "
+                "response_event_id, help_level, revealed) "
+                "VALUES (?,?,?,?,?,?)",
+                (attempt_id, user_id, item_id, response_event_id, 0, 0),
+            )
+        ],
+    )
+
+
+def _seed_assessment(
+    store: DomainStore,
+    user_id: str,
+    assessment_id: str,
+    *,
+    attempt_id: str,
+    supersedes: str | None = None,
+    revision: int = 1,
+) -> None:
+    store.execute_write(
+        user_id,
+        [
+            (
+                "INSERT INTO assessments(id, attempt_id, attempt_user_id, "
+                "assessor_version, payload_json, assessment_revision, "
+                "supersedes) VALUES (?,?,?,?,?,?,?)",
+                (
+                    assessment_id,
+                    attempt_id,
+                    user_id,
+                    "assessor-v1",
+                    "{}",
+                    revision,
+                    supersedes,
+                ),
+            )
+        ],
+    )
+
+
+def _seed_second_owner_course(store: DomainStore) -> str:
+    """Cria UID2 com curso próprio; retorna course_b."""
+    store.ensure_user(UID2)
+    course_b = _uuid()
+    store.execute_write(
+        UID2,
+        [
+            (
+                "INSERT INTO courses(id, user_id, title) VALUES (?,?,?)",
+                (course_b, UID2, "Física"),
+            )
+        ],
+        expected_version=0,
+    )
+    return course_b
 
 
 def _seed_course(store: DomainStore, user_id: str = UID) -> str:
@@ -600,6 +733,281 @@ class TestOwnership:
 
 
 # ======================================================================
+# 004a — ownership no nível do banco (§15.1): UNIQUE(user_id,id) em
+# courses, FK composto em documents.course_id e triggers de mesmo dono
+# ======================================================================
+
+
+def _schema_rows(conn: sqlite3.Connection) -> list[tuple]:
+    return sorted(
+        conn.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_master"
+        ).fetchall()
+    )
+
+
+class TestOwnershipBankLevel:
+    def test_0002_stepwise_equals_full_run(self, tmp_path: Path) -> None:
+        """Banco migrado do zero e banco que aplica a 0002 sobre a 0001
+        chegam ao mesmo estado (mesmo schema em sqlite_master)."""
+        conn_full = sqlite3.connect(str(tmp_path / "full.sqlite"))
+        try:
+            conn_full.execute("PRAGMA foreign_keys=ON")
+            apply_migrations(conn_full)
+            full = _schema_rows(conn_full)
+            assert current_version(conn_full) == MIGRATIONS[-1][0]
+        finally:
+            conn_full.close()
+
+        conn_step = sqlite3.connect(str(tmp_path / "step.sqlite"))
+        try:
+            conn_step.execute("PRAGMA foreign_keys=ON")
+            assert apply_migrations(conn_step, migrations=[MIGRATIONS[0]]) == [1]
+            assert apply_migrations(conn_step, migrations=[MIGRATIONS[1]]) == [2]
+            step = _schema_rows(conn_step)
+            # FKs restauradas após a reconstrução com foreign_keys=OFF
+            assert conn_step.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        finally:
+            conn_step.close()
+        assert step == full
+
+    def test_courses_have_unique_user_id_index(self, tmp_path: Path) -> None:
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        conn = store._conn
+        try:
+            row = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='index' AND "
+                "name = 'uq_courses_user_id'"
+            ).fetchone()
+            assert row is not None
+            assert "UNIQUE" in row[0].upper()
+            cols = [
+                r[2] for r in conn.execute("PRAGMA index_info(uq_courses_user_id)")
+            ]
+            assert cols == ["user_id", "id"]
+        finally:
+            store.close()
+
+    def test_documents_course_fk_is_composite(self, tmp_path: Path) -> None:
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        conn = store._conn
+        try:
+            rows = conn.execute(
+                "PRAGMA foreign_key_list(documents)"
+            ).fetchall()
+            course_fk = [(r[0], r[2], r[3]) for r in rows if r[2] == "courses"]
+            assert {f[2] for f in course_fk} == {"user_id", "course_id"}
+            assert len({f[0] for f in course_fk}) == 1  # mesma FK (composta)
+        finally:
+            store.close()
+
+    def test_document_cannot_reference_course_of_other_owner(
+        self, tmp_path: Path
+    ) -> None:
+        """Probe da revisão: documents.course_id de outro dono é recusado
+        no nível do banco (FK composto, §15.1)."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        try:
+            course_a = _seed_course(store, UID)
+            course_b = _seed_second_owner_course(store)
+            doc = _uuid()
+            with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+                store.execute_write(
+                    UID2,
+                    [
+                        (
+                            "INSERT INTO documents(id, user_id, course_id) "
+                            "VALUES (?,?,?)",
+                            (doc, UID2, course_a),
+                        )
+                    ],
+                )
+            # O dono legítimo vincula normalmente
+            store.execute_write(
+                UID,
+                [
+                    (
+                        "INSERT INTO documents(id, user_id, course_id) "
+                        "VALUES (?,?,?)",
+                        (doc, UID, course_a),
+                    )
+                ],
+            )
+            assert course_b  # curso do UID2 existe e não foi usado
+        finally:
+            store.close()
+
+    def test_fact_supersedes_cross_owner_rejected(self, tmp_path: Path) -> None:
+        """Probe da revisão: facts.supersedes de outro dono é recusado no
+        nível do banco (trigger de mesmo dono, padrão topic_edges)."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        try:
+            _seed_course(store, UID)
+            store.ensure_user(UID2)
+            fact_a = _uuid()
+            _insert_fact(store, UID, fact_a)
+            # INSERT cruzando donos → recusado
+            with pytest.raises(
+                (sqlite3.IntegrityError, sqlite3.OperationalError),
+                match="mesmo dono",
+            ):
+                _insert_fact(store, UID2, _uuid(), supersedes=fact_a)
+            # UPDATE cruzando donos → recusado (segundo trigger)
+            fact_b = _uuid()
+            _insert_fact(store, UID2, fact_b)
+            with pytest.raises(
+                (sqlite3.IntegrityError, sqlite3.OperationalError),
+                match="mesmo dono",
+            ):
+                store.execute_write(
+                    UID2,
+                    [
+                        (
+                            "UPDATE facts SET supersedes = ? WHERE id = ?",
+                            (fact_a, fact_b),
+                        )
+                    ],
+                )
+            # Dono legítimo supersede o próprio fato
+            _insert_fact(store, UID, _uuid(), supersedes=fact_a)
+        finally:
+            store.close()
+
+    def test_attempt_response_event_cross_owner_rejected(
+        self, tmp_path: Path
+    ) -> None:
+        """Probe da revisão: attempts.response_event_id de outro dono é
+        recusado no nível do banco (trigger de mesmo dono)."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        try:
+            _seed_course(store, UID)
+            store.ensure_user(UID2)
+            event_a = _uuid()
+            _seed_event(store, UID, event_a)
+            item_b = _uuid()
+            _seed_item(store, UID2, item_b)
+            with pytest.raises(
+                (sqlite3.IntegrityError, sqlite3.OperationalError),
+                match="mesmo dono",
+            ):
+                _seed_attempt(
+                    store, UID2, _uuid(), item_id=item_b,
+                    response_event_id=event_a,
+                )
+            # Dono legítimo referencia o próprio evento
+            item_a = _uuid()
+            _seed_item(store, UID, item_a)
+            _seed_attempt(
+                store, UID, _uuid(), item_id=item_a,
+                response_event_id=event_a,
+            )
+        finally:
+            store.close()
+
+    def test_assessment_supersedes_cross_owner_rejected(
+        self, tmp_path: Path
+    ) -> None:
+        """Probe da revisão: assessments.supersedes de outro dono é recusado
+        no nível do banco (trigger de mesmo dono; dono é attempt_user_id)."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        try:
+            _seed_course(store, UID)
+            store.ensure_user(UID2)
+            item_a = _uuid()
+            _seed_item(store, UID, item_a)
+            attempt_a = _uuid()
+            _seed_attempt(store, UID, attempt_a, item_id=item_a)
+            assessment_a = _uuid()
+            _seed_assessment(store, UID, assessment_a, attempt_id=attempt_a)
+            # UID2 tem attempt próprio, mas tenta superseder avaliação do UID
+            item_b = _uuid()
+            _seed_item(store, UID2, item_b)
+            attempt_b = _uuid()
+            _seed_attempt(store, UID2, attempt_b, item_id=item_b)
+            with pytest.raises(
+                (sqlite3.IntegrityError, sqlite3.OperationalError),
+                match="mesmo dono",
+            ):
+                _seed_assessment(
+                    store, UID2, _uuid(), attempt_id=attempt_b,
+                    supersedes=assessment_a,
+                )
+            # Dono legítimo supersede a própria avaliação (revisão nova, §15.2)
+            _seed_assessment(
+                store, UID, _uuid(), attempt_id=attempt_a,
+                supersedes=assessment_a, revision=2,
+            )
+        finally:
+            store.close()
+
+    def test_ownership_triggers_present(self, tmp_path: Path) -> None:
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        conn = store._conn
+        try:
+            triggers = {
+                r[0]
+                for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='trigger'"
+                ).fetchall()
+            }
+            expected = {
+                "facts_supersedes_same_owner_insert",
+                "facts_supersedes_same_owner_update",
+                "attempts_response_event_same_owner_insert",
+                "attempts_response_event_same_owner_update",
+                "assessments_supersedes_same_owner_insert",
+                "assessments_supersedes_same_owner_update",
+            }
+            assert expected <= triggers
+        finally:
+            store.close()
+
+    def test_0002_preserves_existing_documents_rows(self, tmp_path: Path) -> None:
+        """A reconstrução de documents na 0002 não perde linhas pré-existentes."""
+        conn = sqlite3.connect(str(tmp_path / "legacy.sqlite"))
+        try:
+            conn.execute("PRAGMA foreign_keys=ON")
+            apply_migrations(conn, migrations=[MIGRATIONS[0]])
+            uid, course, doc = UID, _uuid(), _uuid()
+            conn.execute("INSERT INTO users(id) VALUES (?)", (uid,))
+            conn.execute(
+                "INSERT INTO courses(id, user_id, title) VALUES (?,?,?)",
+                (course, uid, "Cálculo"),
+            )
+            conn.execute(
+                "INSERT INTO documents(id, user_id, course_id) VALUES (?,?,?)",
+                (doc, uid, course),
+            )
+            conn.commit()
+            apply_migrations(conn, migrations=[MIGRATIONS[1]])
+            row = conn.execute(
+                "SELECT id, user_id, course_id FROM documents WHERE id = ?",
+                (doc,),
+            ).fetchone()
+            assert row == (doc, uid, course)
+        finally:
+            conn.close()
+
+    def test_topics_and_topic_edges_have_no_user_id(self, tmp_path: Path) -> None:
+        """Resolução registrada da 004a: o bloco DDL do §5 não contém
+        ``user_id`` em ``topics``/``topic_edges`` — nenhuma coluna nova é
+        adicionada; ownership permanece via cadeia ``courses.user_id`` +
+        trigger de mesmo curso."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        conn = store._conn
+        try:
+            topics_cols = {c["name"] for c in introspect_table(conn, "topics")["columns"]}
+            edges_cols = {
+                c["name"] for c in introspect_table(conn, "topic_edges")["columns"]
+            }
+            assert topics_cols == {"id", "course_id", "title", "aliases_json", "revision"}
+            assert edges_cols == {"parent_id", "child_id"}
+            assert "user_id" not in topics_cols | edges_cols
+        finally:
+            store.close()
+
+
+# ======================================================================
 # C3 — snapshot materializado imutável em leitura curta; reload após escrita
 # ======================================================================
 
@@ -686,6 +1094,56 @@ class TestC3Snapshot:
             store.require_fresh(UID, fresh.version)  # não levanta
         finally:
             store.close()
+
+    def test_snapshot_frozen_and_stable_under_mutation(
+        self, tmp_path: Path
+    ) -> None:
+        """Imutabilidade efetiva (004a): mutação do dict retornado e de
+        estruturas internas não altera digest, ``to_json()`` nem o conteúdo
+        do artefato; reatribuição de atributo é recusada (frozen)."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        try:
+            _seed_course(store)
+            _insert_fact(store, UID, _uuid(), status="confirmed")
+            snap = store.materialize_snapshot(UID)
+            digest_before = snap.digest
+            to_json_before = snap.to_json()
+
+            # Mutação das estruturas internas do dict retornado
+            content = snap.content
+            content["facts"].append({"id": "intruso"})
+            content["ref_hashes"]["hackeado"] = "0" * 64
+            # Digest não é recalculado: permanece o armazenado na materialização
+            assert snap.digest == digest_before
+            assert snap.to_json() == to_json_before
+            # O artefato não foi alcançado pela mutação (cópia nova por acesso)
+            assert len(snap.content["facts"]) == 1
+            assert "hackeado" not in snap.content["ref_hashes"]
+
+            # frozen=True: reatribuição de atributo é recusada
+            with pytest.raises(dataclasses.FrozenInstanceError):
+                snap.version = 999  # type: ignore[misc]
+            assert snap.version == store.domain_revision(UID)
+        finally:
+            store.close()
+
+    def test_snapshot_create_freezes_against_external_mutation(self) -> None:
+        """Canonização na materialização: mutar o dict original **depois** de
+        criar o snapshot não altera o artefato (§15.1)."""
+        content: dict = {"facts": [{"id": "f1"}], "ref_hashes": {}}
+        snap = Snapshot.create(
+            user_id=UID,
+            version=3,
+            materialized_at="2026-10-21T12:00:00Z",
+            content=content,
+        )
+        digest_before = snap.digest
+        content["facts"].append({"id": "intruso"})
+        content["ref_hashes"]["x"] = "y"
+        assert snap.digest == digest_before
+        assert snap.content["facts"] == [{"id": "f1"}]
+        assert snap.content["ref_hashes"] == {}
+        assert json.loads(snap.to_json())["content"]["facts"] == [{"id": "f1"}]
 
     def test_snapshot_reads_do_not_bump_revision(self, tmp_path: Path) -> None:
         store = DomainStore.open(tmp_path / "domain.sqlite")
@@ -866,6 +1324,26 @@ class TestEventPurge:
                 "SELECT payload_json FROM events WHERE id = ?", (other_event,)
             )[0]
             assert row["payload_json"] is not None  # intocado
+        finally:
+            store.close()
+
+
+# ======================================================================
+# 004a — contrato de erros: materialize_snapshot de usuário inexistente
+# ======================================================================
+
+
+class TestMaterializeSnapshotErrorContract:
+    def test_unknown_user_raises_source_unresolved(self, tmp_path: Path) -> None:
+        """Usuário inexistente levanta ``EduAgentError(SOURCE_UNRESOLVED)``
+        no padrão de write_transaction/commit_operation/domain_revision —
+        não mais ``TypeError: 'NoneType' object is not subscriptable``."""
+        store = DomainStore.open(tmp_path / "domain.sqlite")
+        try:
+            with pytest.raises(EduAgentError) as exc:
+                store.materialize_snapshot("usuario-inexistente")
+            assert exc.value.code == ErrorCode.SOURCE_UNRESOLVED
+            assert "usuario-inexistente" in str(exc.value)
         finally:
             store.close()
 

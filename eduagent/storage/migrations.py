@@ -23,6 +23,18 @@ Contratos do mapa §5 implementados aqui:
 - Arestas de tópicos exigem mesmo dono/curso (§15.1) — ``topics`` carrega
   ``course_id`` e ``topic_edges`` valida por triggers que ambos os nós são do
   mesmo curso; ownership direto vem da disciplina via ``courses.user_id``.
+  Resolução da 004a: o bloco DDL do §5 não contém ``user_id`` em
+  ``topics``/``topic_edges`` — a coluna **não** é adicionada; ownership de
+  tópicos/arestas permanece via cadeia ``courses.user_id`` + trigger de mesmo
+  curso (mapa intocado).
+- Ownership no nível do banco em FKs simples (§15.1, correção da 004 —
+  migração ``0002``): ``courses`` ganha ``UNIQUE(user_id,id)`` (alvo de FK
+  composto) e ``documents.course_id`` vira FK composto
+  ``(user_id, course_id)``; ``facts.supersedes``, ``attempts.response_event_id``
+  e ``assessments.supersedes`` recusam referência entre donos por trigger no
+  padrão ``topic_edges`` — FK composto não se aplica aí sem trocar a semântica
+  ``ON DELETE SET NULL`` do DDL §5 (SET NULL em FK composto nularia também a
+  coluna do dono, ``NOT NULL``).
 
 Nota de runtime: o mapa §3 pede SQLite com as correções WAL documentadas
 (3.51.3 ou backport). O interpretador do projeto (CPython 3.12, ``uv``)
@@ -38,10 +50,15 @@ import sqlite3
 from collections.abc import Callable
 from typing import Any
 
-#: Migrações versionadas: ``(versão, descrição, SQL script)``. Cada script roda
-#: dentro de uma única transação (``BEGIN IMMEDIATE``), com FKs habilitadas.
-#: A ordem da lista é a ordem de aplicação; versões são monotônicas.
-MIGRATIONS: list[tuple[int, str, str]] = []
+#: Migrações versionadas: ``(versão, descrição, SQL script)`` ou, quando a
+#: migração exige reconstrução de tabela (alterar FK de tabela existente),
+#: 4-tupla ``(versão, descrição, SQL script, requires_foreign_keys_off)`` —
+#: ``PRAGMA foreign_keys`` é no-op dentro de transação, então o framework
+#: desativa/restaura o pragma fora do ``BEGIN IMMEDIATE`` do script. Cada
+#: script roda dentro de uma única transação (``BEGIN IMMEDIATE``), com FKs
+#: habilitadas (restauradas ao final quando desativadas). A ordem da lista é a
+#: ordem de aplicação; versões são monotônicas.
+MIGRATIONS: list[tuple[int, str, str] | tuple[int, str, str, bool]] = []
 
 
 def _migration_0001() -> str:
@@ -415,8 +432,164 @@ CREATE TABLE schema_migrations (
 """
 
 
+def _migration_0002() -> tuple[str, bool]:
+    """Ownership no nível do banco em FKs simples (§15.1 — correção da 004).
+
+    Gaps corroborados por probes de dois revisores independentes: FKs simples
+    aceitavam referência cruzada entre donos diferentes. Correção:
+
+    - ``courses`` ganha ``UNIQUE(user_id, id)`` — índice único é pré-requisito
+      de FK composto em SQLite (§15.1, linha 249).
+    - ``documents.course_id`` vira FK composto ``(user_id, course_id)`` →
+      ``courses(user_id, id)``. SQLite não altera a definição de FK de uma
+      tabela existente, então a tabela é reconstruída pelo procedimento
+      documentado (sqlite.org/lang_altertable.html): criar tabela nova, copiar,
+      descartar a antiga e renomear — com ``foreign_keys=OFF`` durante a
+      reconstrução (``DROP TABLE`` com FKs ativas dispararia a cascata de
+      deleção sobre as tabelas filhas). O framework desativa/restaura o pragma
+      fora da transação do script.
+    - ``facts.supersedes``, ``attempts.response_event_id`` e
+      ``assessments.supersedes``: FK composto **não se aplica** sem trocar a
+      semântica ``ON DELETE SET NULL`` do DDL §5 — em FK composto, SET NULL
+      nularia também a coluna do dono (``user_id``/``attempt_user_id``,
+      ``NOT NULL``). Ownership garantido por trigger no padrão ``topic_edges``
+      já existente (§15.1: "arestas de tópicos exigem mesmo dono/curso").
+    - ``topics``/``topic_edges`` permanecem sem coluna ``user_id`` (o bloco DDL
+      do §5 não as contém): ownership via cadeia ``courses.user_id`` + trigger
+      de mesmo curso já existentes.
+
+    Banco migrado do zero e banco que aplica esta migração sobre a ``0001``
+    chegam ao mesmo estado (verificado por teste de equivalência de schema).
+    Dados pré-existentes que cruzem donos ficam fora do escopo do MVP (não há
+    base legada; a FK composto não é retroativa) — violações remanescentes
+    seriam reportadas por ``PRAGMA foreign_key_check`` em verificação manual.
+    """
+    return (
+        """
+-- ---------------------------------------------------------------------------
+-- (a) courses: chave única (user_id, id) — alvo da FK composto de documents
+-- ---------------------------------------------------------------------------
+CREATE UNIQUE INDEX uq_courses_user_id ON courses(user_id, id);
+
+-- ---------------------------------------------------------------------------
+-- (b) documents.course_id → FK composto (user_id, course_id) →
+--     courses(user_id, id) — reconstrução documentada da tabela
+-- ---------------------------------------------------------------------------
+CREATE TABLE documents_new (
+    id             TEXT PRIMARY KEY,                -- UUID
+    user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id      TEXT NOT NULL,
+    active_version TEXT,                            -- doc_versions.id; null = sem versão ativa
+    FOREIGN KEY (user_id, course_id)
+        REFERENCES courses(user_id, id) ON DELETE CASCADE
+);
+INSERT INTO documents_new(id, user_id, course_id, active_version)
+    SELECT id, user_id, course_id, active_version FROM documents;
+DROP TABLE documents;
+ALTER TABLE documents_new RENAME TO documents;
+CREATE INDEX idx_documents_user ON documents(user_id);
+CREATE INDEX idx_documents_course ON documents(course_id);
+-- Triggers de versão ativa recriados (descartados junto da tabela antiga).
+CREATE TRIGGER documents_active_version_check
+BEFORE INSERT ON documents WHEN NEW.active_version IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'documents: active_version deve pertencer ao documento')
+    WHERE NOT EXISTS (
+        SELECT 1 FROM doc_versions
+        WHERE id = NEW.active_version AND doc_id = NEW.id
+    );
+END;
+CREATE TRIGGER documents_active_version_check_update
+BEFORE UPDATE OF active_version ON documents
+BEGIN
+    SELECT RAISE(ABORT, 'documents: active_version deve pertencer ao documento')
+    WHERE NEW.active_version IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM doc_versions
+        WHERE id = NEW.active_version AND doc_id = NEW.id
+    );
+END;
+
+-- ---------------------------------------------------------------------------
+-- (c) facts.supersedes: mesmo dono (trigger, padrão topic_edges)
+-- ---------------------------------------------------------------------------
+CREATE TRIGGER facts_supersedes_same_owner_insert
+BEFORE INSERT ON facts
+WHEN NEW.supersedes IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'facts: supersedes deve referenciar fato do mesmo dono')
+    WHERE (SELECT user_id FROM facts WHERE id = NEW.supersedes)
+       <> NEW.user_id;
+END;
+CREATE TRIGGER facts_supersedes_same_owner_update
+BEFORE UPDATE OF supersedes ON facts
+WHEN NEW.supersedes IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'facts: supersedes deve referenciar fato do mesmo dono')
+    WHERE (SELECT user_id FROM facts WHERE id = NEW.supersedes)
+       <> NEW.user_id;
+END;
+
+-- ---------------------------------------------------------------------------
+-- (d) attempts.response_event_id: mesmo dono (trigger, padrão topic_edges)
+-- ---------------------------------------------------------------------------
+CREATE TRIGGER attempts_response_event_same_owner_insert
+BEFORE INSERT ON attempts
+WHEN NEW.response_event_id IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'attempts: response_event_id deve referenciar evento do mesmo dono')
+    WHERE (SELECT user_id FROM events WHERE id = NEW.response_event_id)
+       <> NEW.user_id;
+END;
+CREATE TRIGGER attempts_response_event_same_owner_update
+BEFORE UPDATE OF response_event_id ON attempts
+WHEN NEW.response_event_id IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'attempts: response_event_id deve referenciar evento do mesmo dono')
+    WHERE (SELECT user_id FROM events WHERE id = NEW.response_event_id)
+       <> NEW.user_id;
+END;
+
+-- ---------------------------------------------------------------------------
+-- (e) assessments.supersedes: mesmo dono (dono é attempt_user_id, §15.1)
+-- ---------------------------------------------------------------------------
+CREATE TRIGGER assessments_supersedes_same_owner_insert
+BEFORE INSERT ON assessments
+WHEN NEW.supersedes IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'assessments: supersedes deve referenciar avaliação do mesmo dono')
+    WHERE (SELECT attempt_user_id FROM assessments WHERE id = NEW.supersedes)
+       <> NEW.attempt_user_id;
+END;
+CREATE TRIGGER assessments_supersedes_same_owner_update
+BEFORE UPDATE OF supersedes ON assessments
+WHEN NEW.supersedes IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'assessments: supersedes deve referenciar avaliação do mesmo dono')
+    WHERE (SELECT attempt_user_id FROM assessments WHERE id = NEW.supersedes)
+       <> NEW.attempt_user_id;
+END;
+""",
+        # Reconstrução de ``documents`` exige FKs desativadas fora da transação.
+        True,
+    )
+
+
 def _load_builtin() -> None:
-    MIGRATIONS.append((1, "DDL completo do mapa §5 + artifact_dependencies (§15.1)", _migration_0001()))
+    script_0002, fk_off_0002 = _migration_0002()
+    MIGRATIONS.append(
+        (1, "DDL completo do mapa §5 + artifact_dependencies (§15.1)", _migration_0001())
+    )
+    MIGRATIONS.append(
+        (
+            2,
+            "Ownership no nível do banco: UNIQUE(user_id,id) em courses, "
+            "FK composto em documents.course_id e triggers de mesmo dono "
+            "(facts.supersedes, attempts.response_event_id, "
+            "assessments.supersedes) — §15.1",
+            script_0002,
+            fk_off_0002,
+        )
+    )
 
 
 _load_builtin()
@@ -471,9 +644,16 @@ def apply_migrations(
     """
     plan = migrations if migrations is not None else MIGRATIONS
     applied_now: list[int] = []
-    for version, _description, script in plan:
+    for entry in plan:
+        version, description, script, *rest = entry
+        requires_fk_off = bool(rest) and bool(rest[0])
         if _migration_applied(conn, version):
             continue
+        if requires_fk_off:
+            # ``PRAGMA foreign_keys`` é no-op dentro de transação: desativa
+            # fora do BEGIN do script (reconstrução de tabela, migração 0002)
+            # e restaura após o COMMIT — o perfil do §5 é FK sempre ativa.
+            conn.execute("PRAGMA foreign_keys=OFF")
         # ``executescript`` emite COMMIT implícito de transações pendentes e
         # roda em autocommit — por isso a transação única do §5 é aberta
         # dentro do próprio script (BEGIN IMMEDIATE ... COMMIT), garantindo
@@ -491,9 +671,12 @@ def apply_migrations(
             if conn.in_transaction:
                 conn.execute("ROLLBACK")
             raise
+        finally:
+            if requires_fk_off:
+                conn.execute("PRAGMA foreign_keys=ON")
         applied_now.append(version)
         if log is not None:
-            log(f"migração {version} aplicada ({_description})")
+            log(f"migração {version} aplicada ({description})")
     return applied_now
 
 
