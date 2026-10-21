@@ -51,13 +51,18 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de duas células de tabela com script de comparação normalizada; o enquadramento "desenho futuro ≠ resultado" exigiu confronto com `01_esqueleto_conceitual.md`, mas os desvios encontrados foram apenas os mesmos pontos finais tipográficos já corrigidos nas tasks 001–006, mais uma vírgula na menção à prioridade.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider sd2, via ~/sd2-llm.sh; master do ciclo opt-in, sessão ses_ea38cc5d4ffeInBoLb097om1Ht)
+- Alvo: task 007; base `aca357645b9f2832b0184daaa736fd77ddfdd305`; entrega `3d0b787614e55295f658993293dbba36b2bb7a12`; registro `9285d71d3b6d146e47ae21cc45d4e57287898fcc` (HEAD). Entrega isolada: entre base e HEAD somente o arquivo desta task; fonte normativo e submodule intocados; árvore limpa durante toda a rodada. Modo da rodada: **paralelo** — conferência textual de leitura, sem disputa de recursos compartilhados do sistema; três revisores distintos acionados simultaneamente, cada um em sessão nova.
+- Avaliações:
+  1. **sd2/GLM-5.3-Flash** — aprovada, 9/10. Verificação independente (script próprio em `/tmp/opencode/rev007/`): C18 e C19 fiéis após normalização; fonte, submodule e demais arquivos intocados entre base e HEAD; cadeia linear `aca3576 → 3d0b787 → 9285d71` sem indício de amend/force-push. Achado A1 (baixo): verificador documental não re-executado por ele para evitar escrita na árvore compartilhada — limitação de processo, sem efeito em C1–C5. Achado A2 (baixo): plan.md pontua "antes da otimização, para impedir" com vírgula, mas a task seguiu o fonte normativo sem vírgula — correto, o plano não é fonte de fidelidade textual.
+  2. **openai/gpt-6-luna** — aprovada, 10/10. C1–C5 verificados (comparação célula a célula, `git diff` do fonte vazio, commits separados sem amend/force-push/vazios); sem achados; verificador documental passou.
+  3. **opencode/mimo-v2.6-flash-free** — aprovada, 9,5/10 (definitiva). Verificação própria (script somente leitura `/tmp/opencode/reviewer-007/`): fidelidade normalizada `True` para C18/C19; zero dígitos nas células; reflog sem amend/reset/rebase; sem push (local 22 à frente de origin/main); re-executou `verificar_documentos.py` → `passed`, 20 componentes, 39 links. Achado F1 (baixo, preexistente na base, não é do executor): a paráfrase da ambiguidade 6 em Restrições usa "declarar" onde o fonte diz "indicar" — não toca as células C18/C19 nem nenhum critério; correção opcional em task futura, não bloqueia.
+- Nota final: 9,5/10 — quórum unânime com verificação independente por três modelos distintos; os três únicos achados são de baixo impacto e nenhum atinge os critérios C1–C5: dois são limitações/anotações de processo (verificador não re-executado por um revisor; divergência de pontuação entre plano e fonte já resolvida corretamente a favor do fonte) e um é uma paráfrase preexistente na base ("declarar" vs. "indicar") alheia à entrega. A correção da entrega foi mínima (3+/3−, pontuação), a fidelidade das células C18/C19 foi confirmada independentemente por script e leitura item a item, e o enquadramento "desenho experimental futuro ≠ resultado obtido" foi verificado com o esqueleto conceitual. Pendência registrada para o ciclo: alinhar opcionalmente a paráfrase da ambiguidade 6 a "indicar" em task futura — não impede o fechamento.
+- Parecer: todos os critérios obrigatórios C1–C5 comprovados com evidência direta; desvios de fidelidade já corrigidos em dif mínimo no commit de entrega; documento-fonte e submodule intocados; commits de entrega e registro separados, lineares e não vazios.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos a reverter (a entrega altera apenas o arquivo desta task).
+- Próximo passo: liberar a task 008 (`.agents/tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md`), última da família 001; executor sd2/GLM-5.3-Flash, mesmos revisores do ciclo.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
