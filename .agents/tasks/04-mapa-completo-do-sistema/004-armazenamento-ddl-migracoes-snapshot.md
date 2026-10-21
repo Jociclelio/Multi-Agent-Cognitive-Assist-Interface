@@ -1,6 +1,6 @@
 # Task 004: Armazenamento — DDL, migrações, snapshot e domain_revision (mapa §5, §15.1)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (revisão concluída: corrigir — ver Revisão)
 Depende de: 003
 Origem: nenhuma
 
@@ -44,13 +44,20 @@ Nota do master (da revisão da task 001, achado A1): `data/<user_id>/` foi criad
 5/10 — Alinhada à expectativa. O volume de tabelas/invariantes foi mecânico; o esforço real concentrou-se em armadilhas de runtime do SQLite: `executescript` faz COMMIT implícito e roda em autocommit (quebrava a atomicidade da migração — corrigido com BEGIN/COMMIT dentro do próprio script), CHECK de coluna comparada não pode ser satisfeito por trigger `AFTER UPDATE` (corrigido com coluna gerada), FK composta exige índice único `(user_id,id)` explícito na tabela pai, e `PRAGMA table_info` omite colunas geradas. O bug do no-op (`SELECT` em `schema_migrations` antes de ela existir) foi pego pelo próprio teste C1.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`, via ~/sd2-llm.sh), sessão master do ciclo opt-in.
+- Alvo: base `1e3f042` (árvore limpa), entrega `519c32e`, registro `e399ea8` (só task.md) — identidade e isolamento confirmados por inspeção Git; mapa e submodule intocados entre base e registro.
+- Modo da rodada: paralelo (revisão por leitura de código e pytest curto, sem recursos exclusivos compartilhados); três revisores de modelos distintos, mesma especificação, sem acesso aos pareceres dos demais.
+- Avaliações:
+  - GLM-5.3-Flash (`sd2/GLM-5.3-Flash`) — 8,5/10 — fechar; C1–C4 atendidos; achados A1 (ownership: `documents.course_id` FK simples aceita curso de outro dono — probe; falta `UNIQUE(user_id,id)` em `courses`), A2 (`facts.supersedes`/`attempts.response_event_id` FKs simples), A3 (purge não bumpa revisão → snapshot stale pode hidratar payload já excluído), A4 (ROLLBACK no except pode mascarar exceção) — todos não-bloqueantes.
+  - openai/gpt-6-luna — 7/10 — corrigir; C1 e C3 não atendidos segundo sua leitura: A1-alto (`topics`/`topic_edges` sem `user_id` nem ownership composto), A2-médio (`Snapshot.content` dict mutável altera digest após materialização).
+  - opencode/mimo-v2.6-flash-free — 9/10 — fechar; C1–C4 verificados por probes independentes (cruzamento coluna a coluna do bloco §5 com `PRAGMA table_xinfo` → zero colunas faltantes; 94 passed reproduzidos); achados: A1 (`materialize_snapshot` de usuário inexistente → `TypeError` em vez de `SOURCE_UNRESOLVED`), A2 (`Snapshot` não-frozen, imutabilidade por convenção), A3 (`expected_version` opcional em caminhos secundários), A4 (purge sem bump — manter decisão registrada).
+- Síntese: divergência essencial sobre C1 resolvida pela fonte normativa — o bloco DDL do §5 do mapa não contém `user_id` em `topics`/`topic_edges` (o enunciado geral "todas as tabelas de domínio têm user_id" convive com o bloco preciso), e dois revisores confirmaram o DDL literalmente conforme o bloco; a leitura da Luna identifica tensão interna do mapa, não desvio da implementação, e fica registrada como decisão documentada (mapa intocado). Porém, dois revisores corroboram por probe vazamento real de ownership no nível do banco em FKs simples (`documents.course_id`, `facts.supersedes`, `attempts.response_event_id`, `assessments.supersedes` — sem `UNIQUE(user_id,id)` em `courses` que habilitasse FK composto), tocando o requisito de ownership de §15.1 ("onde aplicável" + arestas mesmo dono/curso); e dois revisores corroboram que a "imutabilidade" do snapshot é apenas convenção (`content` mutável muda o digest silenciosamente), enfraquecendo o núcleo do C3. Bug concreto de contrato de erros (MiMo A1) também corroborado.
+- Nota final: 8/10 — entrega sólida, bem testada e verificada de forma independente por dois dos três revisores; a nota reflete a qualidade geral descontando os dois pontos com corroboração dupla (ownership exigível no DDL e imutabilidade efetiva do snapshot), que são critérios do contrato e não podem ficar pendentes apenas como "polish".
+- Parecer: aprovar o núcleo da entrega (DDL §5, migração idempotente/atômica, WAL/FULL, revision monotônica, leitura curta de snapshot) e corrigir de forma delimitada os gaps corroborados, preservando a entrega — sem reversão.
+- Decisão: corrigir — subtask 004a (PENDENTE de criação): (i) ownership no nível do banco — `UNIQUE(user_id,id)` em `courses` + FK composto ou trigger para `documents.course_id`; mesma família para `facts.supersedes`, `attempts.response_event_id` e `assessments.supersedes` (probe de referência cruzada entre donos recusada); registrar explicitamente que `topics`/`topic_edges` seguem o bloco DDL do §5 (sem coluna `user_id`), com ownership via cadeia `courses.user_id` + trigger de mesmo curso — sem alterar o mapa; (ii) imutabilidade efetiva do snapshot — `frozen=True` + cópia profunda/canonização do `content` na materialização, digest armazenado; (iii) `materialize_snapshot` de usuário inexistente → `EduAgentError(SOURCE_UNRESOLVED)`; (iv) decisão explícita e registrada sobre purge × bump de revisão (manter escolha atual é aceitável se documentada) e sobre `expected_version` opcional em caminhos secundários.
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: criar e commitar a subtask 004a; 005 permanece dependente de 004/004a.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/004a-correcao-ownership-fks-e-snapshot-imutavel.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
