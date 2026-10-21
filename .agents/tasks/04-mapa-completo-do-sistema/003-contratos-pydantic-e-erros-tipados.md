@@ -47,6 +47,8 @@ Implementar em `eduagent/contracts.py` (e módulos afins) todos os contratos do 
 - Parecer: entrega preservada; correção delimitada aos invariantes disputados da tabela §4 e achados acessórios aproveitáveis; nenhuma reversão necessária.
 - Decisão: corrigir
 - Reversão: não se aplica — entrega preservada.
-- Próximo passo: subtask de correção da 003 (criação pendente; path a ser registrado no índice).
+- Próximo passo: subtask `.agents/tasks/04-mapa-completo-do-sistema/003a-correcao-invariantes-studydemand-e-enum-erros.md` (A1/A2 obrigatórios; A3–A6 aproveitáveis). Ao fechar a 003a, a família 003 estará resolvida.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/003a-correcao-invariantes-studydemand-e-enum-erros.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
