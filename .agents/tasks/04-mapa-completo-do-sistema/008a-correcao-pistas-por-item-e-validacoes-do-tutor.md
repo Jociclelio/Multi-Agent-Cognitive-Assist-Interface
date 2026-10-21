@@ -1,6 +1,6 @@
 # Task 008a: Correção — pistas por item e validações do Tutor (mapa §8, §4, §3.1)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 008
 Origem: 008 — correção
 
@@ -59,15 +59,18 @@ Restrições: não alterar `fase2/documentos/04_mapa_completo_do_sistema.md`; n�
 3/10 — Abaixo do esperado. Pontos que exigiram mais atenção: (i) F2 tem dependência circular aparente (o `LearningItem` precisa dos refs do publication, que só existem após o publish) — resolvido com rascunho de validação usando refs provisórios da mesma forma, de modo que a montagem final pós-publicação não pode falhar por validação; (ii) a validação local de schema (F3b) precisou cobrir exatamente o subconjunto de keywords dos três schemas do módulo sem introduzir coerção (bool não é inteiro, string não é booleano); (iii) a exposição por item (F1) é registrada na publicação, quando o item novo ainda tem 0 pistas — o teste fixa essa semântica explicitamente para o redutor da 009. Nenhum impedimento.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — sessão master do ciclo 04-mapa-completo-do-sistema.
+- Alvo: base `83b1673`; entrega `475e0b6` (5 arquivos de código/testes/skills); registro `98b9621` (apenas task.md); árvore limpa, commits entrega/registro separados conferidos via `git show --stat`; mapa e submódulo (`3504c4b`) sem diff na entrega. Rodada em modo **paralelo** (padrão — verificação local sem recursos compartilhados conflitantes), três revisores de modelos distintos, mesmos paths/SHAs, sem compartilhar pareceres entre si.
+- Avaliações:
+  - `sd2/GLM-5.3-Flash` — 9/10, aprovada; rodou a suíte completa (259 passed) e os checks de skills/contratos; C1–C4 comprovados com referências de linha.
+  - `openai/gpt-6-luna` — 9/10, aprovada; rodou a suíte da task (47 passed); limitação ambiental declarada (suíte completa não coletada por falta de `rank_bm25` no ambiente do revisor, sem instalar dependências); C1–C4 comprovados por inspeção de diff/fontes.
+  - `opencode/mimo-v2.6-flash-free` — 9/10, aprovada; rodou a suíte completa em cópia isolada em `/tmp/opencode` (258 passed, 1 skipped — smoke BGE-M3 sem pesos na cópia); C1–C4 comprovados, incluindo discriminação dos testes de regressão.
+- Nota final: 9/10 — consenso dos três revisores de modelos distintos: todos os achados escopados (F1–F4, A1/A2) corrigidos e provados por 7 testes de regressão que reproduzem as falhas originais (C1–C4 comprovados independentemente pelos três); isolamento e intocabilidade verificados; sem resultado apresentado como medido.
+- Parecer: Divergências nenhum essencial. Achados de baixa severidade atribuídos e não bloqueantes: (i) R1/A2 — `exposure.help_level` do payload do item é 0 na publicação (semântica correta e fixada por teste); o redutor da 009 deve consumir o nível de ajuda dos turnos/eventos de pista (`tutor.hint` com `hint_level`), não do payload do item — registrar no handoff da 009 (mimo, ecoado por GLM); (ii) R2 — coerência `cases`×`input_schema` cobre só `graduated_hint`; generalização no carregador registrada como pendência futura (escolha permitida pela task); (iii) A1 (mimo) — `_validate_against_local_schema` cobre apenas o subconjunto de keywords hoje usadas; recomenda-se guarda para keywords futuras não cobertas (melhoria, não bloqueia). Nenhuma pendência essencial escondida.
+- Decisão: **fechar** — todos os critérios obrigatórios (C1–C4) comprovados pelos três revisores; entrega da 008 preservada.
+- Reversão: não se aplica — sem artefatos a reverter (decisão de fechamento).
+- Próximo passo: liberar `.agents/tasks/04-mapa-completo-do-sistema/009-monitor-e-redutor-deterministico.md`; handoff para a 009: nível de ajuda da tentativa deve ser lido dos turnos/eventos de pista, pois `exposure.help_level` do item publicado é 0.
 
-<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/008a-correcao-pistas-por-item-e-validacoes-do-tutor.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/009-monitor-e-redutor-deterministico.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
