@@ -118,6 +118,30 @@ class Receipt:
 
 
 @dataclass(frozen=True)
+class OutboxRow:
+    """Linha do outbox entregue ao dispatcher (mapa §5/§11).
+
+    ``payload`` é o ``payload_json`` desserializado; ``state_before`` guarda o
+    estado no momento do claim — ``in_flight`` significa linha recuperada de
+    um despacho anterior que sofreu crash (lease expirado), que deve ser
+    **reconciliada por identidade** antes de reentregar (§11).
+    """
+
+    id: str
+    user_id: str
+    operation_id: str
+    target: str
+    payload: dict[str, Any]
+    state_before: str
+    lease_until: str | None
+
+    @property
+    def recovered(self) -> bool:
+        """True se a linha veio de um lease expirado (crash anterior)."""
+        return self.state_before == "in_flight"
+
+
+@dataclass(frozen=True)
 class Snapshot:
     """Artefato imutável de snapshot (mapa §15.1, linha 245).
 
@@ -350,35 +374,51 @@ class DomainStore:
         statements: list[tuple[str, tuple[Any, ...]]],
         *,
         expected_version: int,
+        outbox_statement: tuple[str, tuple[Any, ...]] | None = None,
     ) -> Receipt:
         """Commit de operação de domínio com idempotência (§11 + §15.1).
 
-        Semântica (na mesma transação, escritor serializado):
+        Semântica exata do §11 — a verificação de ``operation_id`` vem
+        **antes** da conferência de ``expected_version`` (task 005):
 
-        1. Se ``(operation_id)`` já existe com o mesmo ``digest``: devolve o
-           recibo original **sem** incrementar ``domain_revision`` (retry).
-           Com ``digest`` diferente: erro ``SCHEMA_INVALID`` (§4: "mesmo ID
-           com digest diferente é erro").
-        2. Operação nova: valida ``expected_version``, aplica os statements e
-           incrementa ``domain_revision`` uma única vez, registra a operação
-           em ``operations`` (estado ``committed`` + recibo) e confirma.
+        1. Se ``operation_id`` já existe: mesmo ID + mesmo digest + mesmo
+           usuário devolve o recibo original **mesmo que** a
+           ``expected_version`` agora seja antiga, **sem** incrementar
+           ``domain_revision`` (retry; §15.1: retries não incrementam).
+           Digest diferente para o mesmo ID falha (§4: "mesmo ID com digest
+           diferente é erro"); usuário diferente para o mesmo ID falha (§11:
+           "digest/usuário diferente para o mesmo ID falha") — ``operation_id``
+           é chave global, não por usuário.
+        2. Operação nova: valida ``expected_version``, aplica os statements
+           (evento e projeção do chamador), registra a operação em
+           ``operations`` (estado ``committed`` + recibo), insere o outbox
+           por último — a FK do outbox referencia ``operations(id)`` — e
+           incrementa ``domain_revision`` uma única vez; confirma — tudo na
+           mesma transação curta (commit atômico, §11).
 
-        A task 005 (commit idempotente e recuperação §11) estende este caminho
-        com outbox/dispatcher; a garantia de dados já vive aqui.
+        A transação é aberta e fechada aqui; nada de LLM/rede dentro dela
+        (§11). O outbox gerado entra ``pending`` e é processado pelo
+        dispatcher com lease de ``eduagent/services/effects.py``.
         """
         conn = self._conn
         conn.execute("BEGIN IMMEDIATE")
         try:
             existing = conn.execute(
-                "SELECT digest, receipt_json FROM operations "
-                "WHERE id = ? AND user_id = ?",
-                (operation_id, user_id),
+                "SELECT user_id, digest, receipt_json FROM operations "
+                "WHERE id = ?",
+                (operation_id,),
             ).fetchone()
             if existing is not None:
+                if existing["user_id"] != user_id:
+                    raise EduAgentError(
+                        ErrorCode.SCHEMA_INVALID,
+                        "mesmo operation_id sob usuário diferente (mapa §11)",
+                        diagnostic="eduagent/storage/repository.py",
+                    )
                 if existing["digest"] != digest:
                     raise EduAgentError(
                         ErrorCode.SCHEMA_INVALID,
-                        "mesmo operation_id com digest diferente (mapa §4)",
+                        "mesmo operation_id com digest diferente (mapa §4/§11)",
                         diagnostic="eduagent/storage/repository.py",
                     )
                 receipt = _decode_receipt(existing["receipt_json"], operation_id)
@@ -431,11 +471,188 @@ class DomainStore:
                     receipt.to_json(),
                 ),
             )
+            if outbox_statement is not None:
+                # por último: a FK do outbox referencia operations(id) (§5)
+                conn.execute(*outbox_statement)
             conn.execute("COMMIT")
             return receipt
         except BaseException:
             conn.execute("ROLLBACK")
             raise
+
+    # ------------------------------------------------------------------
+    # Replay autoritativo (§11 — checkpoint não é atômico)
+    # ------------------------------------------------------------------
+
+    def get_operation(self, operation_id: str) -> dict[str, Any] | None:
+        """Consulta autoritativa da operação (§11): o checkpoint vive em DB
+        separado (task 014) e não é atômico — o replay consulta a operação
+        no banco de domínio, que é a fonte da verdade, e reutiliza o recibo.
+        """
+        row = self._conn.execute(
+            "SELECT id, user_id, digest, state, expected_version, receipt_json "
+            "FROM operations WHERE id = ?",
+            (operation_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+
+    def receipt_for(
+        self, user_id: str, operation_id: str, digest: str
+    ) -> Receipt | None:
+        """Recibo autoritativo para replay (§11).
+
+        - Operação inexistente → ``None`` (o replay pode reapresentar o
+          commit; a dedup do ``commit_operation`` decide).
+        - Mesmo ID sob outro usuário ou com digest diferente →
+          ``SCHEMA_INVALID`` (identidade divergente é corrupção do
+          checkpoint, não nova tentativa).
+        - Operação committed → recibo armazenado, reutilizado com
+          ``was_retry=True`` (recibo estável entre replays).
+        - Operação ``pending``/``failed`` sem recibo → ``None``: nada foi
+          aplicado, o replay não pode reutilizar recibo inexistente.
+        """
+        row = self._conn.execute(
+            "SELECT user_id, digest, state, receipt_json FROM operations "
+            "WHERE id = ?",
+            (operation_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        if row["user_id"] != user_id:
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                "operação existe sob outro usuário (mapa §11)",
+                diagnostic="eduagent/storage/repository.py",
+            )
+        if row["digest"] != digest:
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                "digest do replay difere do registrado para a operação "
+                "(mapa §11)",
+                diagnostic="eduagent/storage/repository.py",
+            )
+        if not row["receipt_json"]:
+            return None
+        return _decode_receipt(row["receipt_json"], operation_id)
+
+    # ------------------------------------------------------------------
+    # Outbox: lease, ACK e estados terminais (§11, §15.1)
+    # ------------------------------------------------------------------
+    # Lease/recibo são metadados operacionais (§15.1, linha 247): nenhuma
+    # operação desta seção incrementa ``domain_revision``. Todas usam
+    # transações curtas próprias; o efeito em si é aplicado FORA de
+    # transação pelo dispatcher (§11: não manter transação durante LLM/rede).
+
+    def claim_outbox(
+        self,
+        *,
+        now: str,
+        lease_until: str,
+        limit: int = 16,
+    ) -> list[OutboxRow]:
+        """Apropria linhas do outbox com lease (§11) numa transação única.
+
+        Seleciona linhas ``pending`` e linhas ``in_flight`` com lease
+        expirado (crash de um despacho anterior), promove-as a ``in_flight``
+        com o novo ``lease_until`` e devolve as linhas apropriadas. Um
+        despacho concorrente não vê as linhas apropriadas enquanto o lease é
+        válido; após expiração, a linha volta a ser recuperada e o dispatcher
+        reconcilia o destino por identidade antes de reentregar.
+
+        ``now``/``lease_until`` são ISO-8601 UTC comparáveis
+        lexicograficamente (mesmo formato de ``_utc_now_iso``).
+        """
+        conn = self._conn
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            rows = conn.execute(
+                "SELECT id, user_id, operation_id, target, payload_json, "
+                "state, lease_until FROM outbox WHERE state = 'pending' OR "
+                "(state = 'in_flight' AND lease_until IS NOT NULL AND "
+                "lease_until <= ?) ORDER BY rowid LIMIT ?",
+                (now, limit),
+            ).fetchall()
+            claimed: list[OutboxRow] = []
+            for row in rows:
+                conn.execute(
+                    "UPDATE outbox SET state = 'in_flight', lease_until = ? "
+                    "WHERE id = ?",
+                    (lease_until, row["id"]),
+                )
+                claimed.append(
+                    OutboxRow(
+                        id=str(row["id"]),
+                        user_id=str(row["user_id"]),
+                        operation_id=str(row["operation_id"]),
+                        target=str(row["target"]),
+                        payload=json.loads(str(row["payload_json"])),
+                        state_before=str(row["state"]),
+                        lease_until=str(row["lease_until"])
+                        if row["lease_until"] is not None
+                        else None,
+                    )
+                )
+            conn.execute("COMMIT")
+            return claimed
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+
+    def _set_outbox_state(
+        self,
+        outbox_id: str,
+        state: str,
+        *,
+        from_state: str = "in_flight",
+    ) -> None:
+        """Transição de estado do outbox a partir de ``in_flight``.
+
+        Só o despacho que detém o lease move a linha; transição a partir de
+        outro estado é falha interna (surfaced, não engolida).
+        """
+        conn = self._conn
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = conn.execute(
+                "UPDATE outbox SET state = ?, lease_until = NULL "
+                "WHERE id = ? AND state = ?",
+                (state, outbox_id, from_state),
+            )
+            if cursor.rowcount != 1:
+                raise EduAgentError(
+                    ErrorCode.INTERNAL_FAILURE,
+                    f"outbox {outbox_id} não está em '{from_state}' — "
+                    "transição de lease inválida",
+                    diagnostic="eduagent/storage/repository.py",
+                )
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+
+    def ack_outbox(self, outbox_id: str) -> None:
+        """ACK do efeito: linha ``done`` (§11 — após efeito, confirma)."""
+        self._set_outbox_state(outbox_id, "done")
+
+    def requeue_outbox(self, outbox_id: str) -> None:
+        """Devolta a ``pending``: efeito definitivamente não aplicado — a
+        entrega é ao menos uma vez e um ciclo futuro recupera (§11)."""
+        self._set_outbox_state(outbox_id, "pending")
+
+    def fail_outbox(self, outbox_id: str) -> None:
+        """Estado terminal ``failed``: efeito desconhecido sem consulta
+        possível permanece ``UNKNOWN_EFFECT`` sem retry automático (§11) — o
+        dispatcher nunca apropria linhas ``failed``."""
+        self._set_outbox_state(outbox_id, "failed")
+
+    def outbox_row(self, outbox_id: str) -> dict[str, Any] | None:
+        """Leitura de inspeção do outbox (testes/diagnóstico local)."""
+        row = self._conn.execute(
+            "SELECT id, user_id, operation_id, target, payload_json, state, "
+            "lease_until FROM outbox WHERE id = ?",
+            (outbox_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
 
     # ------------------------------------------------------------------
     # Leituras de domínio (ownership por user_id — §15.1)
@@ -713,6 +930,7 @@ def _decode_receipt(receipt_json: str | None, operation_id: str) -> Receipt:
 __all__ = [
     "DEFAULT_BUSY_TIMEOUT_MS",
     "DomainStore",
+    "OutboxRow",
     "Receipt",
     "Snapshot",
     "SQLITE_WAL_FLOOR",
