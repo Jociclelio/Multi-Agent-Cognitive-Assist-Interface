@@ -48,13 +48,15 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de dois bullets contra duas linhas de tabela, com checagem automatizada por script isolado; as decisões de julgamento foram classificar as iniciais minúsculas ("recupera", "curadoria", "metadados") como adaptação tipográfica de prosa (não-desvio, mesmo padrão das tasks 001–002) e não transformar o limite "precisam de validação em português" em resolução da questão aberta, que permanece pendente no plano.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo; sessão `ses_ea197932cffeyt2gtXlSdLq8P5`.
+- Alvo: base `2cba3921c72dc53ca2fde281560e0dce96db9d2b` (branch `main`); commit de entrega inexistente (task de verificação sem desvio de fidelidade — "sem alteração de artefatos"); commit de registro `6da0dc12d6439ffd99e171d7dc991bf648feb6ee` (único arquivo: este `.md`); versão do registro: a de `6da0dc1`; árvore limpa durante toda a rodada.
+- Avaliações (rodada **paralela**, escolhida por ser conferência textual sem recursos compartilhados do sistema — cada revisor em sessão nova, sem compartilhar pareceres): (1) **GLM-5.3-Flash** (`sd2`) — **10/10**, aprovada; (2) **GPT-6 Luna** (`openai/gpt-6-luna`) — **9/10**, aprovada; (3) **MiMo-V2.6-Flash** (`opencode/mimo-v2.6-flash-free`) — **9/10**, aprovada. Nenhum revisor falhou; não houve substituição.
+- Síntese: os três revisores confirmaram por leitura/inspeção independente a fidelidade item a item das decisões C04 e C05 contra as linhas 18–19 do fonte (método, chaves `m3`/`rrf09`/`qdranthyb`/`bgerank` e `ytcaptions`/`mcpsec` presentes no `.bib` nas linhas alegadas, por quê e limite), com as iniciais minúsculas classificadas como adaptação tipográfica pré-existente na base (mesmo padrão das tasks 001–002). Confirmaram C2: nada acrescido, pendência de validação de C04 em português preservada como questão aberta do plano, C05 e reranker permanecem opcionais, IDs permanentes, nada como resultado medido. Confirmaram C3: fonte e submódulo intocados, commit único de registro sem amend/force-push/commits vazios. Divergências: apenas de rigor de evidência — Luna nota a não reprodução do script do executor; GLM aponta achado cosmético A1 (citação em C2 omite marcadores `**` do markdown bruto, sem impacto); MiMo reexecutou os scripts e achou zero divergências. Nenhum achado bloqueante ou médio.
+- Nota final: **9,7/10** — validação cumprida integralmente com verificação independente de três modelos distintos; a dedução mínima reflete limites estruturais de evidência (identidade autodeclarada, histórico local), não falhas da entrega; o achado A1 é cosmético e não exige correção.
+- Parecer: todos os critérios obrigatórios (C1, C2, C3) comprovados por quórum de três modelos distintos; pendências do usuário preservadas sem resolução, conforme restrição.
+- Decisão: **fechar**.
+- Reversão: não se aplica — sem artefatos a reverter.
+- Próximo passo: liberar a task 004 (`.agents/tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md`).
 
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md","family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)
