@@ -1,6 +1,6 @@
 # Task 007: Validar decisões de método — persistência e observabilidade (C15/C16 e C17)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 006
 Origem: nenhuma
 
@@ -23,16 +23,24 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não defi
 - `AGENTS.md` (raiz) — convenções do repositório.
 
 ## Corretude
-- [ ] C1 — As decisões de método para C15/C16 e C17 nesta task correspondem item a item às linhas 26 e 27 do fonte (método selecionado, referências/chaves e limite de cada linha); desvios apenas tipográficos corrigidos em dif mínimo no arquivo desta task.
-- [ ] C2 — Nada acrescido além do fonte; nenhum orçamento/parâmetro de C17 definido nesta task (números da etapa 4 cabem à task 009); IDs permanentes; nada apresentado como resultado medido.
-- [ ] C3 — O documento-fonte permanece intocado (`git diff` vazio em relação à base); correções limitadas ao arquivo desta task em dif mínimo; commits de entrega e de registro separados; sem commits vazios, amend ou force-push; submódulo não tocado.
+- [x] C1 — As decisões de método para C15/C16 e C17 nesta task correspondem item a item às linhas 26 e 27 do fonte (método selecionado, referências/chaves e limite de cada linha); desvios apenas tipográficos corrigidos em dif mínimo no arquivo desta task. *(Sem desvio de fidelidade: nenhuma correção foi necessária.)*
+- [x] C2 — Nada acrescido além do fonte; nenhum orçamento/parâmetro de C17 definido nesta task (números da etapa 4 cabem à task 009); IDs permanentes; nada apresentado como resultado medido.
+- [x] C3 — O documento-fonte permanece intocado (`git diff` vazio em relação à base); correções limitadas ao arquivo desta task em dif mínimo; commits de entrega e de registro separados; sem commits vazios, amend ou force-push; submódulo não tocado.
 
 ## Execução
-- Modelo: —
-- Base: —
-- Entrega: —
-- Arquivos da entrega: —
-- Evidências: —
+- Modelo: GLM-5.3-Flash (via `~/sd2-llm.sh`; provider `sd2`, model ID `GLM-5.3-Flash`)
+- Base: `cf6c5982f5565739decf6017fc9ab6cfd159c03b`
+- Entrega: sem alteração de artefatos — conferência de fidelidade confirmou correspondência integral; não houve commit de entrega.
+- Arquivos da entrega: — (apenas este arquivo de task no commit de registro)
+- Evidências:
+  - Conferência item a item contra `fase2/documentos/03_metodologias_de_implementacao.md`, linhas 26 e 27 (lidas direto do fonte, intocado):
+    - **C15/C16 (linha 26 do fonte):** método "Autorização por código, escritor único, SQLite/WAL, idempotência e outbox" = task linha 11 "autorização por código, escritor único, SQLite/WAL, idempotência e outbox" ✓; chaves `mcpsec`, `sqlitewal`, `lginterrupt` = task ✓; por quê e limite "Checkpoint não é commit de domínio; timeout externo requer reconciliação" = task "checkpoint não é commit de domínio; timeout externo requer reconciliação" ✓.
+    - **C17 (linha 27 do fonte):** método "Traces locais, métricas e limites ativos" = task linha 12 "traces locais, métricas e limites ativos" ✓; chaves `oteltrace`, `llamasrv` = task ✓; por quê e limite "Identifica custo e loops; traces não são provas de correção" = task "identifica custo e loops; traces não são provas de correção" ✓.
+    - Únicas diferenças: caixa da letra inicial ("Autorização"→"autorização", "Traces"→"traces", "Checkpoint"→"checkpoint", "Identifica"→"identifica"), ajuste tipográfico decorrente da inserção no fluxo da frase, sem alteração de sentido — não configuram desvio de fidelidade, portanto nenhuma correção foi aplicada.
+  - IDs C15, C16 e C17 tratados como permanentes (rótulos da tabela fonte); limite ativo de C17 citado apenas como método, sem qualquer número de orçamento nesta task; nada apresentado como resultado medido.
+  - `git diff cf6c598 -- fase2/documentos/03_metodologias_de_implementacao.md`: vazio — documento-fonte intocado; submódulo `docs/playground-llmagenticsystem` não tocado.
+  - `python3 fase2/scripts/verificar_documentos.py`: `status: passed` (escopo: documentação; não experimentos do sistema).
+- Dificuldade sentida: registrada abaixo.
 
 ## Notas
 
@@ -40,7 +48,7 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não defi
 2/10 — Conferência textual de duas linhas de tabela; cuidado em não citar números de orçamento aqui (pertencem à task 009).
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+1/10 — Conferência textual direta de duas linhas de tabela contra o texto já extraído na task; correspondência integral, sem necessidade de correção. Único cuidado: distinguir ajuste de caixa tipográfica de desvio de fidelidade e não tocar nos números da etapa 4 (task 009).
 
 ### Revisão
 - Orquestrador: —
