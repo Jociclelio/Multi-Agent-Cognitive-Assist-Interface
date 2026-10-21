@@ -475,7 +475,6 @@ class TestSkillCatalogC2:
         summary = catalog.summary()
         assert set(summary) == set(catalog.ids())
         for skill_id, entry in summary.items():
-            path = SkillCatalog.load.__self__ if False else None  # noqa: F841
             raw = (Path(catalog.directory) / f"{skill_id}/skill.yaml").read_bytes()
             assert entry["sha256"] == hashlib.sha256(raw).hexdigest()
             assert entry["version"] == catalog.require(skill_id).version
@@ -564,6 +563,18 @@ class TestSkillCatalogC2:
             SkillCatalog.load(target)
         assert exc.value.code is ErrorCode.SCHEMA_INVALID
         assert "catálogo obrigatório" in exc.value.message
+
+    def test_graduated_hint_cases_respect_own_input_schema(self):
+        # F4: os casos declarados não podem violar o input_schema da própria
+        # skill (a oferta pós-3-pistas é descrita no texto, sem help_level 4).
+        spec = SkillCatalog.load().require("graduated_hint")
+        maximum = spec.input_schema["properties"]["help_level"]["maximum"]
+        assert maximum == 3
+        for case in spec.cases:
+            level = case.input.get("help_level")
+            if level is not None:
+                assert isinstance(level, int) and not isinstance(level, bool)
+                assert 1 <= level <= maximum
 
 
 # ---------------------------------------------------------------------------
@@ -937,3 +948,208 @@ class TestSinkAndPolicy:
                 session, StudentMove.PRACTICE, "Prática.", evidence=make_evidence()
             )
         assert exc.value.code is ErrorCode.INTERNAL_FAILURE
+
+
+# ---------------------------------------------------------------------------
+# 008a — regressões da correção: escada de pistas por item (F1), validação
+#        antes de publicar (F2) e validação local de schema sempre (F3)
+# ---------------------------------------------------------------------------
+
+
+class TestHintLadderPerItem:
+    """F1: a escada 1=conceito/2=próximo passo/3=exemplo é POR ITEM (§8/§15.2),
+    não por sessão — item novo recomeça no nível 1 e a exposição persistida
+    reflete o nível daquele item."""
+
+    def test_hint_ladder_restarts_for_each_new_item(self, store, sink):
+        backend = FakeBackend(
+            [
+                item_payload(),
+                text_payload("Pista A1: conceito."),
+                text_payload("Pista A2: próximo passo."),
+                text_payload("Pista A3: exemplo análogo."),
+                item_payload(),
+                text_payload("Pista B1: conceito."),
+                text_payload("Pista B2: próximo passo."),
+                text_payload("Pista B3: exemplo análogo."),
+            ]
+        )
+        tutor = make_tutor(backend, sink)
+        session = new_session(UID, SESSION)
+        first = tutor.handle(
+            session, StudentMove.PRACTICE, "Prática A.", evidence=make_evidence()
+        )
+        item_a = first.item
+        assert item_a is not None
+        for expected_level in (1, 2, 3):
+            outcome = tutor.handle(
+                session, StudentMove.REQUEST_HINT, "Ajuda."
+            )
+            assert outcome.turn.objective is TutorTurn.TutorState.HINT
+            assert outcome.turn.hint_level == expected_level
+        # 4ª requisição no item A: oferta determinística, sem chamar o modelo.
+        calls_before = len(backend.calls)
+        outcome = tutor.handle(session, StudentMove.REQUEST_HINT, "Outra?")
+        assert outcome.turn.objective is TutorTurn.TutorState.CLOSE
+        assert "solução comentada" in outcome.turn.text
+        assert len(backend.calls) == calls_before
+        # Nova prática (item B) na MESMA sessão: a escada recomeça em 1 —
+        # a 1ª pista de B é pista de nível 1, não a oferta de encerramento.
+        second = tutor.handle(
+            session, StudentMove.PRACTICE, "Prática B.", evidence=make_evidence()
+        )
+        item_b = second.item
+        assert item_b is not None
+        assert item_b.item_id != item_a.item_id
+        outcome = tutor.handle(
+            session, StudentMove.REQUEST_HINT, "Ajuda no item B."
+        )
+        assert outcome.turn.objective is TutorTurn.TutorState.HINT
+        assert outcome.turn.hint_level == 1
+        for expected_level in (2, 3):
+            outcome = tutor.handle(
+                session, StudentMove.REQUEST_HINT, "Mais ajuda no B."
+            )
+            assert outcome.turn.hint_level == expected_level
+        # 4ª requisição no item B: oferta determinística sem chamar o modelo.
+        calls_before = len(backend.calls)
+        outcome = tutor.handle(session, StudentMove.REQUEST_HINT, "Outra no B?")
+        assert outcome.turn.objective is TutorTurn.TutorState.CLOSE
+        assert len(backend.calls) == calls_before
+        # Duas práticas + seis pistas geradas por modelo; as duas ofertas
+        # pós-3-pistas são determinísticas (zero chamadas).
+        assert len(backend.calls) == 8
+        # Exposição persistida por item: nível de ajuda DAQUELE item (0 na
+        # publicação; as pistas de A não contaminam o item B — §15.2).
+        payload_a = sink.resolve(UID, item_a.expected_answer_ref)
+        payload_b = sink.resolve(UID, item_b.expected_answer_ref)
+        assert payload_a["exposure"]["help_level"] == 0
+        assert payload_b["exposure"]["help_level"] == 0
+
+
+class TestValidateBeforePublish:
+    """F2: o LearningItem (limites do §4) e o TutorTurn são validados ANTES
+    do sink.publish — falha de validação não deixa NENHUM efeito parcial em
+    items/events/operations (§12)."""
+
+    @staticmethod
+    def _store_counts(store: DomainStore) -> tuple[int, int, int]:
+        return tuple(
+            int(
+                store._conn.execute(
+                    f"SELECT COUNT(*) AS n FROM {table}"
+                ).fetchone()["n"]
+            )
+            for table in ("items", "events", "operations")
+        )
+
+    def test_oversized_prompt_fails_before_any_persistence(self, store, sink):
+        oversized = json.dumps(
+            {
+                "prompt": "x" * 4001,  # acima de _MAX_TEXT do §4
+                "expected_answer": "resposta distinta do enunciado",
+                "rubric": [{"criterion_id": "a", "description": "b"}],
+                "citations": [0],
+            },
+            ensure_ascii=False,
+        )
+        backend = FakeBackend([oversized])
+        tutor = make_tutor(backend, sink, config=TutorConfig(max_llm_calls=1))
+        session = new_session(UID, SESSION)
+        before = self._store_counts(store)
+        with pytest.raises(EduAgentError) as exc:
+            tutor.handle(
+                session, StudentMove.PRACTICE, "Prática.",
+                evidence=make_evidence(),
+            )
+        assert exc.value.code is ErrorCode.SCHEMA_INVALID
+        assert "LearningItem" in exc.value.message
+        # Store inalterado: nenhuma linha órfã em items/events/operations.
+        assert self._store_counts(store) == before
+        assert session.pending_item is None
+        assert session.history == []
+
+
+class TestLocalSchemaValidation:
+    """F3: parse/schema/política são obrigatórios SEMPRE (§3.1) — sem a
+    capacidade json_schema no runtime, a resposta é validada contra o schema
+    declarado localmente dentro do ciclo de reparo; com a capacidade, a
+    validação local continua obrigatória."""
+
+    @staticmethod
+    def _payload_with_extra_field() -> str:
+        data = json.loads(item_payload())
+        data["extra"] = "campo fora do schema"
+        return json.dumps(data, ensure_ascii=False)
+
+    @staticmethod
+    def _payload_with_string_critical() -> str:
+        data = json.loads(item_payload())
+        data["rubric"][0]["critical"] = "false"  # string, não booleano
+        return json.dumps(data, ensure_ascii=False)
+
+    def test_extra_field_repairs_then_fails_without_runtime_schema(
+        self, store, sink
+    ):
+        bad = self._payload_with_extra_field()
+        backend = FakeBackend([bad, bad], json_schema_capability=False)
+        config = TutorConfig(max_llm_calls=2, max_repairs_total=1)
+        tutor = make_tutor(backend, sink, config=config)
+        session = new_session(UID, SESSION)
+        with pytest.raises(EduAgentError) as exc:
+            tutor.handle(
+                session, StudentMove.PRACTICE, "Prática.",
+                evidence=make_evidence(),
+            )
+        assert exc.value.code is ErrorCode.SCHEMA_INVALID
+        assert "extra" in exc.value.message
+        assert len(backend.calls) == 2  # 1 geração + 1 reparo orçado
+        assert items_count(store) == 0
+
+    def test_extra_field_repaired_without_runtime_schema(self, store, sink):
+        backend = FakeBackend(
+            [self._payload_with_extra_field(), item_payload()],
+            json_schema_capability=False,
+        )
+        tutor = make_tutor(backend, sink)
+        session = new_session(UID, SESSION)
+        outcome = tutor.handle(
+            session, StudentMove.PRACTICE, "Prática.", evidence=make_evidence()
+        )
+        assert outcome.item is not None
+        assert len(backend.calls) == 2
+
+    def test_string_critical_repairs_then_fails_without_runtime_schema(
+        self, store, sink
+    ):
+        bad = self._payload_with_string_critical()
+        backend = FakeBackend([bad, bad], json_schema_capability=False)
+        config = TutorConfig(max_llm_calls=2, max_repairs_total=1)
+        tutor = make_tutor(backend, sink, config=config)
+        session = new_session(UID, SESSION)
+        with pytest.raises(EduAgentError) as exc:
+            tutor.handle(
+                session, StudentMove.PRACTICE, "Prática.",
+                evidence=make_evidence(),
+            )
+        assert exc.value.code is ErrorCode.SCHEMA_INVALID
+        assert "booleano" in exc.value.message
+        assert len(backend.calls) == 2
+        assert items_count(store) == 0
+
+    def test_local_validation_mandatory_even_with_runtime_capability(
+        self, store, sink
+    ):
+        # §3.1: o schema enviado ao runtime NÃO dispensa a validação local.
+        bad = self._payload_with_extra_field()
+        backend = FakeBackend([bad, bad], json_schema_capability=True)
+        config = TutorConfig(max_llm_calls=2, max_repairs_total=1)
+        tutor = make_tutor(backend, sink, config=config)
+        session = new_session(UID, SESSION)
+        with pytest.raises(EduAgentError) as exc:
+            tutor.handle(
+                session, StudentMove.PRACTICE, "Prática.",
+                evidence=make_evidence(),
+            )
+        assert exc.value.code is ErrorCode.SCHEMA_INVALID
+        assert items_count(store) == 0

@@ -465,6 +465,12 @@ class TutorSession:
     ``family_solution_seen`` registra as famílias cuja solução foi exposta
     nesta sessão (§15.2: acesso prévio à solução na sessão corrente impede
     contagem como tentativa independente — o redutor da task 009 decide).
+
+    ``help_level_by_item`` guarda a escada de pistas POR ITEM (mapa §8:
+    1=conceito, 2=próximo passo, 3=exemplo análogo): o nível recomeça em 1
+    para cada item pendente novo — nunca é contador de sessão, e a exposição
+    registrada no item reflete o nível oferecido naquele item (§15.2 é por
+    tentativa; consumido pelo redutor da task 009).
     """
 
     user_id: str
@@ -472,7 +478,7 @@ class TutorSession:
     state: TutorTurn.TutorState = TutorTurn.TutorState.EXPLAIN
     pending_item: LearningItem | None = None
     pending_skill: tuple[str, int] = ("explain", 1)
-    help_level: int = 0
+    help_level_by_item: dict[str, int] = field(default_factory=dict)
     revealed: bool = False
     closed: bool = False
     family_solution_seen: set[_uuid.UUID] = field(default_factory=set)
@@ -598,6 +604,77 @@ def _parse_json_object(text: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise _PolicyViolation("resposta JSON não é um objeto")
     return data
+
+
+def _validate_against_local_schema(
+    data: Any, schema: Mapping[str, Any], path: str = "$"
+) -> None:
+    """Valida a resposta parseada contra o schema declarado LOCALMENTE
+    (mapa §3.1: parse/schema/política são obrigatórios SEMPRE — o JSON Schema
+    só é enviado ao runtime quando ``capabilities.json_schema`` está
+    verificada, e a validação local continua obrigatória mesmo assim).
+
+    Cobre o subconjunto de JSON Schema usado pelos schemas declarados neste
+    módulo (``_TEXT_SCHEMA``/``_ITEM_SCHEMA``/``_FLASHCARD_SCHEMA``):
+    ``type``, ``properties``, ``required``, ``additionalProperties: false``,
+    ``minLength``, ``minimum`` e ``items``/``minItems``. Violação vira
+    ``_PolicyViolation`` e entra no ciclo de reparo (§12).
+    """
+    expected = schema.get("type")
+    if expected == "object":
+        if not isinstance(data, dict):
+            raise _PolicyViolation(f"{path}: esperado objeto JSON")
+        properties = schema.get("properties", {})
+        for key in schema.get("required", []):
+            if key not in data:
+                raise _PolicyViolation(
+                    f"{path}: campo obrigatório ausente '{key}'"
+                )
+        if schema.get("additionalProperties") is False:
+            for key in data:
+                if key not in properties:
+                    raise _PolicyViolation(
+                        f"{path}: campo extra fora do schema: '{key}'"
+                    )
+        for key, value in data.items():
+            subschema = properties.get(key)
+            if subschema is not None:
+                _validate_against_local_schema(
+                    value, subschema, f"{path}.{key}"
+                )
+    elif expected == "array":
+        if not isinstance(data, list):
+            raise _PolicyViolation(f"{path}: esperado array JSON")
+        min_items = schema.get("minItems")
+        if min_items is not None and len(data) < min_items:
+            raise _PolicyViolation(
+                f"{path}: array com menos de {min_items} item(ns)"
+            )
+        items = schema.get("items")
+        if items is not None:
+            for index, element in enumerate(data):
+                _validate_against_local_schema(
+                    element, items, f"{path}[{index}]"
+                )
+    elif expected == "string":
+        if not isinstance(data, str):
+            raise _PolicyViolation(f"{path}: esperado string")
+        min_length = schema.get("minLength")
+        if min_length is not None and len(data) < min_length:
+            raise _PolicyViolation(
+                f"{path}: string abaixo de minLength={min_length}"
+            )
+    elif expected == "integer":
+        if isinstance(data, bool) or not isinstance(data, int):
+            raise _PolicyViolation(f"{path}: esperado inteiro")
+        minimum = schema.get("minimum")
+        if minimum is not None and data < minimum:
+            raise _PolicyViolation(f"{path}: abaixo do mínimo {minimum}")
+    elif expected == "boolean":
+        if not isinstance(data, bool):
+            raise _PolicyViolation(
+                f"{path}: esperado booleano true/false (sem coerção)"
+            )
 
 
 def _clean_text(data: Mapping[str, Any], key: str) -> str:
@@ -862,9 +939,45 @@ class Tutor:
             skill, messages, schema, validator
         )
         prompt, expected_answer, rubric, source_refs = fields
-
         published_at = self._clock()
         item_id = _uuid.uuid4()
+
+        # §12/§4: o contrato é validado ANTES de qualquer efeito no sink —
+        # nenhum efeito parcial persiste quando a validação falha. Os refs/
+        # versão provisórios têm a mesma forma dos reais devolvidos pelo
+        # commit idempotente (event/item, ID+versão >= 1), então o item e o
+        # turno finais, montados após a publicação com os valores reais,
+        # não podem falhar por validação (mesmos campos, formas válidas).
+        provisional_ref = Ref(kind="event", id=_uuid.uuid4(), version=1)
+        try:
+            LearningItem(
+                item_id=item_id,
+                family_id=resolved_family,
+                version=1,
+                topic_ids=topics,
+                prompt=prompt,
+                expected_answer_ref=provisional_ref,
+                rubric_ref=provisional_ref,
+                source_refs=source_refs,
+                kind=kind,
+                published_at=published_at,
+            )
+        except ValidationError as exc:
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                f"item viola o contrato LearningItem antes de publicar "
+                f"(mapa §4): {exc}",
+                diagnostic=DIAGNOSTIC,
+            ) from exc
+        self._turn(
+            skill,
+            objective=self._objective_for(move),
+            text=self._item_turn_text(move, prompt=prompt),
+            item_ref=Ref(kind="item", id=item_id, version=1),
+            next_state=TutorTurn.TutorState.ATTEMPT,
+            terminal=TutorTurn.Terminal.WAITING_STUDENT,
+        )
+
         publication = self._sink.publish(
             user_id=session.user_id,
             item_id=item_id,
@@ -875,7 +988,9 @@ class Tutor:
             rubric=rubric,
             source_refs=source_refs,
             published_at=published_at,
-            exposure=self._exposure(session, move, resolved_family),
+            exposure=self._exposure(
+                session, move, resolved_family, item_id
+            ),
         )
         try:
             item = LearningItem(
@@ -890,9 +1005,9 @@ class Tutor:
                 kind=kind,
                 published_at=published_at,
             )
-        except ValidationError as exc:
+        except ValidationError as exc:  # inalcançável após o rascunho válido
             raise EduAgentError(
-                ErrorCode.SCHEMA_INVALID,
+                ErrorCode.INTERNAL_FAILURE,
                 f"item publicado viola o contrato LearningItem: {exc}",
                 diagnostic=DIAGNOSTIC,
             ) from exc
@@ -900,8 +1015,10 @@ class Tutor:
         turn = self._turn(
             skill,
             objective=self._objective_for(move),
-            text=self._item_turn_text(move, item),
-            item_ref=Ref(kind="item", id=item.item_id, version=item.version),
+            text=self._item_turn_text(move, prompt=prompt),
+            item_ref=Ref(
+                kind="item", id=item.item_id, version=item.version
+            ),
             next_state=TutorTurn.TutorState.ATTEMPT,
             terminal=TutorTurn.Terminal.WAITING_STUDENT,
         )
@@ -940,7 +1057,10 @@ class Tutor:
     ) -> TutorOutcome:
         item = self._require_pending_item(session, "pedido de pista")
         skill = self._catalog.require("graduated_hint")
-        level = session.help_level + 1
+        # Escada de pistas POR ITEM (mapa §8): o nível é contado por item
+        # pendente e recomeça em 1 a cada item novo — nunca por sessão.
+        item_key = str(item.item_id)
+        level = session.help_level_by_item.get(item_key, 0) + 1
         if level > 3:
             # Mapa §8: após três pistas, oferecer solução comentada ou
             # encerramento — oferta determinística, sem chamar o modelo e
@@ -977,7 +1097,7 @@ class Tutor:
             next_state=TutorTurn.TutorState.HINT,
             terminal=TutorTurn.Terminal.WAITING_STUDENT,
         )
-        session.help_level = level
+        session.help_level_by_item[item_key] = level
         session.state = TutorTurn.TutorState.HINT
         session.pending_skill = (skill.id, skill.version)
         session.history.append(turn)
@@ -1172,11 +1292,19 @@ class Tutor:
                     f"criterion_id duplicado na rubrica: {criterion_id}"
                 )
             seen.add(criterion_id)
+            critical = entry.get("critical", False)
+            if not isinstance(critical, bool):
+                # Booleano REAL (mapa §4, estrito): "false"/0/1 são rejeitados
+                # e entram no ciclo de reparo — nunca coerção silenciosa.
+                raise _PolicyViolation(
+                    f"'critical' do critério '{criterion_id}' deve ser "
+                    f"booleano (true/false), obtido {critical!r}"
+                )
             cleaned.append(
                 {
                     "criterion_id": criterion_id.strip()[:64],
                     "description": description.strip()[:1000],
-                    "critical": bool(entry.get("critical", False)),
+                    "critical": critical,
                 }
             )
         return cleaned
@@ -1234,6 +1362,9 @@ class Tutor:
             violation: _PolicyViolation | None = None
             try:
                 data = _parse_json_object(result.text)
+                # §3.1: schema é aplicado LOCALMENTE sempre — com ou sem a
+                # capacidade json_schema verificada no runtime.
+                _validate_against_local_schema(data, schema)
                 validated: _Validated | None = None
             except _PolicyViolation as exc:
                 violation = exc
@@ -1551,38 +1682,47 @@ class Tutor:
         return TutorTurn.TutorState.ATTEMPT
 
     @staticmethod
-    def _item_turn_text(move: StudentMove, item: LearningItem) -> str:
+    def _item_turn_text(move: StudentMove, *, prompt: str) -> str:
         if move is StudentMove.FLASHCARD:
             return (
                 "Novo flashcard publicado. Responda com o verso sem "
                 "consultar a fonte.\n\n"
-                f"{item.prompt}"
+                f"{prompt}"
             )
         if move is StudentMove.SELF_EXPLAIN:
             return (
                 "Item de autoexplicação publicado. Explique com as suas "
                 "palavras.\n\n"
-                f"{item.prompt}"
+                f"{prompt}"
             )
         if move is StudentMove.TRANSFER:
             return (
                 "Item de transferência publicado (variação da mesma família "
                 "de conceito, em contexto novo). Responda com o seu "
                 "raciocínio.\n\n"
-                f"{item.prompt}"
+                f"{prompt}"
             )
         return (
             "Novo item de prática publicado. Responda com a sua solução "
             "antes de pedir pistas.\n\n"
-            f"{item.prompt}"
+            f"{prompt}"
         )
 
     def _exposure(
-        self, session: TutorSession, move: StudentMove, family_id: _uuid.UUID
+        self,
+        session: TutorSession,
+        move: StudentMove,
+        family_id: _uuid.UUID,
+        item_id: _uuid.UUID,
     ) -> dict[str, Any]:
+        """Exposição registrada no evento de publicação do item (§15.2 é por
+        tentativa — consumido pelo redutor da task 009): ``help_level`` é o
+        nível de ajuda DAQUELE item (0 na publicação de um item novo; pistas
+        posteriores ficam nos turnos/eventos de pista), nunca o contador de
+        outra item da sessão."""
         return {
             "transfer": move is StudentMove.TRANSFER,
-            "help_level": session.help_level,
+            "help_level": session.help_level_by_item.get(str(item_id), 0),
             "revealed_in_session": session.revealed,
             "family_solution_seen_in_session": (
                 family_id in session.family_solution_seen

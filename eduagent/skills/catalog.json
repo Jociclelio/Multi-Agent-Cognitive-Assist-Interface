@@ -14,8 +14,8 @@
     },
     "graduated_hint": {
       "file": "graduated_hint/skill.yaml",
-      "sha256": "8217bca55e97ebfa10cc6c5bf54a979ce984e0bed8719fafa37b25a0843aff6a",
-      "version": 1
+      "sha256": "5e7be9bcf6dd06049f9358dcaff89bab598c2a09d209aa10f6c31558fcd8020c",
+      "version": 2
     },
     "quiz": {
       "file": "quiz/skill.yaml",

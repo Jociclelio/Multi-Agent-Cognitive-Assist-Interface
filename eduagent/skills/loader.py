@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re as _re
 import sys
 from pathlib import Path
 from types import MappingProxyType
@@ -263,8 +264,6 @@ class SkillCatalog:
         skills = data.get("skills")
         if not isinstance(skills, dict) or not skills:
             raise SkillSpecError("registro de skills sem entradas")
-        import re as _re
-
         for skill_id, entry in skills.items():
             if not isinstance(skill_id, str) or not _re.match(
                 _ID_PATTERN, skill_id

@@ -4,7 +4,7 @@
 # chamada de modelo). Pedido de solução, recusa e cancelamento encerram sem
 # insistência (mapa §8).
 id: graduated_hint
-version: 1
+version: 2
 tasks:
   - request_hint
 input_schema:
@@ -56,9 +56,9 @@ cases:
       help_level: 1
       pending_prompt: "Explique por que o commit idempotente confere operation_id antes de expected_version."
     expectation: "pista de CONCEITO (nível 1), terminal waiting_student, solução não revelada"
-  - name: "quatro pistas seguidas"
+  - name: "pedido de quarta pista após três dadas"
     input:
       message: "Mais uma pista, por favor."
-      help_level: 4
+      help_level: 3
       pending_prompt: "Explique por que o commit idempotente confere operation_id antes de expected_version."
-    expectation: "oferta determinística de solução comentada ou encerramento, sem nova geração de pista"
+    expectation: "com help_level corrente 3 (três pistas já dadas), o Tutor oferece solução comentada ou encerramento por texto determinístico, sem chamar o modelo e sem declarar help_level 4 (fora do input_schema)"
