@@ -44,6 +44,7 @@ Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no
 | 5 | [005-validar-orquestracao-contratos-e-politica-de-ferramentas.md](../../tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md) | C13, C14, C15 | 004 | fechada |
 | 6 | [006-validar-persistencia-observabilidade-e-empacotamento.md](../../tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md) | C16, C17, C20 | 005 | fechada |
 | 7 | [007-validar-dados-e-avaliacao-experimental.md](../../tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md) | C18, C19 | 006 | fechada |
-| 8 | [008-validar-opcionais-e-consolidar-cobertura-c01-c20.md](../../tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md) | C05, sinc. remota de C12 + consolidação | 007 | liberada |
+| 8 | [008-validar-opcionais-e-consolidar-cobertura-c01-c20.md](../../tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md) | C05, sinc. remota de C12 + consolidação | 007 | aguardando subtasks (revisão: corrigir — lacuna C10) |
+| 9 | _subtask 009 (completar cobertura de C10 e ajustar evidências da consolidação) — criação pendente_ | C10 | 008 | pendente de criação |
 
 Cobertura da cadeia do fonte: núcleo C01 → C02/C03 → C04/C09 → C06/C07/C08 → C11 (tasks 001–004), sustentado por C13–C17/C20 (tasks 005–006), C18/C19 antes da otimização (task 007), opcionais C05 e sincronização remota de C12 (task 008). Todas as especificações são extraídas fielmente de `fase2/documentos/02_componentes_e_requisitos.md`, que permanece intocado como fonte normativo; as seis ambiguidades permanecem decisões pendentes.

@@ -1,6 +1,6 @@
 # Task 008: Validar opcionais (C05 e sincronização remota de C12) e consolidar cobertura C01–C20
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (correção: cobertura de C10)
 Depende de: 007
 Origem: nenhuma
 
@@ -58,13 +58,15 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 - Conforme o Prompt desta task, não foi criada task e nenhuma task de outra sessão foi editada; o impedimento fica registrado aqui para decisão do master (por exemplo: criar task dedicada a C10, repartir o plano ou registrar exceção justificada — note-se que a seção "Dependências e prioridades" do próprio fonte também não posiciona C10 na cadeia do núcleo, o que pode explicar a omissão, mas não a elimina do critério "todos os componentes C01–C20").
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: task-master sd2/GLM-5.3-Flash (sessão `ses_ea3876cfaffeR4G1eBPsIyW14a`); rodada de revisão em modo **paralelo** (revisão documental de leitura, checagens Git e `verificar_documentos.py` em modo leitura — sem disputa de recursos compartilhados do sistema).
+- Alvo: base `dd7ca8a55e4e7d037cb0da102966180a94ccc10c`; entrega `dd8134c00464feb2c0e0313c8bb6ba92808224f3` (correção de fidelidade em C05, 1+/1−); registro `f06d4b2c0a6f5b2ad3d9005138e900cafcd2f42d` (HEAD, árvore limpa); documento-fonte intocado — alvo confirmado pelos três revisores.
+- Avaliações: (1) sd2/GLM-5.3-Flash — 9/10, aprovada com ressalvas (sessão `ses_ea3862dbdffeRq5qWABPofelwO`); (2) openai/gpt-6-luna — 8/10, não concluída quanto ao critério C2 (sessão `ses_ea3862d8effeLFh00nxdu4EMB1`); (3) opencode/mimo-v2.6-flash-free — 8/10, aprovada com ressalvas (sessão `ses_ea3862d61ffeyd8RaDliU25FlC`). Quórum de três modelos distintos cumprido; nenhum revisor falhou.
+- Parecer: convergência dos três em C1, C3, C4 e C5 atendidos com verificação própria (fidelidade de C05 e do aspecto opcional de C12, cadeia de dependências, seis ambiguidades pendentes sem resolução, fonte intocado, commits separados). Achado comum e convergente (GLM A1; Luna A1; MiMo F1): **C10 — Gestão do contexto é órfão** — ausente das tasks 001–007 e do `plan.md`; lacuna real, pré-existente na derivação do plano, não atribuível ao executor, que a registrou corretamente como impedimento (C2 desmarcado com anotação) sem ampliar escopo. Achados baixos da MiMo, aceitos: **F2** — a frase da Evidência C2 "não aparece em nenhuma task da família (001–008)" não reproduz no HEAD (a própria 008 agora menciona C10), exigindo reformulação em dif mínimo; **F3** — "Distribuição confirmada por varredura nos oito arquivos" superestima a saída do script para as ambiguidades 4 e 6 (substância verdadeira, confirmada manualmente pelo revisor). Divergência de encaminhamento (GLM/MiMo: fechar a 008; Luna: repartir) resolvida pelo critério do contrato: como C2 é critério obrigatório não comprovado, não cabe `fechar`; a entrega não tem artefato a reverter (único dif é correção de fidelidade válida), o que afasta `reiniciar`/`repartir`.
+- Nota final: 8,5/10 — execução fiel ao contrato da task, com o impedimento registrado honestamente em vez de maquiado e as quatro demais dimensões verificadas com evidência própria pelos revisores; desconto pela inconsistência de redação das evidências (F2/F3), que nesta família de validação documental tem peso maior que o habitual, embora não altere a substância.
+- Decisão: corrigir — entrega preservada; criação da subtask 009 para completar a cobertura de C10 e ajustar em difs mínimos as duas imprecisões de evidência (F2/F3) desta task.
+- Reversão: não se aplica — sem artefatos a reverter (a entrega é correção de fidelidade válida, preservada).
+- Próximo passo: subtask 009 (completar cobertura de C10 — Gestão do contexto — e ajustar evidências da consolidação); família permanece sob a raiz 001; critérios de conclusão do plano só poderão ser marcados quando C10 estiver representado.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/02-componentes-e-requisitos/009-completar-cobertura-c10-e-ajustar-evidencias-da-consolidacao.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
