@@ -51,13 +51,14 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não defi
 2/10 — Conferência textual de três células de tabela com script de comparação normalizada; a caracterização de sustentação do núcleo exigiu confronto com a seção "Dependências e prioridades" do fonte, mas o desvio encontrado foi apenas o mesmo ponto final tipográfico já corrigido nas tasks 001–005 (aqui em três pontos, incluindo o C17 antes da nota de questão aberta).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (sd2), master do ciclo opt-in; modo da rodada: paralelo (conferência textual de arquivos Markdown, sem disputa de recursos compartilhados).
+- Alvo: base `2b757cd49ae83ecbad8f05c1f3c670a3707f9d57`; entrega `c94cbd64e0e44ee6dec2c0c326f869a67d47a55a`; registro `d6aace2410da855e0165070d8c45463635f0e6e8` (HEAD). Árvore limpa e inalterada durante a rodada; documento-fonte e submódulo intocados.
+- Avaliações: (1) GLM-5.3-Flash (sd2) — 9,5/10, aprovada; fidelidade C16/C17/C20 reconfirmada por comparação normalizada independente; achado baixo A1 (evidência de C1 cita script efêmero em `/tmp/opencode`, não auditável a posteriori — recomendação opcional para futuras tasks) e achado informativo A2 (nota de questão aberta demarcada no bullet C17, sem desvio). (2) openai/gpt-6-luna — 10/10, aprovada; sem achados; C1–C5 verificados via diffs e cadeia de pais. (3) opencode/mimo-v2.6-flash-free — 9,5/10, aprovada; sem achados; reimplementou a comparação das células (fiel ×3) e varredura de dígitos (zero); desconto apenas por não poder verificar estado remoto (fora de escopo). Revisores falhos: nenhum.
+- Nota final: 9,5/10 — consenso de que a especificação C16/C17/C20 reproduz fielmente o documento-fonte, a correção de fidelidade foi mínima (3+/3−, só o arquivo da task), nenhum orçamento/parâmetro foi inventado para C17 e a questão aberta permanece apenas registrada, como exigido.
+- Parecer: Síntese dos três pareceres (modelos distintos, sem divergência essencial): fidelidade item a item comprovada independentemente por pelo menos dois revisores com comparação normalizada própria; `git diff` do documento-fonte vazio em relação à base; submódulo intacto; commits de entrega e registro separados, lineares, sem vazios/amend/force-push; pendências mantidas por design (questão aberta 4 do plano sobre orçamentos de C17; seis ambiguidades do fonte). O único achado material é de processo (A1, script de evidência efêmero), não invalida a entrega.
+- Decisão: fechar
+- Reversão: não se aplica — sem reversão (entrega aprovada)
+- Próximo passo: liberar task 007 (.agents/tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md, C18/C19, depende de 006) no ciclo opt-in.
 
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)

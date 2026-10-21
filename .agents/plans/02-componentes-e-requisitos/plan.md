@@ -42,7 +42,7 @@ Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no
 | 3 | [003-validar-tutor-monitor-e-estado-de-aprendizagem.md](../../tasks/02-componentes-e-requisitos/003-validar-tutor-monitor-e-estado-de-aprendizagem.md) | C06, C07, C08 | 002 | fechada |
 | 4 | [004-validar-planejamento-solver-e-agenda.md](../../tasks/02-componentes-e-requisitos/004-validar-planejamento-solver-e-agenda.md) | C11, C12 (ICS local) | 003 | fechada |
 | 5 | [005-validar-orquestracao-contratos-e-politica-de-ferramentas.md](../../tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md) | C13, C14, C15 | 004 | fechada |
-| 6 | [006-validar-persistencia-observabilidade-e-empacotamento.md](../../tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md) | C16, C17, C20 | 005 | pendente |
+| 6 | [006-validar-persistencia-observabilidade-e-empacotamento.md](../../tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md) | C16, C17, C20 | 005 | fechada |
 | 7 | [007-validar-dados-e-avaliacao-experimental.md](../../tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md) | C18, C19 | 006 | pendente |
 | 8 | [008-validar-opcionais-e-consolidar-cobertura-c01-c20.md](../../tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md) | C05, sinc. remota de C12 + consolidação | 007 | pendente |
 
