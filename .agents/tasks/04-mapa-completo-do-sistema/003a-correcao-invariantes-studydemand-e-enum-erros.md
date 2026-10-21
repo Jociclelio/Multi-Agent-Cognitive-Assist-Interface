@@ -1,6 +1,6 @@
 # Task 003a: Correção dos invariantes de `StudyDemand` e enum de `error_codes` (mapa §4)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 003
 Origem: 003 — correção
 
@@ -21,17 +21,27 @@ Restrições: preservar a entrega da 003 (sem reverter); commits SEPARADOS — (
 - `schemas/` — regenerar após alterações (`--export`/`--check`).
 
 ## Corretude
-- [ ] C1 — Regra de `StudyDemand` verificada contra §4/§15.3/§8 com citação exata no task.md: validador implementado com testes de rejeição/aceitação OU leitura normativa contrária documentada com evidência; probe do revisor (mandatory=True + estimated) reproduz o comportamento corrigido/justificado.
-- [ ] C2 — `error_codes` restrito ao enum tipado, com teste e JSON Schema contendo `enum`; suíte completa verde (`pytest tests/ -q`).
-- [ ] C3 — Schemas regenerados e byte a byte (`--check`); itens A3–A6 aproveitados registrados item a item (feito/não aplicável com motivo) no task.md.
-- [ ] C4 — Mapa, plano e submodule intocados; commits de entrega e registro separados; entrega da 003 preservada (sem reversão).
+- [x] C1 — Regra de `StudyDemand` verificada contra §4/§15.3/§8 com citação exata no task.md: validador implementado com testes de rejeição/aceitação OU leitura normativa contrária documentada com evidência; probe do revisor (mandatory=True + estimated) reproduz o comportamento corrigido/justificado.
+- [x] C2 — `error_codes` restrito ao enum tipado, com teste e JSON Schema contendo `enum`; suíte completa verde (`pytest tests/ -q`).
+- [x] C3 — Schemas regenerados e byte a byte (`--check`); itens A3–A6 aproveitados registrados item a item (feito/não aplicável com motivo) no task.md.
+- [x] C4 — Mapa, plano e submodule intocados; commits de entrega e registro separados; entrega da 003 preservada (sem reversão).
 
 ## Execução
-- Modelo: <identificador real do executor>
-- Base: <SHA completo antes da implementação>
-- Entrega: <SHA(s) completos, sem commits de registro, ou sem alteração de artefatos>
-- Arquivos da entrega: <paths ou referência ao diff dos commits>
-- Evidências: <comandos/procedimentos, resultados e limitações>
+- Modelo: GLM-5.3-Flash (via ~/sd2-llm.sh; provider `sd2`, model `GLM-5.3-Flash`)
+- Base: 860942f3bc3f05396098cf2cb5d5d3a2252709dd (árvore limpa; entrega da 003 `82bac2dd3600967358f1db42154913a3c7375834` preservada)
+- Entrega: b0de70c40cfc73bb1554763d845c4e6d2e98aeb8
+- Arquivos da entrega: `eduagent/contracts.py`, `tests/test_task003_contracts.py`, `pyproject.toml`, `uv.lock`, `schemas/{AcademicFact,Envelope,MemoryPack,TopicState}.schema.json` (diff do commit de entrega)
+- Evidências:
+  - **A1 (obrigatório) — leitura normativa e validador implementado.** Mapa §4, tabela (linha 87 de `04_mapa_completo_do_sistema.md`): "`StudyDemand` | … duration_status `confirmed/estimated`; **restrição dura exige confirmação**". §15.3 (linha 266): "**rótulo estimated e mandatory=false**. Usuário pode editar e confirmar para obrigatória. Não converter percentual de domínio em duração." §8 (linha 158, replanejamento): "a duração recomendada é explicitamente estimada e **confirmada quando virar obrigatória** … **não converter incerteza em obrigação**." A regra se aplica: `mandatory=True ⇒ duration_status="confirmed"`. Implementado `model_validator` `_mandatory_requires_confirmed` em `StudyDemand` (`eduagent/contracts.py`); teste `test_mandatory_study_demand_requires_confirmed_duration` (aceitação: estimada+opcional e confirmada+obrigatória; rejeição: obrigatória+estimated). Probe do revisor reproduzido fora da suíte: payload com `mandatory=True, duration_status="estimated"` é rejeitado com "demanda obrigatória (mandatory=true) exige duration_status='confirmed'".
+  - **A2 (obrigatório).** `TopicState.error_codes` mudou de `list[_ShortId]` para `list[ErrorCode]` (12 códigos canônicos do §4, já deduplicados na 003). Teste `test_topic_state_error_codes_restricted_to_typed_enum`: aceita `["TIMEOUT","NO_EVIDENCE"]`, rejeita `["ERRO_INVENTADO"]` e verifica `enum` fechado no JSON Schema (`$defs.ErrorCode.enum == {os 12 valores}`). Schema `TopicState.schema.json` (e `MemoryPack.schema.json`, que inclui `TopicState`) agora sai com `"$ref": "#/$defs/ErrorCode"` + `enum`.
+  - **A3 — aproveitado (opção teste ajustado).** `test_payload_external_sender_role_does_not_grant_permission` reescrito: payload externo com papel ALEGADO privilegiado (`monitor`, permitido para `assessment.check`) é aceito como dado (`ToolRequest`), e a decisão é avaliada contra o papel atribuído pelo dispatcher (`TUTOR`) → negado com `TOOL_DENIED`; papel legítimo (`MONITOR`) passa. Garantia definitiva do descarte do papel alegado na fronteira documentada como responsabilidade do dispatcher na task 014 (docstring de `validate_tool_request` e do teste).
+  - **A4 — aproveitado.** `max_length=100` (default de ensaio, não resultado medido) no campo `timezone` de `AcademicFact`; refletido como `maxLength` no schema.
+  - **A5 — aproveitado.** `EnvelopeStatus` e `MemoryPack.EventKind` rotulados como catálogo default de ensaio nos docstrings (padrão de `OperationAction`); apareceram como `description` nos schemas.
+  - **A6 — aproveitado.** `jsonschema>=4,<5` declarado no grupo `dev` do `pyproject.toml`; `uv lock` real executado (`uv.lock` atualizado, 170 packages resolvidos).
+  - **Schemas:** `.venv/bin/python -m eduagent.contracts --export schemas` regenerado e `--check` confirmou byte a byte ("schemas/ atualizado: schemas"). Diff dos schemas conferido manualmente: apenas as mudanças esperadas (maxLength/enum/ref/descriptions).
+  - **Suíte:** `.venv/bin/python -m pytest tests/ -q` → **63 passed** (61 da 003 + 2 novos), 0.27s.
+  - **Intocados:** `fase2/documentos/04_mapa_completo_do_sistema.md`, `.agents/plans/04-mapa-completo-do-sistema/plan.md` e submodule `docs/playground-llmagenticsystem` sem alteração (`git status` limpo fora dos arquivos da entrega).
+  - Limitações: verificação contratual local; nenhum experimento executado, nada medido. Defaults numéricos (max_length=100 etc.) são escolhas de ensaio.
 
 ## Notas
 
@@ -39,7 +49,7 @@ Restrições: preservar a entrega da 003 (sem reverter); commits SEPARADOS — (
 2/10 — Correção pontual com verificação normativa; o único cuidado real é a leitura exata de §4/§15.3/§8 para A1 e a regeneração determinística dos schemas.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+2/10 — Correção delimitada e bem especificada; o único cuidado extra foi conferir a seção exata de cada citação normativa (§4 linha 87, §8 linha 158, §15.3 linha 266) antes de fixar o validador, e validar que a mudança de `error_codes` para o enum produziu `enum` no JSON Schema sem efeitos colaterais (MemoryPack inclui TopicState e mudou junto, como esperado).
 
 ### Revisão
 - Orquestrador: —
