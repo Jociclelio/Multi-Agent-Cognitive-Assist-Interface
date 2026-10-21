@@ -36,7 +36,8 @@ eduagent/
   telemetry.py
 config/default.yaml
 schemas/                         # JSON Schemas exportados dos contratos
-data/<user_id>/{originals,derived,indexes,exports}/
+data/_template/{originals,derived,indexes,exports}/  # template; diretórios por
+                                                    # usuário são criados em runtime
 tests/ fixtures/ eval/           # especificação de testes: etapa 8 (mapa de testes)
 ```
 
