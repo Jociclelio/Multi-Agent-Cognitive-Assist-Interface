@@ -1,6 +1,6 @@
 # Task 002: Validar decisão de método — ingestão e ontologia (C02/C03)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 001
 Origem: nenhuma
 
@@ -48,13 +48,16 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de um único bullet contra uma linha de tabela, com checagem automatizada por script isolado; a decisão de julgamento foi classificar a inicial minúscula em "permite" como adaptação tipográfica de prosa (não-desvio) e resistir à tentação de tratar a regra "confirmação prevalece sobre confiança verbal" como resolução da ambiguidade 4, que permanece pendente.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — task-master do ciclo opt-in.
+- Alvo: base `0581795ca7b4e5a0cb83ec15f869d6fe6c0d0bf7`; commit de entrega inexistente (task de validação sem desvio — "sem alteração de artefatos"); commit de registro `bc058f8631f1d687498bd775e1ea20431e5eeb6b` (versão `bc058f8`), único arquivo tocado: o `.md` desta task; executor GLM-5.3-Flash (provider `sd2`).
+- Avaliações (rodada paralela — conferência textual sem recursos compartilhados do sistema; modo e motivo registrados conforme protocolo): **sd2/GLM-5.3-Flash — 10/10, aprovada** (fidelidade confirmada por leitura direta da linha 17 do fonte; chaves conferidas no `.bib`; diff do registro não altera o Prompt nem o bullet); **openai/gpt-6-luna — 9/10, aprovada** (nota reduzida apenas porque a identidade do executor é relato do runtime, não verificável pelo diff; critérios C1–C3 atendidos); **opencode/mimo-v2.6-flash-free — 9/10, aprovada** (comparação textual independente com script próprio em `/tmp/opencode/revisor-002/`; resultado do verificador documental reproduzido; submódulo com mesmo ponteiro na base e no registro). Nenhum revisor falhou; não houve substituição. Quórum de três modelos distintos completo.
+- Síntese dos achados: nenhum achado bloqueante. F1 (baixo, informativo — GLM-5.3-Flash e MiMo): a inicial minúscula em "permite" e o rótulo "Ingestão e ontologia" divergem literalmente da célula do fonte, mas já existiam no prompt da task na base (`git diff 0581795 bc058f8` não toca a linha 11) e foram classificados como adaptação tipográfica/rótulo de agrupamento, sem alteração de sentido e sem exigência de correção. Divergência entre revisores: apenas na justificativa das notas (10 vs. 9), sem contradição essencial sobre os critérios; Luna e MiMo apontam limitações de observabilidade (identidade do executor via relato do runtime; ausência de force-push remoto não demonstrável pelo reflog local) sem impactar a Corretude.
+- Nota final: 9,5/10 — conferência textual rigorosa e independente confirmada pelos três revisores; entrega e registro conformes ao contrato; as únicas ressalvas são limitações de observabilidade inerentes a uma task documental, não falhas da entrega.
+- Parecer: todos os critérios obrigatórios (C1–C3) comprovados com evidência própria dos revisores; pendências preservadas (em particular a ambiguidade 4, não resolvida pela regra de confirmação sobre confiança verbal); nada apresentado como resultado medido.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos (nenhum commit de entrega a reverter).
+- Próximo passo: liberar a task 003 (`003-validar-decisoes-recuperacao-curadoria-c04-c05.md`), dependência resolvida.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/03-metodologias-de-implementacao/003-validar-decisoes-recuperacao-curadoria-c04-c05.md","family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)
