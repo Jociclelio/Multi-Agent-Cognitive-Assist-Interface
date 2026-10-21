@@ -667,6 +667,68 @@ CREATE INDEX idx_tombstones_ref ON tombstones(user_id, artifact_ref);
 """
 
 
+def _migration_0006() -> str:
+    """Política evidência→demanda v1 e atividades (§15.3/§15.4 — task 011).
+
+    - ``assessment_topics``: relação avaliação confirmada → tópicos (§15.3:
+      "Referência a avaliação confirmada vem de relação
+      ``assessment_topics``"). A avaliação (prova) é um fato acadêmico
+      confirmado; a relação é por usuário (ownership §15.1).
+    - ``demands``: colunas da chave de unicidade da política
+      ``(user, topic, activity_kind, due_local_date, policy_version)`` —
+      no máximo uma demanda pendente por chave (§15.3). Índice único
+      parcial em ``status='pending'``: demandas consolidadas atualizam a
+      linha pendente; subdemandas de decomposição (``status='split'``) e
+      linhas fora da política (colunas NULL — NULL é distinto em índice
+      único no SQLite) não colidem.
+    - ``logical_blocks``: campos de atividade (§15.4/§15.5) — status de
+      transição, instantes planejados/reais, demanda de origem,
+      ``event_sequence`` (começa 0 e incrementa só quando campos de evento
+      mudam, §15.5), conflito de término pendente de esclarecimento e o
+      evento que disparou replan (uma vez por evento, §15.4).
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- assessment_topics (§15.3): relação avaliação confirmada → tópicos
+-- ---------------------------------------------------------------------------
+CREATE TABLE assessment_topics (
+    user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    fact_id  TEXT NOT NULL REFERENCES facts(id) ON DELETE CASCADE,
+    topic_id TEXT NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, fact_id, topic_id)
+);
+CREATE INDEX idx_assessment_topics_topic ON assessment_topics(user_id, topic_id);
+
+-- ---------------------------------------------------------------------------
+-- demands: chave de unicidade da política v1 (§15.3) — colunas aditivas
+-- ---------------------------------------------------------------------------
+ALTER TABLE demands ADD COLUMN topic_id TEXT;
+ALTER TABLE demands ADD COLUMN activity_kind TEXT;
+ALTER TABLE demands ADD COLUMN due_local_date TEXT;
+ALTER TABLE demands ADD COLUMN policy_version TEXT;
+CREATE UNIQUE INDEX uq_demands_pending_policy_key ON demands(
+    user_id, topic_id, activity_kind, due_local_date, policy_version
+) WHERE status = 'pending';
+CREATE INDEX idx_demands_topic ON demands(user_id, topic_id, status);
+
+-- ---------------------------------------------------------------------------
+-- logical_blocks: campos de atividade (§15.4/§15.5)
+-- ---------------------------------------------------------------------------
+ALTER TABLE logical_blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'planned'
+    CHECK (status IN ('planned','started','completed','missed','cancelled'));
+ALTER TABLE logical_blocks ADD COLUMN planned_start_utc TEXT;
+ALTER TABLE logical_blocks ADD COLUMN planned_end_utc TEXT;
+ALTER TABLE logical_blocks ADD COLUMN actual_start_utc TEXT;
+ALTER TABLE logical_blocks ADD COLUMN actual_end_utc TEXT;
+ALTER TABLE logical_blocks ADD COLUMN source_demand_id TEXT;
+ALTER TABLE logical_blocks ADD COLUMN event_sequence INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE logical_blocks ADD COLUMN end_conflict INTEGER NOT NULL DEFAULT 0
+    CHECK (end_conflict IN (0,1));
+ALTER TABLE logical_blocks ADD COLUMN last_replan_event TEXT;
+CREATE INDEX idx_logical_blocks_demand ON logical_blocks(user_id, source_demand_id);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -706,6 +768,15 @@ def _load_builtin() -> None:
             "catálogo de tombstones sem payload com backup pendente até "
             "expiração — §5/§15.1, task 010",
             _migration_0005(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            6,
+            "política evidência→demanda v1 e atividades: assessment_topics, "
+            "chave de unicidade de demandas pendentes e campos de atividade "
+            "em logical_blocks — §15.3/§15.4, task 011",
+            _migration_0006(),
         )
     )
 
