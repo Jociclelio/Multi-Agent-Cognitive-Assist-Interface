@@ -34,6 +34,7 @@ runner-llm/third_party/
 runner-llm/build/
 runner-llm/models/*.gguf
 runner-llm/models/Ternary-Bonsai-2-27B-gguf/
+runner-llm/models/bge-m3/
 
 # EduAgent-OS (task 001): bancos de runtime não versionados (mapa §3)
 data/*.sqlite
