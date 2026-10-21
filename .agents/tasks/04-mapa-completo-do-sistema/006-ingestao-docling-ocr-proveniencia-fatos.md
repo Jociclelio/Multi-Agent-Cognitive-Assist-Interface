@@ -1,6 +1,6 @@
 # Task 006: Ingestão, OCR seletivo, proveniência e fatos candidatos (mapa §6.1–3, §13.3)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (corrigir — 006a)
 Depende de: 005
 Origem: nenhuma
 
@@ -12,9 +12,9 @@ Implementar a ingestão do Curador (mapa §6 itens 1–3) em `eduagent/services/
 - Storage (004), contratos (003), config de limites (001).
 
 ## Corretude
-- [x] C1 — Ingestão valida MIME por bytes e limites; oversized é recusado ou dividido pelo usuário; duplicata reaproveita bytes; versão só ativa após indexação completa.
-- [x] C2 — Blocos/tabelas com proveniência e diagnóstico de páginas; OCR seletivo gera derivado separado; sidecar nunca é texto total.
-- [x] C3 — Fatos candidatos seguem `AcademicFact`; datas/números validados contra origem; ciclos de pré-requisito detectados; confirmação do usuário registrada em `confirmations`.
+- [ ] C1 — Ingestão valida MIME por bytes e limites; oversized é recusado ou dividido pelo usuário; duplicata reaproveita bytes; versão só ativa após indexação completa. — parcial: atendido no pipeline com extrator injetado, mas o adaptador Docling real trunca silenciosamente PDFs >500 páginas (probe do revisor 3; ver Revisão).
+- [ ] C2 — Blocos/tabelas com proveniência e diagnóstico de páginas; OCR seletivo gera derivado separado; sidecar nunca é texto total. — parcial: no adaptador real, idiomas de OCR não configuram o conversor e cancelamento/progresso só são observados após o subprocesso (ver Revisão).
+- [ ] C3 — Fatos candidatos seguem `AcademicFact`; datas/números validados contra origem; ciclos de pré-requisito detectados; confirmação do usuário registrada em `confirmations`. — parcial: ciclos detectados só dentro do lote; conflito PDD invisível entre versões (probes do revisor 3; ver Revisão).
 - [x] C4 — Mapa intocado; commits separados; temporários em `/tmp/opencode`; submódulo não tocado.
 
 ## Execução
@@ -43,13 +43,19 @@ Implementar a ingestão do Curador (mapa §6 itens 1–3) em `eduagent/services/
 6/10 — A estrutura geral foi direta (padrões consolidados nas tasks 003–005 e contratos prontos), mas o peso veio de: (i) semântica fina do §6.2 — distinguir sidecar de OCR embutido, diagnóstico por página obrigatório (nunca silêncio) e a regra "sidecar nunca é texto total" exigiram uma máquina de diagnóstico separada da persistência; (ii) a reconciliação de PDD confirmado precisou de decisão de modelagem (conflito como par pendente, nem sobrescrita nem supersession); (iii) várias idas ao teste por detalhes de integridade — colisão de nome no teste, FKs de `documents` no fixture, ordem de parâmetros em queries, `preexec_fn` inexistente em `multiprocessing.Process` (rlimit movido para dentro do filho) e job local para o total de páginas reextraídas do OCR seletivo; (iv) o impedimento do download de modelos do Docling exigiu desenhar a fronteira de extração como protocolo injetável sem fingir o smoke real.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: master do ciclo opt-in — GLM-5.3-Flash (provider `sd2`), sessão task-master. Modo da rodada: **paralelo** — revisão somente leitura; os três revisores evitaram a árvore compartilhada (dois rodaram a suíte em cópia isolada via `git archive` em `/tmp/opencode`, um com `--basetemp` em `/tmp/opencode`); sem disputa de recursos compartilhados, motivo registrado.
+- Alvo: base `621673f`; entrega `4ca4b50` (código/testes: `eduagent/services/ingestion.py`, `eduagent/agents/curator.py`, `tests/test_task006_ingestion.py`); registro `315533c` (task.md). Árvore limpa e inalterada durante a rodada.
+- Avaliações (três modelos distintos, quórum completo, sem falhas nem substituições):
+  1. `sd2/GLM-5.3-Flash` — 9/10, aprovada. Suíte reproduzida independentemente (163 passed, com conferência da expansão de parametrize da base 130). Achados: A1 (médio) — lambda passada a `run_in_subprocess` não é picklável (só funciona com start method `fork`; quebraria em `forkserver`/`spawn`); A2 (médio) — adaptador real ignora `languages` e grava `ocr_source=None` incondicionalmente (OCR seletivo inerte no caminho real); A3 (baixo) — cancelamento observado só após o subprocesso terminar; A4 (baixo) — `_find_exact_duplicate` não filtra `status` (devolve versão `failed`/`pending` como duplicata); A5 (baixo) — `persist_fact_candidates` não idempotente. Recomenda fechar com registro dos achados para a validação.
+  2. `openai/gpt-6-luna` — 7/10, provisória/inconclusiva → corrigir. Não rodou a suíte (evitou escrita na árvore compartilhada); validou C4 por diff (`git diff --check`, apenas os 3 arquivos; `verificar_documentos.py --check-delivery` OK). Sem smoke do pipeline real Docling/PDF, considera C2 não integralmente provado; recomenda obter e registrar o smoke real.
+  3. `opencode/mimo-v2.6-flash-free` — 7,5/10, corrigir. Verificação independente em cópia exportada (`git archive` → `/tmp/opencode/reviewer-mimo-006`): suíte 163 passed + probes P1–P4. Achados: A1 (alto) — `_docling_convert` faz `if page > max_pages: continue`: PDF com >500 páginas é **truncado silenciosamente** e a versão fica `indexed` como completa (viola §3 "oversized é recusado ou dividido pelo usuário" e §12 "nenhuma saída parcial silenciosamente aprovada"; o teste existente só cobre extrator que devolve páginas demais); A2 (médio) — `languages` nunca configura o `DocumentConverter` (OCR seletivo inerte no caminho real, manifesto descreve intenção não executada); A3 (médio) — cancelamento/progresso só percorridos após o subprocesso terminar (§12); A4 (médio) — `entity_id = uuid5(ns, version_id:expression)` torna conflito PDD confirmado invisível entre versões do mesmo documento (probe P3: revisão real do fato em versão nova → 0 conflitos); A5 (médio) — `register_topics` detecta ciclos só dentro do lote (probe P2: duas chamadas `[(a,b)]` e `[(b,a)]` criam ciclo `a→b→a` persistido sem detecção); A6 (baixo) — dedup devolve versão `failed`/`pending` sem retry acionável (probe P1); A7 (baixo) — `block_id` determinístico `p{n}b{n}` calculado e descartado; `source_refs_for_version` devolve ID que não fecha pela PK de `blocks` (probe P4; risco para citação §6.7 na task 007).
+- Divergências: veredicto divergente (aprovada × corrigir × inconclusiva), porém sem contradição factual — os revisores 1 e 3 convergem nos mesmos defeitos do adaptador real (idiomas de OCR ignorados, cancelamento pós-fato, dedup de versões falhas); a diferença é de ponderação de gravidade. O achado de maior severidade (truncamento silencioso, com linhas e probe) não foi refutado e atinge critérios obrigatórios C1 (oversized recusado) e C3 (ciclos detectados) e a invariante §12; o revisor 2 é inconclusivo por falta de evidência executável no caminho real. Com critérios obrigatórios não plenamente comprovados, não cabe aprovação.
+- Nota final: **7,5/10** — a fronteira `BlockExtractor` injetável é sólida, a suíte (163 passed) foi reproduzida por dois revisores e C4 é integral (mapa, submódulo, `config/`, `pyproject.toml`, `uv.lock` intocados; commits separados). O desconto reflete: C1 e C3 não plenamente atendidos no caminho real entregue (truncamento silencioso; ciclos só no lote; conflito PDD invisível entre versões), C2 parcial no adaptador (idiomas inertes; cancelamento/progresso pós-fato; `block_id` inconsistente) e o smoke do Docling pendente. O impedimento do smoke (download de modelos de layout HF não autorizado) é legítimo e declarado, mas os defeitos do adaptador vão além do smoke.
+- Parecer: entrega estruturalmente boa e preservada — as correções são cirúrgicas e localizadas (adaptador Docling e semântica do curador), não justificando reinício nem divisão.
+- Decisão: **corrigir** — subtask `006a` criada (pendente no momento deste registro) com os gaps corroborados por pelo menos dois revisores ou com probe; smoke real do pipeline PDF/OCR permanece pendência para a validação (task 017 ou autorização explícita de download de modelos).
+- Reversão: não se aplica — decisão "corrigir" preserva a entrega `4ca4b50`.
+- Próximo passo: executar a subtask `006a-correcao-adaptador-docling-e-ciclos-pdd.md`; depois nova rodada de revisão da família.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/006a-correcao-adaptador-docling-e-ciclos-pdd.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
