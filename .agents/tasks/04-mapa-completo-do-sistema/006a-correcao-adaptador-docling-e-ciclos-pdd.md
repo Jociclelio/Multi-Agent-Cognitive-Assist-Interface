@@ -62,13 +62,18 @@ Restrições: fonte normativa única `fase2/documentos/04_mapa_completo_do_siste
 4/10 — Correções cirúrgicas como previsto, mas com três pontos de atenção: (i) o item 1 exigiu decompor `_docling_convert` para concentrar a política de limite num ponto testável (`_docling_pages_payload`) sem fingir o smoke real do Docling; (ii) o item 5 exigiu decisão de modelagem registrada (identidade por documento × versão) e atualização do teste existente do PDD à nova identidade; (iii) o item 7 puxou uma migração de schema (`0003`) com backfill, o que quebrou o teste de equivalência stepwise da 004a — a adaptação foi generalizar a invariante para a cadeia inteira de migrações, não enfraquecê-la. O item 2 foi resolvido no caminho "plumbear" (API local permite configurar idiomas sem download), com a limitação por-bloco registrada como impedimento.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in; rodada **paralela** (padrão) — revisão é leitura de código + pytest em cópias/temporários isolados (`tmp_path`, `/tmp/opencode/...`), sem disputa de recursos compartilhados.
+- Alvo: base `4c75fc6`; entrega `423e898`; registro `4ce9d52` — identidade, cadeia e intocabilidade conferidas pelo master antes da rodada (`git show --stat`, diff de arquivos vedados vazio, árvore limpa).
+- Avaliações:
+  - **sd2/GLM-5.3-Flash — 9/10, fechar.** Verificou os 8 gaps no código (não só relato), rodou suíte em cópia `git archive` (base 163, entrega 177 passed) e validou o plumbing de OCR contra a API instalada (docling 2.141.0). Achados baixos: F1 — teste do item 1 monta o payload com `limit_exceeded` à mão (simulacro fiel permitido pela task; composição end-to-end fica para o smoke/017); F2 — fórmula de backfill da 0003 (`order_index % 10⁴ + 1`) diverge de `order_in_page + 1` só em escala patológica; F3 (observação) — identidade de `entity_id` não migra fatos da fórmula antiga (fora do escopo MVP).
+  - **openai/gpt-6-luna — 7/10 → esclarecida → fechar.** Primeira rodada reportou achado alto (R1): `test_ocr_requested_for_non_pdf_fails_typed` falhando com `INTERNAL_FAILURE` em vez de `SCHEMA_INVALID`. Contradição essencial com os outros dois revisores; esclarecimento solicitado e a falha **não se reproduziu no ambiente padrão** (docling 2.141.0 pinado): recusa `SCHEMA_INVALID` confirmada e suíte completa **177 passed** no .venv do projeto — R1 era específico de ambiente sem a dependência (degradação aceitável, não gap C2).
+  - **opencode/mimo-v2.6-flash-free — 9/10, fechar.** Reproduziu suíte em cópia exportada (base 163 → entrega 177) e os probes P1–P4 da revisão da 006 (discriminam: falham na base, passam na entrega); reproduziu backfill da 0003 sobre banco 0002 pré-existente. Achados baixos: R1 — guarda de páginas baseada apenas em itens com proveniência pode não disparar com páginas em branco excedentes (sugere conferir `num_pages` antes de iterar; micro-correção futura); R2 — `ocr_source='embedded'` para todos os blocos da passada OCR (limitação já declarada, smoke em 017).
+- Nota final: **9/10** — entrega corrige cirurgicamente os 8 gaps com escolhas alternativas registradas (itens 3b, 5 identidade estável, 6 dedup só reutilizável, 7 coluna persistida), testes obrigatórios presentes e reproduzidos por dois revisores independentes, probes da revisão da 006 discriminando base×entrega, e intocabilidade verificada por diff. Os achados remanescentes são baixos, não bloqueiam e têm destino registrado (F1/R1 de páginas em branco e F2 como micro-correções/limites a considerar na validação — task 017 ou subtask futura se o usuário autorizar; nada silencioso).
+- Parecer: todos os critérios C1–C4 comprovados com evidência independente (duas suítes completas 177 passed em cópias + confirmação da Luna no ambiente padrão); pendência legítima do smoke real do Docling mantida declarada (task 017), sem simulação. Quórum de três modelos distintos cumprido; nenhuma falha de revisor a substituir (apenas esclarecimento da Luna após contradição essencial resolvida a favor da suíte verde no ambiente padrão).
+- Decisão: **fechar** (critérios C1–C4 verificados; libera a task 007).
+- Reversão: não se aplica — entrega aprovada.
+- Próximo passo: task 007 (`.agents/tasks/04-mapa-completo-do-sistema/007-rag-bm25-denso-rrf-citacao-abstinencia.md`), família do plano 001 → … → 017.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/007-rag-bm25-denso-rrf-citacao-abstinencia.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
