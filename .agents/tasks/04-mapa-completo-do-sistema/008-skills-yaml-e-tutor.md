@@ -75,4 +75,6 @@ Implementar o Tutor e o catálogo de skills (mapa §8) em `eduagent/agents/tutor
 - Reversão: não se aplica — entrega preservada.
 - Próximo passo: subtask 008a (correção de F1–F4 + A1/A2), a criar; encaminhamento pendente de criação/commit.
 
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/008a-correcao-pistas-por-item-e-validacoes-do-tutor.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
