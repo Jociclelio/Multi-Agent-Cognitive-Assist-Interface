@@ -40,7 +40,7 @@ Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no
 | 1 | [001-validar-fundacao-inferencia-ingestao-ontologia.md](../../tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md) | C01, C02, C03 | nenhuma | fechada |
 | 2 | [002-validar-rag-e-memoria-persistente.md](../../tasks/02-componentes-e-requisitos/002-validar-rag-e-memoria-persistente.md) | C04, C09 | 001 | fechada |
 | 3 | [003-validar-tutor-monitor-e-estado-de-aprendizagem.md](../../tasks/02-componentes-e-requisitos/003-validar-tutor-monitor-e-estado-de-aprendizagem.md) | C06, C07, C08 | 002 | fechada |
-| 4 | [004-validar-planejamento-solver-e-agenda.md](../../tasks/02-componentes-e-requisitos/004-validar-planejamento-solver-e-agenda.md) | C11, C12 (ICS local) | 003 | pendente |
+| 4 | [004-validar-planejamento-solver-e-agenda.md](../../tasks/02-componentes-e-requisitos/004-validar-planejamento-solver-e-agenda.md) | C11, C12 (ICS local) | 003 | fechada |
 | 5 | [005-validar-orquestracao-contratos-e-politica-de-ferramentas.md](../../tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md) | C13, C14, C15 | 004 | pendente |
 | 6 | [006-validar-persistencia-observabilidade-e-empacotamento.md](../../tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md) | C16, C17, C20 | 005 | pendente |
 | 7 | [007-validar-dados-e-avaliacao-experimental.md](../../tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md) | C18, C19 | 006 | pendente |

@@ -1,6 +1,6 @@
 # Task 004: Validar especificação de planejamento/solver e agenda — C11 e C12
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 003
 Origem: nenhuma
 
@@ -50,13 +50,19 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de duas células de tabela com script de comparação normalizada; a fronteira núcleo/opcional de C12 exigiu confronto com a seção "Dependências e prioridades" do fonte e com a tabela do plano, mas o desvio encontrado foi apenas o mesmo ponto final tipográfico já corrigido nas tasks 001–003.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider sd2, via ~/sd2-llm.sh) — task-master do ciclo opt-in.
+- Alvo: task 004; base `cb08a7e`, entrega `3ef06ca` (correção de fidelidade, 2+/2−, só o arquivo da task), registro `4a07576`; árvore limpa e alvo confirmado antes da rodada; fonte intocado.
+- Modo da rodada: paralelo — revisão puramente textual/leitura, sem disputa de recursos compartilhados do sistema; três revisores de modelos distintos, sem falhas nem substituições (pool do ciclo fixado conforme restrição do usuário).
+- Avaliações:
+  - GLM-5.3-Flash (sd2) — 9/10, aprovada; replicou a comparação de fidelidade de forma independente (`C11 fiel: True`, `C12 fiel: True`), confirmou cadeia do núcleo, ausência de métricas acrescidas, commits separados e fonte intocado. Observação menor (informativa, sem ação): script de conferência do executor em `/tmp/opencode/` não versionado, reduz rastreabilidade sem impactar corretude — contornado pela replicação independente do revisor.
+  - GPT-6 Luna (openai) — 9/10, aprovada; verificou diretamente fidelidade contra linhas 17–18 e 30 do fonte, ambiguidades 3 e 4 como pendências, fronteira núcleo/opcional de C12, diff do fonte vazio e commits distintos de entrega/registro. Sem achados.
+  - MiMo v2.6 Flash (opencode) — 9,5/10, aprovada; reproduziu a conferência programática com normalização própria (`C11 igual_ci: True`, `C12 igual_ci: True`), confirmou ancestralidade direta dos commits via `git log --format='%H %P'` e ausência de docs novos. Duas observações informativas sem exigência de correção (condensação semântica preservada da ambiguidade 4; cadeia citada omite o suporte "C13–C17/C20" por delimitar explicitamente "cadeia do núcleo", forma igual à do plano).
+- Nota final: 9/10 — consenso dos três pareceres sem achado bloqueante; a nota reflete fidelidade plena confirmada independentemente por dois revisores, com desconto único pela não-versionação do script de conferência do executor (rastreabilidade marginal, sem impacto na corretude dos critérios C1–C5).
+- Parecer: todos os critérios obrigatórios (C1–C5) verificados e comprovados; divergências nulas entre revisores; nenhuma pendência essencial. As ambiguidades 3 e 4 permanecem apenas como decisões pendentes, conforme restrição.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos a desfazer (correção de fidelidade aprovada; nenhum commit de implementação).
+- Próximo passo: avançar para a task 005 (`.agents/tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md` — C13, C14, C15), única pendente elegível da família.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
