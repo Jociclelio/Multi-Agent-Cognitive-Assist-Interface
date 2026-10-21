@@ -1,6 +1,6 @@
 # Task 004a: Correção da 004 — ownership em FKs simples e snapshot imutável efetivo (mapa §5, §15.1)
 
-Estado: aguardando revisão
+Estado: fechada (9/10, fechar)
 Depende de: 004
 Origem: 004 — correção (revisão com decisão "corrigir"; entrega `519c32e` preservada, sem reversão)
 
@@ -55,13 +55,19 @@ Restrições: fonte normativa única `fase2/documentos/04_mapa_completo_do_siste
 5/10 — Escopo delimitado e padrões herdados da 004, mas dois pontos exigiram cuidado além do mecânico: (i) SQLite não altera FK de tabela existente, o que forçou reconstrução de `documents` com `PRAGMA foreign_keys=OFF` fora da transação (no-op dentro dela), estendendo o framework de migrações a 4-tupla sem quebrar 3-tuplas usadas em testes — e a equivalência de schema entre os dois caminhos precisou de teste dedicado; (ii) FK composto revelou-se inaplicável às três FKs com `ON DELETE SET NULL` (nularia a coluna do dono), decisão documentada em favor de triggers. A imutabilidade do snapshot exigiu redesenho do contrato (`content` como propriedade de cópia, digest armazenado) preservando as asserções dos 94 testes existentes sem alterá-las.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: master do ciclo opt-in — GLM-5.3-Flash (provider `sd2`), sessão task-master. Modo da rodada: **sequencial** — os revisores rodam a suíte pytest e probes SQLite no mesmo working tree e em `/tmp/opencode`, com risco de interferência concorrente; motivo registrado.
+- Alvo: base `3051b4b`; entrega `db1a8e0` (código/testes); registro `222438a` (task.md, Evidências do executor). Árvore limpa e inalterada durante a rodada; entrega da 004 (`519c32e`) preservada.
+- Avaliações (três modelos distintos, quórum completo, sem falhas nem substituições):
+  1. `sd2/GLM-5.3-Flash` — 9/10, aprovada. C1–C4 verificados com suíte própria (107 passed) e probes independentes de banco puro e snapshot. Achados: A1 (baixo) — `apply_migrations` restaura `PRAGMA foreign_keys=ON` incondicionalmente no `finally`, sem guardar o valor anterior (sem efeito no perfil do projeto); A2 (baixo) — migração `0002` não audita linhas pré-existentes que cruzem donos (sem base legada no MVP; sugere `foreign_key_check` automatizado em task futura).
+  2. `openai/gpt-6-luna` — 9/10, aprovada. Suíte completa 107 passed; C1–C4 verificados por inspeção de diff e código. Ressalva: decisões de Evidências (purge × snapshot) conferidas no registro, não por teste funcional específico — aceito como registro de decisão exigido pela task.
+  3. `opencode/mimo-v2.6-flash-free` — 8,5/10, aprovada. Verificação independente em cópia exportada (`git archive`): base 94 passed, entrega 107 passed; probes próprios confirmam recusa de INSERT/UPDATE cruzando donos nos 4 padrões, FK composto e 6 triggers. Achados: A1 (impacto médio, risco latente fora do caminho principal) — com `isolation_level` padrão e transação implícita pendente, o `PRAGMA foreign_keys=OFF` é no-op e a reconstrução de `documents` pode esvaziar `doc_versions` via CASCADE em chamadores legados (não afeta `DomainStore.open`/`migrate_database` que usam `isolation_level=None`); recomendação: abortar se `conn.in_transaction` ou validar o pragma de volta. A2 (baixo) — triggers de mesmo dono não cobrem `UPDATE user_id` reparent cruzado (mesma lacuna do padrão `topic_edges` pré-existente que a task mandou seguir; inalcançável pelo código atual).
+- Divergências: nenhuma contradição essencial — apenas gravidade distinta para o mesmo achado de framework de migração (A1: "baixo" no revisor 1, "médio/risco latente" no revisor 3); ambos concordam que é fora do escopo do Prompt e não bloqueante. Nenhum revisor aponta falha em C1–C4.
+- Nota final: **9/10** — todos os critérios obrigatórios C1–C4 comprovados por verificação independente dos três revisores (suíte 107 passed reproduzida por dois deles, probes de banco próprios em dois deles, diff isolado confirmado pelos três); 13 testes novos verdes sobre os 94 pré-existentes sem alteração de asserções. O desconto de 1 ponto reflete os achados latentes A1/A2 do framework de migrações, fora do escopo literal da task e não alcançados pelos caminhos principais atuais, registrados aqui para as tasks 005/006 e robustez futura.
+- Parecer: entrega corrige integralmente os gaps da 004 corroborados pela revisão (ownership no nível do banco nos 4 padrões, snapshot imutável efetivo, erro `SOURCE_UNRESOLVED`), com decisões explícitas em Evidências e sem intromissão no mapa.
+- Decisão: **fechar** — família 004 resolvida por subtasks (004a fechada).
+- Reversão: não se aplica — entrega aprovada, sem artefatos a desfazer.
+- Próximo passo: liberar task `005-commit-idempotente-e-recuperacao.md` (§11, §13.2), que poderá considerar os achados A1/A2 registrados acima.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/005-commit-idempotente-e-recuperacao.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
