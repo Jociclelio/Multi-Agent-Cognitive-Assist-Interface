@@ -53,13 +53,15 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual direta de três células contra a tabela do próprio documento-fonte, com checagem automatizada por script isolado; a única decisão de julgamento foi classificar o ponto final acrescido como desvio tipográfico de fidelidade (corrigido em dif mínimo) e não como reescrita legítima, além de manter as ambiguidades 1 e 4 apenas como pendências sem lhes atribuir resolução.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in do plano 02. Rodada **paralela** (três revisores em sessões independentes): revisão documental de leitura com scripts stdlib isolados em `/tmp/opencode`, sem disputa de recursos compartilhados do sistema.
+- Alvo: base `19a57f3` (19a57f3be92528b4acd13f7e59fd231a29e51572); entrega `728cfd0` (728cfd0642d71458b3e837bb010fee6daf23f0e0 — correção de fidelidade: remoção do ponto final acrescido nas células C01–C03, 3+/3−); commit de registro revisado `718862c` (718862c47773ca5727c5ee7d7dd75f53fc5a0b15), árvore limpa em `main`.
+- Avaliações: sd2/GLM-5.3-Flash: 9/10 (ses_ea3b0f301ffeJUJ902W814Wr79); openai/gpt-6-luna: 9/10 (ses_ea3b0f2c8ffeSAp8CQbWYt4wzC); opencode/mimo-v2.6-flash-free: 9/10 (ses_ea3b0f28fffeiZwntYOht3bcnO). Quórum de três modelos distintos cumprido; nenhum revisor falhou; nenhuma substituição necessária. Os três verificaram fidelidade C01–C03 contra o fonte por verificação própria (scripts de extração/comparação independentes), confirmaram o documento-fonte intocado, a separação entrega/registro e as ambiguidades 1 e 4 pendentes; GLM e MiMo reexecutaram `verificar_documentos.py` → passed (components: 20).
+- Nota final: 9/10 — todos os critérios C1–C5 comprovados por verificação independente dos três revisores; correção de fidelidade mínima e autorizada pelo Prompt; evidências reproduzíveis e honestas quanto às limitações (identidade via runtime, verificador documental ≠ resultado experimental). Divergências essenciais entre pareceres: nenhuma.
+- Parecer: nenhum achado bloqueante. (1) GLM A1 / severidade baixa: após a correção, em C01 e C03 o corpo da célula cola no parêntese de ambiguidade sem separador — apenas estética/legibilidade, fidelidade preservada; opcional em tarefa futura. (2) GLM A2 e MiMo F2 (baixo): identidade do modelo registrada como informada pelo runtime, não verificável pelo Git — limitação inerente deste tipo de evidência. (3) MiMo F1 (baixo): ausência de bullet de evidência dedicado ao C5 no registro — os três revisores, porém, verificaram C5 diretamente (SHAs, pais, reflog linear, sem amend/force-push), e Luna confirmou C5 sem restrição; não exige reabertura. Divergência essencial entre pareceres: nenhuma.
+- Decisão: fechar
+- Reversão: não se aplica
+- Próximo passo: liberar a task 002 (`.agents/tasks/02-componentes-e-requisitos/002-validar-rag-e-memoria-persistente.md`). Sugestão a absorver no fluxo: adicionar espaço/separador entre célula e nota de ambiguidade quando editar especificações futuras desta família, e incluir bullet de evidência para o critério de separação de commits.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/002-validar-rag-e-memoria-persistente.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
