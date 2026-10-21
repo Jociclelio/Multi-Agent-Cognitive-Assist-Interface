@@ -1,6 +1,6 @@
 # Task 012a: Correção — semântica de janelas adjacentes/sobrepostas alinhada entre enumerador e verificador (mapa §9, §15.5)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 012
 Origem: 012 — correção (entrega `34fe505` preservada; decisão `corrigir` da revisão da 012)
 
@@ -49,13 +49,20 @@ Justificativa contra §15.5/§9:
 3/10 — Correção delimitada e bem caracterizada pela sonda da revisão: a decisão de semântica (a) foi direta porque a grade e o enumerador já operavam sobre a união das janelas, restando alinhar o verificador; o cuidado principal foi preservar V1–V8 e G9–G12 (todos verdes sem alteração) e provar, no J3, que a união não afrouxa bloqueios para fora. O único ajuste de teste foi o tipo de `diff.moved` (UUID, não string).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — master do ciclo opt-in.
+- Alvo: base `3e99e33cfa5f7f2fe71817dd5a0bac5f793c9cc9`; entrega `f82a626c46d8a8d2494fc387e1f0083a97ffbacf` (`scheduling.py` + `tests/test_task012_solver_verifier.py`); registro `2bbc56291b2ac4b1c2f753eb5dd45330f356be43` (só task.md); árvore limpa confirmada antes e durante a rodada.
+- Modo da rodada: **sequencial** — os três revisores executam a suíte integral no mesmo `.venv` do projeto e escrevem sondas fora de `/tmp/opencode` de forma coordenada; recursos compartilhados (venv, índice de testes) se interfeririam em paralelo (mesmo critério registrado nas rodadas da 010a, 011 e 012).
+- Avaliações (quórum de três modelos distintos, mesmos paths/SHAs, sem cross-contaminação de pareceres):
+  - GLM-5.3-Flash (`sd2`) — **9/10, aprovada**; reproduziu sonda antes/depois (`INTERNAL_FAILURE` na base via `git archive` isolado → `OPTIMAL` + validação passed na entrega), suíte integral **414 passed in 18,85 s**, C1–C4 verificados; achado A1 baixo: `_merged_availability` opera sobre janelas originais sem arredondamento (superconjunto intencional da união arredondada da grade; sem impacto em saídas publicadas; correção pontual futura análoga a A2/A3); A2 baixo: sem validação `start < end` em `_merged_availability`.
+  - gpt-6-luna (`openai`) — **8/10, provisória/inconclusiva**; verificou C1–C3 por inspeção do diff sem executar testes (evitou escrever na árvore compartilhada) e C4 parcialmente (intocados confirmados); pendência explícita: reprodução da suíte integral; **nenhum defeito de código identificado**; recomendou "corrigir" apenas no sentido de completar a verificação pendente.
+  - beam-free (`opencode`) — **9/10, aprovada**; reproduziu sonda (`OPTIMAL; VALIDACAO: True []`), arquivo da task 42 passed e suíte integral **414 passed in 18,88 s**; C4 com `git diff 3e99e33..HEAD -- fase2/ config/ docs/playground-llmagenticsystem` vazio e submodule inalterado; observação baixa (mesma do A1 do GLM, sem bloqueio); recomendou fechar.
+- Síntese: sem divergência essencial. A pendência da luna (execução da suíte) foi coberta com folga por **dois** revisores independentes de modelos distintos (GLM e beam), que reproduziram 414 passed; sua recomendação de "corrigir" não se sustenta como correção de código — não há defeito apontado, apenas verificação não executada, e o critério C4 tem evidência de reprodução independente em quórum. Os achados residuais (superconjunto não arredondado no verificador; validação de intervalo invertido em `_merged_availability`) são de baixa severidade, documentados, não decorrem desta entrega e ficam como correção pontual futura, análogos a A2/A3 da 012 — não reabertos aqui.
+- Nota final: **9/10** — correção delimitada e fiel ao §9/§15.5: decisão de semântica (a) registrada com justificativa de três pontos, sonda do achado A1 da 012 reproduzida antes/depois, J1–J4 provam C1–C3 (incluindo a identidade do diff exigida pela revisão da 012), suíte integral 414 passed reproduzida por dois revisores, mapa/config/submodule intocados e commits separados. Desconto único pelos residuais de baixa severidade documentados.
+- Parecer: todos os critérios obrigatórios C1–C4 comprovados com evidência própria dos revisores; `INTERNAL_FAILURE` reservado a contradição interna genuína; residuais de baixa severidade não bloqueiam.
+- Decisão: **fechar** — libera a task 013 (próxima principal da sequência do plano).
+- Reversão: não se aplica — entrega aprovada.
+- Próximo passo: task 013 (`.agents/tasks/04-mapa-completo-do-sistema/013-ics-preview-confirmacao-outbox.md`), dependência 012 resolvida; família 012 resolvida por subtasks (012a fechada; residuais A2/A3 e observações baixas desta rodada permanecem documentados para correção pontual futura, sem reabrir a família).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/013-ics-preview-confirmacao-outbox.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
