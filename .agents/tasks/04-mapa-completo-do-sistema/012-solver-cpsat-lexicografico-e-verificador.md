@@ -62,7 +62,7 @@ Implementar o solver e o verificador (mapa §9 e §15.5) em `eduagent/services/s
 - Parecer: entrega coesa e provada, mas o A1 do GLM é atingível por entrada confirmada legítima pela ferramenta pública e classifica erro de dados legítimo como defeito interno — não deve ser apenas residual; divergência essencial de luna foi resolvida por esclarecimento (retirada).
 - Decisão: **corrigir** — entrega preservada; subtask 012a delimitada ao alinhamento enumerador×verificador da semântica de janelas adjacentes/sobrepostas com teste de regressão (e teste que fixe a identidade do diff, respondendo ao ponto retirado de luna com prova). A2/A3 do GLM e residuais do beam ficam documentados como correção pontual futura, sem reabrir a família.
 - Reversão: não se aplica — entrega preservada.
-- Próximo passo: criar `012a-correcao-janelas-adjacentes-e-verificador.md` (pendente de criação); após fechamento da 012a, liberar a 013.
+- Próximo passo: subtask `012a-correcao-janelas-adjacentes-e-verificador.md` criada; após seu fechamento, liberar a 013.
 
 <!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/012a-correcao-janelas-adjacentes-e-verificador.md","family":".agents/tasks/04-mapa-completo-do-sistema/012-solver-cpsat-lexicografico-e-verificador.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
