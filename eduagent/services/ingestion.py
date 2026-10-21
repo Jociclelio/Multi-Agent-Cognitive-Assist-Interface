@@ -35,7 +35,11 @@ Contratos implementados:
   ``artifact_dependencies``) e **reextrai o documento inteiro** (não só as
   páginas falhas). Texto que veio apenas do sidecar OCR nunca é texto total:
   página só com sidecar é diagnosticada ``sidecar_only`` e um documento cujo
-  texto integral é sidecar não indexa (recusa tipada).
+  texto integral é sidecar não indexa (recusa tipada). No adaptador Docling
+  real, os idiomas são plumbados às opções do pipeline
+  (``PdfPipelineOptions`` com OCR/idiomas); se o OCR solicitado não puder ser
+  honrado (API indisponível ou MIME não-PDF), a solicitação falha tipada — o
+  manifesto nunca descreve intenção não executada como feita (§12).
 - **§6.2/§12 — pendências e job**: equações/tabelas não legíveis ficam
   pendentes (``legible=false``, contadas em ``pending_items``); progresso por
   página (``pages_done``); job cancelável — cancelamento produz erro tipado
@@ -53,6 +57,7 @@ Nada aqui apresenta resultados medidos: limites são defaults de ensaio
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import multiprocessing
@@ -220,17 +225,27 @@ def run_in_subprocess(
     *,
     mem_gib: int,
     timeout_s: float,
+    start_method: str | None = None,
 ) -> Any:
-    """Executa ``fn`` (picklável, nível de módulo) em subprocesso com
-    ``RLIMIT_AS = mem_gib`` GiB e timeout ``timeout_s`` (mapa §3).
+    """Executa ``fn`` em subprocesso com ``RLIMIT_AS = mem_gib`` GiB e
+    timeout ``timeout_s`` (mapa §3).
 
-    Timeout levanta ``EduAgentError(TIMEOUT)`` (retentável, §4); o filho é
-    terminado (SIGKILL após TERM curto). Falha do filho é refeita como
-    ``INTERNAL_FAILURE`` com o motivo relatado. Usado pelo adaptador Docling
-    real; testes exercitam o mecanismo com função trivial picklável.
+    Contrato: ``fn`` (e seus argumentos capturados) deve ser **picklável em
+    nível de módulo** — o alvo é serializado para o filho, então o mecanismo
+    funciona com qualquer start method (``fork``/``spawn``/``forkserver``);
+    testes exercitam ``spawn`` explicitamente para não depender do default da
+    plataforma. Timeout levanta ``EduAgentError(TIMEOUT)`` (retentável, §4);
+    o filho é terminado (SIGKILL após TERM curto). Falha do filho é refeita
+    como ``INTERNAL_FAILURE`` com o motivo relatado. Usado pelo adaptador
+    Docling real; testes exercitam o mecanismo com função trivial picklável.
     """
-    queue: "multiprocessing.Queue[Any]" = multiprocessing.Queue()
-    process = multiprocessing.Process(
+    context = (
+        multiprocessing.get_context(start_method)
+        if start_method is not None
+        else multiprocessing
+    )
+    queue: "multiprocessing.Queue[Any]" = context.Queue()
+    process = context.Process(
         target=_subprocess_target,
         args=(fn, queue, mem_gib),
     )
@@ -496,6 +511,16 @@ class OcrDeriveResult:
 # ---------------------------------------------------------------------------
 
 
+def _deterministic_block_id(page: int, order_in_page: int) -> str:
+    """ID determinístico do bloco (§6.7): ``p{página}b{ordem+1}``.
+
+    Correção da 006a: o ID é calculado uma vez e **persistido** em
+    ``blocks.block_id`` (UNIQUE ``(version_id, block_id)``, migração ``0003``)
+    — a citação fecha pela coluna armazenada, não por recomputo em cada
+    leitura (§6.7: citação resolvível de forma inequívoca)."""
+    return f"p{page}b{order_in_page + 1}"[:64]
+
+
 class IngestionService:
     """Fachada de ingestão do Curador (mapa §6.1–2, §3, §12).
 
@@ -600,12 +625,17 @@ class IngestionService:
         self, user_id: str, sha256: str, course_id: str
     ) -> dict[str, Any] | None:
         """Duplicata exata (§6.1): mesma bytes do mesmo usuário **na mesma
-        disciplina** → devolve a versão existente (dedup antes da versão)."""
+        disciplina** → devolve a versão mais relevante (dedup antes da
+        versão). Versões reutilizáveis (``indexed``/``active``) têm
+        prioridade; se só houver versão ``failed``/``pending`` com o mesmo
+        SHA, ela é devolvida apenas como alvo de retry — nunca como
+        duplicata reaproveitável (§12: versão falha não é saída aprovada)."""
         rows = self._store.fetch_user_rows(
             "SELECT dv.id AS version_id, dv.doc_id, dv.status, dv.mime "
             "FROM doc_versions dv JOIN documents d ON d.id = dv.doc_id "
             "WHERE dv.user_id = ? AND dv.sha256 = ? AND d.course_id = ? "
-            "ORDER BY dv.rowid LIMIT 1",
+            "ORDER BY CASE WHEN dv.status IN ('indexed','active') THEN 0 "
+            "ELSE 1 END, dv.rowid LIMIT 1",
             (user_id, sha256, course_id),
         )
         return dict(rows[0]) if rows else None
@@ -688,20 +718,25 @@ class IngestionService:
 
         duplicate = self._find_exact_duplicate(user_id, sha256, course_id)
         if duplicate is not None and doc_id is None:
-            # Duplicata exata na mesma disciplina: bytes reaproveitados,
-            # vínculo por disciplina preservado, nenhuma versão nova (§6.1).
-            return IngestResult(
-                doc_id=str(duplicate["doc_id"]),
-                version_id=str(duplicate["version_id"]),
-                version_status=str(duplicate["status"]),
-                sha256=sha256,
-                mime=mime,
-                original_path=relative,
-                bytes_reused=True,
-                duplicate=True,
-                new_version=False,
-                job_report=None,
-            )
+            if str(duplicate["status"]) in ("indexed", "active"):
+                # Duplicata exata na mesma disciplina: bytes reaproveitados,
+                # vínculo por disciplina preservado, nenhuma versão nova (§6.1).
+                return IngestResult(
+                    doc_id=str(duplicate["doc_id"]),
+                    version_id=str(duplicate["version_id"]),
+                    version_status=str(duplicate["status"]),
+                    sha256=sha256,
+                    mime=mime,
+                    original_path=relative,
+                    bytes_reused=True,
+                    duplicate=True,
+                    new_version=False,
+                    job_report=None,
+                )
+            # Versão não reutilizável (pending/failed) com os mesmos bytes:
+            # não é duplicata reaproveitável (§12) — a reingestão vira nova
+            # versão do MESMO documento, caminho de retry acionável (§6.1).
+            doc_id = str(duplicate["doc_id"])
 
         # Mesmo SHA em outra disciplina: novo documento reaproveita os bytes
         # arquivados (mesmo original_ref), preservando vínculos (§6.1).
@@ -866,24 +901,28 @@ class IngestionService:
         extracted: ExtractedDocument,
     ) -> None:
         """Persiste blocos ordenados com proveniência completa (§6.2) e
-        diagnóstico por página em ``diagnosis_json`` (§5)."""
+        diagnóstico por página em ``diagnosis_json`` (§5).
+
+        O ``block_id`` determinístico (``p{n}b{n}``, §6.7) é **persistido**
+        em ``blocks.block_id`` com UNIQUE ``(version_id, block_id)`` (correção
+        da 006a) — a citação fecha pela coluna, não por recomputo (§6.7)."""
         statements: list[tuple[str, tuple[Any, ...]]] = []
         for record in extracted.pages:
             diagnosis = extracted.page_diagnosis[record.page]
             for block in record.blocks:
-                block_id = f"p{record.page}b{block.order_in_page + 1}"
-                block_id = block_id[:64]
+                block_id = _deterministic_block_id(record.page, block.order_in_page)
                 statements.append(
                     (
                         "INSERT INTO blocks(id, user_id, version_id, page, "
-                        "order_index, kind, text, bbox_json, diagnosis_json) "
-                        "VALUES (?,?,?,?,?,?,?,?,?)",
+                        "order_index, block_id, kind, text, bbox_json, "
+                        "diagnosis_json) VALUES (?,?,?,?,?,?,?,?,?,?)",
                         (
                             str(_uuid.uuid4()),
                             user_id,
                             version_id,
                             record.page,
                             self._global_order(extracted, record, block),
+                            block_id,
                             block.kind,
                             block.text,
                             (
@@ -914,9 +953,11 @@ class IngestionService:
         self, user_id: str, version_id: str, doc_id: str
     ) -> list[SourceRef]:
         """Proveniência resolvível (§6.2/§4): ``SourceRef`` por bloco
-        persistido, com hash do texto — citação fecha de volta ao bloco."""
+        persistido, com hash do texto e o ``block_id`` determinístico
+        **persistido** em ``blocks`` (UNIQUE por versão) — a citação fecha de
+        volta ao bloco pela coluna, de forma inequívoca (§6.7)."""
         rows = self._store.fetch_user_rows(
-            "SELECT page, order_index, kind, text FROM blocks "
+            "SELECT block_id, page, order_index, kind, text FROM blocks "
             "WHERE user_id = ? AND version_id = ? ORDER BY page, order_index",
             (user_id, version_id),
         )
@@ -925,12 +966,17 @@ class IngestionService:
             page = int(row["page"])
             order = int(row["order_index"])
             text = str(row["text"])
+            persisted = row["block_id"]
             refs.append(
                 SourceRef(
                     doc_id=_uuid.UUID(doc_id),
                     version_id=_uuid.UUID(version_id),
                     physical_page=page,
-                    block_id=f"p{page}b{order % 10_000 + 1}"[:64],
+                    block_id=(
+                        str(persisted)
+                        if persisted
+                        else _deterministic_block_id(page, order % 10_000)
+                    ),
                     offsets=None,
                     bbox=None,
                     text_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
@@ -1081,11 +1127,26 @@ class DoclingExtractor:
     """Adaptador do Docling (mapa §3/§6.2) executando em subprocesso com
     limite de memória e timeout de §3.
 
-    Importante (transparência da entrega): o pipeline de PDF do Docling
-    requer download de modelos de layout; este MVP roda o adaptador com
-    extratores injetados nos testes de pipeline e NÃO executa o download dos
-    modelos nesta task (fora das autorizações de download registradas). A
-    identidade do extrator real fica no ``extractor_manifest`` da versão.
+    Contratos (correção da 006a):
+
+    - **Limite de páginas**: página além de ``max_pages`` **nunca** é
+      descartada silenciosamente — o payload marca ``limit_exceeded`` e a
+      extração falha tipada ``RESOURCE_LIMIT`` (§3/§12); versão nunca fica
+      ``indexed`` como completa com páginas fora.
+    - **OCR seletivo**: ``languages`` plumbado às opções do pipeline
+      (``PdfPipelineOptions`` com ``OcrAutoOptions``/idiomas e OCR de página
+      inteira — a reextração do OCR seletivo é do documento inteiro, §6.2).
+      Solicitação não honrável (MIME não-PDF ou API sem as opções) falha
+      tipada em vez de gravar manifesto descrevendo intenção não executada
+      (§12). Limitação registrada: a distinção nativo × OCR por bloco e o
+      smoke do pipeline real dependem do download de modelos de layout, fora
+      das autorizações desta task — pendência documentada para a validação
+      (task 017).
+    - **Cancelamento (opção b registrada)**: cooperativo **pós-conversão** —
+      o subprocesso não observa o flag de cancelamento; o teto duro é o
+      timeout de §3 (``timeout_s`` do subprocesso). O flag é verificado ao
+      fim da conversão e a cada página reportada; cancelamento produz erro
+      tipado ``CANCELLED`` e a versão nunca fica ``indexed``/ativa.
     """
 
     name = "docling"
@@ -1117,14 +1178,52 @@ class DoclingExtractor:
                 "fingir extração (mapa §3/§6.2)",
                 diagnostic=DIAGNOSTIC,
             )
-        # O corpo roda em subprocesso com RLIMIT_AS (§3); a função alvo é
-        # picklável e recebe os bytes por argumeento.
+        if languages and mime != "application/pdf":
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                f"OCR seletivo {list(languages)} não é honrável para MIME "
+                f"{mime!r} — OCR seletivo aplica-se a PDF (mapa §6.2)",
+                diagnostic=DIAGNOSTIC,
+            )
+        # O corpo roda em subprocesso com RLIMIT_AS (§3); o alvo é um
+        # partial de função module-level — picklável com qualquer start
+        # method (correção da 006a, item 8).
         payload = run_in_subprocess(
-            lambda: _docling_convert(data, mime, max_pages),
+            functools.partial(_docling_convert, data, mime, max_pages, languages),
             mem_gib=self.mem_gib,
             timeout_s=self.timeout_s,
         )
-        extracted = _extracted_from_docling_payload(payload, languages=languages)
+        ocr_error = payload.get("ocr_config_error")
+        if ocr_error:
+            # OCR solicitado não pôde ser configurado: falha tipada em vez de
+            # manifesto descrevendo intenção não executada (mapa §6.2/§12).
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                f"OCR solicitado não pode ser honrado pelo adaptador: "
+                f"{ocr_error} (mapa §6.2)",
+                diagnostic=DIAGNOSTIC,
+            )
+        if payload.get("limit_exceeded"):
+            # Truncamento silencioso é proibido (§12): páginas além do limite
+            # recusam a extração — oversized é recusado ou dividido pelo
+            # usuário (mapa §3).
+            raise EduAgentError(
+                ErrorCode.RESOURCE_LIMIT,
+                f"documento tem páginas além do limite de {max_pages} — "
+                "extração recusada (nada é indexado parcialmente); divida "
+                "pelo usuário e reenvie (mapa §3/§12)",
+                diagnostic=DIAGNOSTIC,
+            )
+        # Contrato de cancelamento registrado (opção b): cooperativo
+        # pós-conversão, com o timeout de §3 como teto.
+        if cancelled():
+            raise EduAgentError(
+                ErrorCode.CANCELLED,
+                "job de ingestão cancelado (observado após a conversão — "
+                "contrato do adaptador; teto duro: timeout de §3)",
+                diagnostic=DIAGNOSTIC,
+            )
+        extracted = _extracted_from_docling_payload(payload)
         for record in extracted.pages:
             if cancelled():
                 break
@@ -1133,7 +1232,66 @@ class DoclingExtractor:
         return extracted
 
 
-def _docling_convert(data: bytes, mime: str, max_pages: int) -> dict[str, Any]:
+def _ocr_pipeline_options(languages: tuple[str, ...] | list[str]) -> Any:
+    """Opções do pipeline de PDF do Docling com OCR seletivo configurado
+    (mapa §6.2): idiomas solicitados e OCR de página inteira (a reextração
+    do OCR seletivo é do documento inteiro, §6.2).
+
+    Construir as opções **não** executa o pipeline nem baixa modelos — o
+    smoke real do pipeline de PDF/OCR segue pendente de autorização de
+    download (task 017, impedimento documentado na 006 e na 006a).
+    """
+    from docling.datamodel.pipeline_options import (
+        OcrAutoOptions,
+        OcrMode,
+        PdfPipelineOptions,
+    )
+
+    options = PdfPipelineOptions()
+    options.do_ocr = True
+    options.ocr_options = OcrAutoOptions(
+        lang=list(languages), mode=OcrMode.FULL_PAGE
+    )
+    return options
+
+
+def _docling_pages_payload(
+    entries: list[dict[str, Any]],
+    max_pages: int,
+    *,
+    ocr_languages: list[str] | None = None,
+) -> dict[str, Any]:
+    """Acumula as entradas de página do adaptador real em payload (§6.2).
+
+    Fronteira única da política de limite de páginas do adaptador real:
+    entrada com página > ``max_pages`` marca ``limit_exceeded`` — nunca
+    truncamento silencioso (mapa §3/§12); o chamador converte a marca em
+    erro tipado ``RESOURCE_LIMIT``.
+    """
+    pages: dict[int, list[dict[str, Any]]] = {}
+    limit_exceeded = False
+    for entry in entries:
+        page = int(entry["page"])
+        if page > max_pages:
+            limit_exceeded = True
+            continue
+        pages.setdefault(page, []).append(entry)
+    return {
+        "pages": [
+            {"page": page, "blocks": blocks}
+            for page, blocks in sorted(pages.items())
+        ],
+        "limit_exceeded": limit_exceeded,
+        "ocr_languages": ocr_languages,
+    }
+
+
+def _docling_convert(
+    data: bytes,
+    mime: str,
+    max_pages: int,
+    languages: tuple[str, ...] | None = None,
+) -> dict[str, Any]:
     """Corpo de conversão Docling (roda no subprocesso; picklável).
 
     Usa a API pública do Docling: ``DocumentConverter.convert`` e
@@ -1141,23 +1299,43 @@ def _docling_convert(data: bytes, mime: str, max_pages: int) -> dict[str, Any]:
     proveniência ``item.prov`` (página física e bbox). Tabelas são
     exportadas em texto legível quando possível; itens sem texto legível
     chegam como pendência (``legible=false``, §6.2).
+
+    Com ``languages``, os idiomas são plumbados às opções do pipeline
+    (OCR seletivo, §6.2); blocos de uma passada com OCR de página inteira
+    carregam ``ocr_source='embedded'`` — texto recuperado dentro do próprio
+    PDF, nunca sidecar externo. Se a API instalada não permitir configurar
+    os idiomas, o payload devolve ``ocr_config_error`` e o chamador falha
+    tipado — manifesto não descreve intenção não executada (§12).
     """
     from io import BytesIO
 
     from docling_core.types.doc import TextItem
 
-    from docling.document_converter import DocumentConverter
+    from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    converter = DocumentConverter()
+    ocr_languages: list[str] | None = None
+    format_options: dict[str, Any] | None = None
+    if languages:
+        try:
+            pipeline_options = _ocr_pipeline_options(languages)
+        except Exception as exc:  # noqa: BLE001 — falha de configuração vira recusa tipada no chamador
+            return {
+                "ocr_config_error": (
+                    f"API do Docling instalada não permite configurar "
+                    f"idiomas de OCR {list(languages)}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            }
+        format_options = {"pdf": PdfFormatOption(pipeline_options=pipeline_options)}
+        ocr_languages = list(languages)
+    converter = DocumentConverter(format_options=format_options)
     result = converter.convert(BytesIO(data))
     document = result.document
 
-    blocks_by_page: dict[int, list[dict[str, Any]]] = {}
+    entries: list[dict[str, Any]] = []
     for item in document.iterate_items():
         prov = item.prov[0] if item.prov else None
         page = int(prov.page) if prov is not None else 1
-        if page > max_pages:
-            continue
         text = ""
         legible = True
         kind = str(getattr(item, "type", "paragraph"))
@@ -1179,28 +1357,27 @@ def _docling_convert(data: bytes, mime: str, max_pages: int) -> dict[str, Any]:
                 float(raw.r),
                 float(raw.b),
             )
-        blocks_by_page.setdefault(page, []).append(
+        entries.append(
             {
+                "page": page,
                 "kind": "table" if "table" in kind else kind,
                 "text": text,
                 "bbox": bbox,
                 "legible": legible,
-                "ocr_source": None,  # texto nativo do Docling (não sidecar)
+                "ocr_source": "embedded" if ocr_languages else None,
             }
         )
 
-    return {
-        "pages": [
-            {"page": page, "blocks": blocks}
-            for page, blocks in sorted(blocks_by_page.items())
-        ]
-    }
+    return _docling_pages_payload(entries, max_pages, ocr_languages=ocr_languages)
 
 
-def _extracted_from_docling_payload(
-    payload: dict[str, Any], *, languages: tuple[str, ...] | None = None
-) -> ExtractedDocument:
-    """Monta ``ExtractedDocument`` a partir do payload do Docling."""
+def _extracted_from_docling_payload(payload: dict[str, Any]) -> ExtractedDocument:
+    """Monta ``ExtractedDocument`` a partir do payload do Docling.
+
+    O ``ocr_source`` por bloco vem do payload: ``None`` (texto nativo) ou
+    ``'embedded'`` (texto recuperado por OCR de página inteira dentro do
+    próprio PDF, §6.2) — nunca atribuição incondicional (correção da 006a).
+    """
     extracted = ExtractedDocument()
     for page_payload in payload.get("pages", []):
         blocks = [

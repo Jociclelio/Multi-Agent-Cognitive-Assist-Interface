@@ -747,9 +747,11 @@ def _schema_rows(conn: sqlite3.Connection) -> list[tuple]:
 
 
 class TestOwnershipBankLevel:
-    def test_0002_stepwise_equals_full_run(self, tmp_path: Path) -> None:
-        """Banco migrado do zero e banco que aplica a 0002 sobre a 0001
-        chegam ao mesmo estado (mesmo schema em sqlite_master)."""
+    def test_stepwise_equals_full_run(self, tmp_path: Path) -> None:
+        """Banco migrado do zero e banco que aplica cada migração passo a
+        passo chegam ao mesmo estado (mesmo schema em sqlite_master) —
+        válido para a cadeia inteira, inclusive migrações aditivas novas
+        (ex.: 0002 da 004a, 0003 da 006a)."""
         conn_full = sqlite3.connect(str(tmp_path / "full.sqlite"))
         try:
             conn_full.execute("PRAGMA foreign_keys=ON")
@@ -762,8 +764,10 @@ class TestOwnershipBankLevel:
         conn_step = sqlite3.connect(str(tmp_path / "step.sqlite"))
         try:
             conn_step.execute("PRAGMA foreign_keys=ON")
-            assert apply_migrations(conn_step, migrations=[MIGRATIONS[0]]) == [1]
-            assert apply_migrations(conn_step, migrations=[MIGRATIONS[1]]) == [2]
+            for migration in MIGRATIONS:
+                assert apply_migrations(conn_step, migrations=[migration]) == [
+                    migration[0]
+                ]
             step = _schema_rows(conn_step)
             # FKs restauradas após a reconstrução com foreign_keys=OFF
             assert conn_step.execute("PRAGMA foreign_keys").fetchone()[0] == 1

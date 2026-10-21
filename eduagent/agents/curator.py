@@ -27,7 +27,11 @@ Contratos implementados (§6.3, complementando a ingestão de §6.1–2 em
 - **PDD confirmado** (§6.3): fato já confirmado tem prioridade; uma revisão
   (novo fato de mesma entidade com valor diferente) **não** sobrescreve —
   gera conflito a reconciliar: o novo fica ``ambiguous`` e o par é devolvido
-  pendente (§7: contradição devolve ambos os registros).
+  pendente (§7: contradição devolve ambos os registros). A identidade da
+  entidade é estável por documento + âncora de conteúdo (expressão original),
+  não pela versão — a revisão real do mesmo fato numa versão nova do mesmo
+  documento confronta o PDD confirmado (correção da 006a); reconciliação
+  entre documentos distintos fica para a memória (§7), limite declarado.
 - **Ciclos de pré-requisito** (§6.3/§9): arestas de pré-requisito são
   verificadas por detecção de ciclo **antes** de qualquer escrita —
   dependência cíclica é erro tipado, não inviabilidade misteriosa (§9).
@@ -349,8 +353,9 @@ class CuratorAgent:
         (§6.2), reportadas em ``pending_items``.
         """
         rows = self._store.fetch_user_rows(
-            "SELECT page, order_index, kind, text, diagnosis_json FROM blocks "
-            "WHERE user_id = ? AND version_id = ? ORDER BY page, order_index",
+            "SELECT page, order_index, block_id, kind, text, diagnosis_json "
+            "FROM blocks WHERE user_id = ? AND version_id = ? "
+            "ORDER BY page, order_index",
             (user_id, version_id),
         )
         if not rows:
@@ -368,7 +373,9 @@ class CuratorAgent:
                 extraction.topics.append(
                     TopicCandidate(
                         title=str(row["text"]).strip(),
-                        source_block_id=self._block_id(int(row["page"]), int(row["order_index"])),
+                        source_block_id=str(row["block_id"])
+                        if row["block_id"]
+                        else self._block_id(int(row["page"]), int(row["order_index"])),
                         source_page=int(row["page"]),
                     )
                 )
@@ -384,7 +391,13 @@ class CuratorAgent:
                     user_id, doc_id=doc_id, version_id=version_id, row=row
                 )
                 fact = AcademicFact(
-                    entity_id=_uuid.uuid5(_FACT_NAMESPACE, f"{version_id}:{expression}"),
+                    # Identidade estável da entidade por documento + âncora de
+                    # conteúdo (expressão original) — NÃO pela versão (correção
+                    # da 006a, §6.3): a revisão real do mesmo fato numa versão
+                    # nova do mesmo documento confronta o PDD confirmado.
+                    # Reconciliação entre documentos distintos fica para a
+                    # memória (§7) — limite declarado, coberto por teste.
+                    entity_id=_uuid.uuid5(_FACT_NAMESPACE, f"{doc_id}:{expression}"),
                     kind=kind,
                     original_expression=expression,
                     normalized_value=normalized,
@@ -560,12 +573,17 @@ class CuratorAgent:
         page = int(row["page"])
         order = int(row["order_index"])
         text = str(row["text"])
+        persisted = row["block_id"]
         return [
             SourceRef(
                 doc_id=_uuid.UUID(doc_id),
                 version_id=_uuid.UUID(version_id),
                 physical_page=page,
-                block_id=self._block_id(page, order),
+                block_id=(
+                    str(persisted)
+                    if persisted
+                    else self._block_id(page, order)
+                ),
                 offsets=None,
                 bbox=None,
                 text_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
@@ -574,6 +592,9 @@ class CuratorAgent:
 
     @staticmethod
     def _block_id(page: int, order_index: int) -> str:
+        """Fallback determinístico (mesma fórmula de
+        ``ingestion._deterministic_block_id``): o valor canônico é a coluna
+        persistida ``blocks.block_id`` (correção da 006a, §6.7)."""
         return f"p{page}b{order_index % 10_000 + 1}"[:64]
 
     # -- PDD confirmado: prioridade e conflito (§6.3) ---------------------------
@@ -864,19 +885,13 @@ class CuratorAgent:
         """Registra tópicos extraídos e arestas de pré-requisito (§6.3).
 
         Ciclo de pré-requisito é **erro antes de qualquer escrita** (§9) —
-        nada é gravado quando há ciclo. Arestas referem tópicos já
-        registrados (títulos como IDs lógicos aqui; o DDL do §5 usa UUIDs,
-        então o chamador mapeia título→ID).
+        nada é gravado quando há ciclo. A detecção inclui as arestas
+        **persistidas de chamadas anteriores** do curso além das arestas da
+        chamada (correção da 006a): um ciclo fechado entre chamadas não é
+        persistido. Arestas referem tópicos já registrados (títulos como IDs
+        lógicos aqui; o DDL do §5 usa UUIDs, então o chamador mapeia
+        título→ID).
         """
-        edges = prerequisite_edges or []
-        cycles = detect_prerequisite_cycles(edges)
-        if cycles:
-            raise EduAgentError(
-                ErrorCode.AMBIGUOUS_INPUT,
-                "ciclo de pré-requisito detectado (mapa §6.3/§9): "
-                f"{cycles[0]}",
-                diagnostic=DIAGNOSTIC,
-            )
         courses = self._store.fetch_user_rows(
             "SELECT id FROM courses WHERE id = ? AND user_id = ?",
             (course_id, user_id),
@@ -885,6 +900,27 @@ class CuratorAgent:
             raise EduAgentError(
                 ErrorCode.SOURCE_UNRESOLVED,
                 "disciplina inexistente ou fora do ownership (mapa §15.1)",
+                diagnostic=DIAGNOSTIC,
+            )
+        edges = prerequisite_edges or []
+        persisted_edges = [
+            (str(row["parent"]), str(row["child"]))
+            for row in self._store.fetch_user_rows(
+                "SELECT tp.title AS parent, tc.title AS child "
+                "FROM topic_edges te "
+                "JOIN topics tp ON tp.id = te.parent_id "
+                "JOIN topics tc ON tc.id = te.child_id "
+                "JOIN courses c ON c.id = tp.course_id "
+                "WHERE c.id = ? AND c.user_id = ?",
+                (course_id, user_id),
+            )
+        ]
+        cycles = detect_prerequisite_cycles(persisted_edges + edges)
+        if cycles:
+            raise EduAgentError(
+                ErrorCode.AMBIGUOUS_INPUT,
+                "ciclo de pré-requisito detectado (mapa §6.3/§9): "
+                f"{cycles[0]}",
                 diagnostic=DIAGNOSTIC,
             )
         statements: list[tuple[str, tuple[Any, ...]]] = []
@@ -907,6 +943,19 @@ class CuratorAgent:
                 )
             )
         title_to_id = dict(zip(titles, topic_ids))
+        # Arestas podem referir tópicos registrados em chamadas anteriores do
+        # mesmo curso (correção da 006a): títulos persistidos também resolvem.
+        persisted_titles = {
+            str(row["title"]): str(row["id"])
+            for row in self._store.fetch_user_rows(
+                "SELECT t.id, t.title FROM topics t "
+                "JOIN courses c ON c.id = t.course_id "
+                "WHERE t.course_id = ? AND c.user_id = ?",
+                (course_id, user_id),
+            )
+        }
+        for title, topic_id in persisted_titles.items():
+            title_to_id.setdefault(title, topic_id)
         for parent_title, child_title in edges:
             parent_id = title_to_id.get(parent_title)
             child_id = title_to_id.get(child_title)

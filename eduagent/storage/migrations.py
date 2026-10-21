@@ -35,6 +35,10 @@ Contratos do mapa §5 implementados aqui:
   padrão ``topic_edges`` — FK composto não se aplica aí sem trocar a semântica
   ``ON DELETE SET NULL`` do DDL §5 (SET NULL em FK composto nularia também a
   coluna do dono, ``NOT NULL``).
+- ``blocks.block_id`` determinístico persistido (§6.7, correção da 006a —
+  migração ``0003``): coluna aditiva com UNIQUE ``(version_id, block_id)`` e
+  backfill pela fórmula ``p{page}b{order%10⁴+1}``; a PK UUID do DDL §5
+  permanece e a citação fecha pela coluna armazenada.
 
 Nota de runtime: o mapa §3 pede SQLite com as correções WAL documentadas
 (3.51.3 ou backport). O interpretador do projeto (CPython 3.12, ``uv``)
@@ -574,6 +578,32 @@ END;
     )
 
 
+def _migration_0003() -> str:
+    """``blocks.block_id`` determinístico persistido (§6.7 — correção da
+    006a).
+
+    Gap corroborado pela revisão da 006 (probe P4): o ID determinístico
+    ``p{n}b{n}`` era calculado e descartado, e ``source_refs_for_version``
+    devolvia um ID que não fechava pela PK de ``blocks`` — citação §6.7 não
+    resolvível de forma inequívoca. Correção: coluna ``block_id`` persistida
+    com UNIQUE ``(version_id, block_id)``; linhas pré-existentes recebem
+    backfill pela mesma fórmula determinística (``p{page}b{order%10⁴+1}``),
+    então banco migrado e banco criado do zero chegam ao mesmo estado. O DDL
+    lógico do §5 (``blocks(id PK, version_id, page, ...)``) não é alterado:
+    a PK ``id`` (UUID) permanece e a coluna é aditiva.
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- blocks.block_id determinístico persistido (§6.7 — citação resolvível)
+-- ---------------------------------------------------------------------------
+ALTER TABLE blocks ADD COLUMN block_id TEXT;
+UPDATE blocks
+   SET block_id = 'p' || page || 'b' || (order_index % 10000 + 1)
+ WHERE block_id IS NULL;
+CREATE UNIQUE INDEX uq_blocks_version_block ON blocks(version_id, block_id);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -588,6 +618,14 @@ def _load_builtin() -> None:
             "assessments.supersedes) — §15.1",
             script_0002,
             fk_off_0002,
+        )
+    )
+    MIGRATIONS.append(
+        (
+            3,
+            "blocks.block_id determinístico persistido com UNIQUE "
+            "(version_id, block_id) e backfill — §6.7, correção da 006a",
+            _migration_0003(),
         )
     )
 

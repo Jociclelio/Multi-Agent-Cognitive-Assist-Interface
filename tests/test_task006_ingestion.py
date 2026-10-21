@@ -11,8 +11,11 @@ inspeção de git e registrado no task.md.
 
 from __future__ import annotations
 
+import functools
 import json
+import pickle
 import resource
+import sqlite3
 import time
 import uuid as _uuid
 from datetime import datetime, timezone
@@ -35,14 +38,18 @@ from eduagent.contracts import (
     ErrorCode,
     SenderRole,
 )
+from eduagent.services import ingestion as ingestion_mod
 from eduagent.services.ingestion import (
     DIAGNOSTIC,
+    DoclingExtractor,
     ExtractionJob,
     ExtractedDocument,
     IngestionLimits,
     IngestionService,
     BlockRecord,
     PageRecord,
+    _docling_pages_payload,
+    _deterministic_block_id,
     canonical_original_path,
     run_in_subprocess,
     sniff_mime,
@@ -624,26 +631,381 @@ class TestC1SubprocessLimits:
             run_in_subprocess(_sleep_a_bit, mem_gib=4, timeout_s=1)
         assert exc.value.code is ErrorCode.TIMEOUT
 
+    def test_subprocess_with_spawn_context_start_method_independent(self) -> None:
+        # Correção da 006a (item 8): o alvo é picklável em nível de módulo —
+        # o mecanismo funciona com spawn explícito, sem depender do start
+        # method default da plataforma.
+        soft, _ = run_in_subprocess(
+            _read_rlimit, mem_gib=4, timeout_s=60, start_method="spawn"
+        )
+        assert soft == 4 * (1 << 30)
+
+    def test_docling_subprocess_target_is_picklable(self) -> None:
+        # O alvo real do adaptador é partial de função module-level: pickle
+        # round-trip (qualquer start method), nunca lambda (item 8).
+        target = functools.partial(
+            ingestion_mod._docling_convert,
+            PDF_BYTES,
+            "application/pdf",
+            10,
+            ("por",),
+        )
+        clone = pickle.loads(pickle.dumps(target))
+        assert clone.func is ingestion_mod._docling_convert
+        assert clone.args == (PDF_BYTES, "application/pdf", 10, ("por",))
+
+
+# ---------------------------------------------------------------------------
+# 006a — correções do adaptador Docling e semântica de ciclos/PDD
+# ---------------------------------------------------------------------------
+
+
+def _docling_payload(
+    pages: list[dict],
+    *,
+    limit_exceeded: bool = False,
+    ocr_languages: list[str] | None = None,
+) -> dict:
+    return {
+        "pages": pages,
+        "limit_exceeded": limit_exceeded,
+        "ocr_languages": ocr_languages,
+    }
+
+
+def _fake_docling_run(payload: dict, captured: dict):
+    def run(fn, *, mem_gib, timeout_s, start_method=None):
+        captured["fn"] = fn
+        captured["start_method"] = start_method
+        return payload
+
+    return run
+
+
+class Test006aDoclingAdapter:
+    def test_page_limit_payload_marks_exceeded_never_silent(self) -> None:
+        # Correção da 006a (item 1): entrada com página além do limite marca
+        # limit_exceeded — nunca truncamento silencioso (§3/§12).
+        entries = [
+            {
+                "page": page,
+                "kind": "paragraph",
+                "text": f"pagina {page}",
+                "bbox": None,
+                "legible": True,
+                "ocr_source": None,
+            }
+            for page in range(1, 4)
+        ]
+        payload = _docling_pages_payload(entries, 2)
+        assert payload["limit_exceeded"] is True
+        assert [p["page"] for p in payload["pages"]] == [1, 2]
+        ok = _docling_pages_payload(entries[:2], 2)
+        assert ok["limit_exceeded"] is False
+        assert [p["page"] for p in ok["pages"]] == [1, 2]
+
+    def test_docling_pdf_over_page_limit_never_indexed(
+        self, store: DomainStore, tmp_path: Path, course: str, monkeypatch
+    ) -> None:
+        # Simulacro fiel do fluxo real: o payload é o que _docling_convert
+        # devolve quando o documento tem páginas além do limite. A ingestão
+        # termina em RESOURCE_LIMIT com versão failed — nunca 'indexed'
+        # como completa (§3/§12).
+        monkeypatch.setattr(ingestion_mod, "docling_available", lambda: True)
+        payload = _docling_payload(
+            [
+                {
+                    "page": page,
+                    "blocks": [
+                        {
+                            "kind": "paragraph",
+                            "text": f"pagina {page}",
+                            "bbox": None,
+                            "legible": True,
+                            "ocr_source": None,
+                        }
+                    ],
+                }
+                for page in range(1, 4)
+            ],
+            limit_exceeded=True,
+        )
+        captured: dict = {}
+        monkeypatch.setattr(
+            ingestion_mod, "run_in_subprocess", _fake_docling_run(payload, captured)
+        )
+        limits = IngestionLimits(max_pages=2)
+        service = _service(
+            store, tmp_path, limits=limits, extractor=DoclingExtractor()
+        )
+        with pytest.raises(EduAgentError) as exc:
+            service.ingest(UID, course, PDF_BYTES)
+        assert exc.value.code is ErrorCode.RESOURCE_LIMIT
+        version_id = _last_version(store, UID)
+        assert service.version_status(UID, version_id) == "failed"
+        # Nenhum bloco foi persistido (nada é indexado parcialmente).
+        rows = store.fetch_user_rows(
+            "SELECT id FROM blocks WHERE user_id = ?", (UID,)
+        )
+        assert rows == []
+        # O alvo despachado ao subprocesso é o partial picklável (item 8).
+        assert isinstance(captured["fn"], functools.partial)
+        assert captured["fn"].func is ingestion_mod._docling_convert
+
+    def test_ocr_languages_plumbed_to_subprocess_and_blocks_marked(
+        self, monkeypatch
+    ) -> None:
+        # Correção da 006a (item 2): languages atravessa a fronteira do
+        # subprocesso (parâmetro do alvo picklável) e os blocos da passada
+        # com OCR de página inteira carregam ocr_source='embedded' — nunca
+        # None incondicional.
+        monkeypatch.setattr(ingestion_mod, "docling_available", lambda: True)
+        payload = _docling_payload(
+            [
+                {
+                    "page": 1,
+                    "blocks": [
+                        {
+                            "kind": "paragraph",
+                            "text": "pagina recuperada por ocr",
+                            "bbox": None,
+                            "legible": True,
+                            "ocr_source": "embedded",
+                        }
+                    ],
+                }
+            ],
+            ocr_languages=["por"],
+        )
+        captured: dict = {}
+        monkeypatch.setattr(
+            ingestion_mod, "run_in_subprocess", _fake_docling_run(payload, captured)
+        )
+        extracted = DoclingExtractor().extract(
+            PDF_BYTES, "application/pdf", max_pages=10, languages=("por",)
+        )
+        assert captured["fn"].args == (PDF_BYTES, "application/pdf", 10, ("por",))
+        assert extracted.pages[0].blocks[0].ocr_source == "embedded"
+
+    def test_ocr_pipeline_options_configure_languages_and_full_page(self) -> None:
+        # O plumbing real: opções do pipeline de PDF com idiomas e OCR de
+        # página inteira (§6.2). Construir opções não baixa modelos nem
+        # executa o pipeline (smoke real segue pendente — task 017).
+        pytest.importorskip("docling")
+        from docling.datamodel.pipeline_options import OcrMode
+
+        options = ingestion_mod._ocr_pipeline_options(("por", "eng"))
+        assert options.do_ocr is True
+        assert list(options.ocr_options.lang) == ["por", "eng"]
+        assert options.ocr_options.mode is OcrMode.FULL_PAGE
+
+    def test_ocr_requested_for_non_pdf_fails_typed(self) -> None:
+        # Manifesto não descreve intenção não executada (§12): OCR só é
+        # honrável em PDF; caso contrário, recusa tipada.
+        with pytest.raises(EduAgentError) as exc:
+            DoclingExtractor().extract(
+                "texto simples".encode(), "text/plain", max_pages=10, languages=("por",)
+            )
+        assert exc.value.code is ErrorCode.SCHEMA_INVALID
+
+    def test_docling_cancellation_is_cooperative_post_conversion(
+        self, monkeypatch
+    ) -> None:
+        # Correção da 006a (item 3, opção b registrada): cancelamento é
+        # cooperativo pós-conversão, com o timeout de §3 como teto; o flag é
+        # observado ao fim da conversão — nada é reportado como progresso e
+        # o erro é tipado CANCELLED.
+        monkeypatch.setattr(ingestion_mod, "docling_available", lambda: True)
+        payload = _docling_payload(
+            [
+                {
+                    "page": 1,
+                    "blocks": [
+                        {
+                            "kind": "paragraph",
+                            "text": "x",
+                            "bbox": None,
+                            "legible": True,
+                            "ocr_source": None,
+                        }
+                    ],
+                }
+            ]
+        )
+        monkeypatch.setattr(
+            ingestion_mod,
+            "run_in_subprocess",
+            _fake_docling_run(payload, {}),
+        )
+        reported: list[int] = []
+        with pytest.raises(EduAgentError) as exc:
+            DoclingExtractor().extract(
+                PDF_BYTES,
+                "application/pdf",
+                max_pages=10,
+                on_page=reported.append,
+                cancelled=lambda: True,
+            )
+        assert exc.value.code is ErrorCode.CANCELLED
+        assert reported == []  # nenhuma página reportada como concluída
+
+
+class Test006aDedupRetry:
+    def test_dedup_ignores_non_reusable_versions_and_retries_same_document(
+        self, store: DomainStore, tmp_path: Path, course: str
+    ) -> None:
+        # Correção da 006a (item 6): versão pending/failed com o mesmo SHA
+        # não é devolvida como duplicata — a reingestão vira nova versão do
+        # MESMO documento (caminho de retry acionável, §6.1/§12).
+        pending_service = _service(store, tmp_path)
+        first = pending_service.ingest(UID, course, PDF_BYTES)
+        assert first.version_status == "pending"
+
+        extractor = FakeExtractor([[_heading("Cap 1")]])
+        service = _service(store, tmp_path, extractor=extractor)
+        retry = service.ingest(UID, course, PDF_BYTES)
+        assert retry.duplicate is False and retry.new_version is True
+        assert retry.doc_id == first.doc_id
+        assert retry.version_status == "indexed"
+
+        # Versão failed com bytes distintos → mesmo caminho de retry.
+        sidecar_only = FakeExtractor(
+            [[{"kind": "paragraph", "text": "so sidecar", "ocr_source": "sidecar"}]]
+        )
+        failing_service = _service(store, tmp_path, extractor=sidecar_only)
+        with pytest.raises(EduAgentError) as exc:
+            failing_service.ingest(UID, course, PDF_BYTES + b"falha")
+        assert exc.value.code is ErrorCode.SCHEMA_INVALID
+        failed_rows = store.fetch_user_rows(
+            "SELECT doc_id, status FROM doc_versions WHERE id = ? AND user_id = ?",
+            (_last_version(store, UID), UID),
+        )
+        assert str(failed_rows[0]["status"]) == "failed"
+        failed_doc_id = str(failed_rows[0]["doc_id"])
+        retry_failed = service.ingest(UID, course, PDF_BYTES + b"falha")
+        assert retry_failed.duplicate is False and retry_failed.new_version is True
+        assert retry_failed.doc_id == failed_doc_id
+        assert retry_failed.version_status == "indexed"
+
+        # Versão reutilizável (indexed) continua sendo duplicata (§6.1).
+        again = service.ingest(UID, course, PDF_BYTES)
+        assert again.duplicate is True and again.new_version is False
+        assert again.version_id == retry.version_id
+
+
+class Test006aBlockIdCitation:
+    def test_block_id_persisted_unique_and_closes_citation(
+        self, store: DomainStore, tmp_path: Path, course: str
+    ) -> None:
+        # Correção da 006a (item 7): o ID determinístico p{n}b{n} é
+        # persistido em blocks.block_id com UNIQUE (version_id, block_id) —
+        # a citação fecha pela coluna, de forma inequívoca (§6.7).
+        extractor = FakeExtractor(
+            [
+                [_heading("Unidade 1"), _paragraph("texto da pagina um")],
+                [_paragraph("texto da pagina dois")],
+            ]
+        )
+        service = _service(store, tmp_path, extractor=extractor)
+        result = service.ingest(UID, course, PDF_BYTES)
+        rows = store.fetch_user_rows(
+            "SELECT block_id, page, order_index FROM blocks "
+            "WHERE user_id = ? AND version_id = ? ORDER BY page, order_index",
+            (UID, result.version_id),
+        )
+        expected = ["p1b1", "p1b2", "p2b1"]
+        assert [str(r["block_id"]) for r in rows] == expected
+
+        index_row = store._conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='index' AND "
+            "name = 'uq_blocks_version_block'"
+        ).fetchone()
+        assert index_row is not None
+        assert "UNIQUE" in str(index_row[0]).upper()
+
+        # Violar a unicidade é recusado pelo banco.
+        with pytest.raises(sqlite3.IntegrityError):
+            store.execute_write(
+                UID,
+                [
+                    (
+                        "INSERT INTO blocks(id, user_id, version_id, page, "
+                        "order_index, block_id, kind, text, bbox_json, "
+                        "diagnosis_json) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        (
+                            make_uuid(),
+                            UID,
+                            result.version_id,
+                            1,
+                            0,
+                            "p1b1",
+                            "paragraph",
+                            "duplicado",
+                            None,
+                            "{}",
+                        ),
+                    )
+                ],
+            )
+
+        # A citação devolve exatamente os IDs persistidos.
+        refs = service.source_refs_for_version(
+            UID, result.version_id, result.doc_id
+        )
+        assert [ref.block_id for ref in refs] == expected
+
+    def test_curator_source_ref_uses_persisted_block_id(
+        self, store: DomainStore, curator: CuratorAgent
+    ) -> None:
+        version_id = make_uuid()
+        doc_id = _insert_blocks(
+            store, version_id, [{"kind": "paragraph", "text": "A prova vale 30%."}]
+        )
+        extraction = curator.curate_document(UID, doc_id, version_id)
+        assert extraction.facts
+        ref = extraction.facts[0].fact.source_refs[0]
+        rows = store.fetch_user_rows(
+            "SELECT block_id FROM blocks WHERE user_id = ? AND version_id = ?",
+            (UID, version_id),
+        )
+        assert ref.block_id == str(rows[0]["block_id"])
+        assert ref.block_id == "p1b1"
+
 
 # ---------------------------------------------------------------------------
 # C3 — tópicos, fatos candidatos, datas relativas, PDD, ciclos, confirmação
 # ---------------------------------------------------------------------------
 
 
-def _insert_blocks(store: DomainStore, version_id: str, blocks: list[dict]) -> str:
-    doc_id = make_uuid()
-    course_id = make_uuid()
+def _insert_blocks(
+    store: DomainStore,
+    version_id: str,
+    blocks: list[dict],
+    *,
+    doc_id: str | None = None,
+) -> str:
+    """Insere versão indexada + blocos (com ``block_id`` determinístico
+    persistido, correção da 006a). Se ``doc_id`` for dado, cria apenas a
+    nova versão de um documento existente."""
+    if doc_id is None:
+        doc_id = make_uuid()
+        course_id = make_uuid()
+        store.execute_write(
+            UID,
+            [
+                (
+                    "INSERT INTO courses(id, user_id, title) VALUES (?,?,?)",
+                    (course_id, UID, "Disciplina da curadoria"),
+                ),
+                (
+                    "INSERT INTO documents(id, user_id, course_id) VALUES (?,?,?)",
+                    (doc_id, UID, course_id),
+                ),
+            ],
+        )
     store.execute_write(
         UID,
         [
-            (
-                "INSERT INTO courses(id, user_id, title) VALUES (?,?,?)",
-                (course_id, UID, "Disciplina da curadoria"),
-            ),
-            (
-                "INSERT INTO documents(id, user_id, course_id) VALUES (?,?,?)",
-                (doc_id, UID, course_id),
-            ),
             (
                 "INSERT INTO doc_versions(id, user_id, doc_id, sha256, mime, "
                 "original_ref, extractor_manifest, status) "
@@ -654,16 +1016,19 @@ def _insert_blocks(store: DomainStore, version_id: str, blocks: list[dict]) -> s
     )
     statements = []
     for i, block in enumerate(blocks):
+        page = int(block.get("page", 1))
         statements.append(
             (
                 "INSERT INTO blocks(id, user_id, version_id, page, order_index, "
-                "kind, text, bbox_json, diagnosis_json) VALUES (?,?,?,?,?,?,?,?,?)",
+                "block_id, kind, text, bbox_json, diagnosis_json) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     make_uuid(),
                     UID,
                     version_id,
-                    int(block.get("page", 1)),
+                    page,
                     i,
+                    _deterministic_block_id(page, i),
                     block["kind"],
                     block["text"],
                     None,
@@ -836,8 +1201,10 @@ class TestC3FactsAndDates:
         assert fact_30.fact.status is AcademicFact.FactStatus.CANDIDATE
 
         # PDD confirmado com valor divergente para a mesma entidade (§6.3):
-        # confirmação registra prioridade; revisão gera conflito.
-        entity_id = str(_uuid.uuid5(_FACT_NAMESPACE, f"{version_id}:30%"))
+        # confirmação registra prioridade; revisão gera conflito. A identidade
+        # da entidade é estável por documento + expressão (correção da 006a —
+        # não namespaced pela versão).
+        entity_id = str(_uuid.uuid5(_FACT_NAMESPACE, f"{doc_id}:30%"))
         fact_id = make_uuid()
         store.execute_write(
             UID,
@@ -985,3 +1352,105 @@ class TestC3FactsAndDates:
                 SenderRole.TUTOR, user_id=UID, course_id=make_uuid(), data=PDF_BYTES
             )
         assert exc.value.code is ErrorCode.TOOL_DENIED
+
+
+class Test006aCuratorSemantics:
+    def test_prerequisite_cycle_across_calls_detected_before_any_write(
+        self, store: DomainStore, curator: CuratorAgent, course: str
+    ) -> None:
+        # Correção da 006a (item 4): arestas persistidas de chamadas
+        # anteriores entram no grafo de detecção — ciclo fechado ENTRE
+        # chamadas é erro antes de qualquer escrita (§6.3/§9).
+        curator.register_topics(
+            UID, course, ["Grafos", "Arvores"], [("Grafos", "Arvores")]
+        )
+        edges_before = store.fetch_user_rows(
+            "SELECT parent_id, child_id FROM topic_edges"
+        )
+        assert len(edges_before) == 1
+
+        with pytest.raises(EduAgentError) as exc:
+            curator.register_topics(
+                UID, course, [], [("Arvores", "Grafos")]
+            )
+        assert exc.value.code is ErrorCode.AMBIGUOUS_INPUT
+        # Nada novo foi escrito (§9: erro antes de qualquer efeito).
+        edges_after = store.fetch_user_rows(
+            "SELECT parent_id, child_id FROM topic_edges"
+        )
+        assert edges_after == edges_before
+
+        # Aresta válida referindo tópico registrado em chamada anterior é
+        # aceita (a resolução de títulos persistidos não é confundida com
+        # ciclo).
+        topic_ids = curator.register_topics(
+            UID, course, ["Buscas"], [("Arvores", "Buscas")]
+        )
+        assert len(topic_ids) == 1
+        assert len(store.fetch_user_rows("SELECT parent_id FROM topic_edges")) == 2
+
+    def test_pdd_conflict_detected_across_versions_of_same_document(
+        self, store: DomainStore, curator: CuratorAgent
+    ) -> None:
+        # Correção da 006a (item 5): identidade da entidade estável por
+        # documento + expressão (não pela versão) — a revisão real do mesmo
+        # fato numa versão nova do mesmo documento confronta o PDD
+        # confirmado (§6.3).
+        text = [{"kind": "paragraph", "text": "A prova vale 30% da nota."}]
+        version1 = make_uuid()
+        doc_id = _insert_blocks(store, version1, text)
+        extraction1 = curator.curate_document(UID, doc_id, version1)
+        index_30 = [
+            i
+            for i, c in enumerate(extraction1.facts)
+            if c.fact.original_expression == "30%"
+        ][0]
+        fact_id = extraction1.persisted_fact_ids[index_30]
+        curator.set_fact_status(UID, fact_id, "confirmed", direct_value="40")
+
+        # Nova versão do MESMO documento, mesmo texto (revisão real).
+        version2 = make_uuid()
+        _insert_blocks(store, version2, text, doc_id=doc_id)
+        extraction2 = curator.curate_document(UID, doc_id, version2)
+        conflict_fact = next(
+            c for c in extraction2.facts if c.fact.original_expression == "30%"
+        )
+        assert conflict_fact.fact.status is AcademicFact.FactStatus.AMBIGUOUS
+        assert conflict_fact.validation == "conflicts_with_confirmed_fact"
+        assert len(extraction2.conflicts) == 1
+        assert extraction2.conflicts[0].existing_value == "40"
+        assert extraction2.conflicts[0].incoming_value == "30"
+        assert extraction2.conflicts[0].pending is True
+
+    def test_pdd_reconciliation_across_documents_is_declared_limit(
+        self, store: DomainStore, curator: CuratorAgent
+    ) -> None:
+        # Limite declarado (correção da 006a, item 5): a identidade é estável
+        # por documento — o mesmo conteúdo em documento DISTINTO não confronta
+        # o PDD confirmado aqui; a reconciliação entre documentos fica para a
+        # memória (§7). Comportamento explícito, não silêncio.
+        text = [{"kind": "paragraph", "text": "A prova vale 30% da nota."}]
+        version_a = make_uuid()
+        doc_a = _insert_blocks(store, version_a, text)
+        extraction_a = curator.curate_document(UID, doc_a, version_a)
+        index_30 = [
+            i
+            for i, c in enumerate(extraction_a.facts)
+            if c.fact.original_expression == "30%"
+        ][0]
+        curator.set_fact_status(
+            UID,
+            extraction_a.persisted_fact_ids[index_30],
+            "confirmed",
+            direct_value="40",
+        )
+
+        version_b = make_uuid()
+        doc_b = _insert_blocks(store, version_b, text)  # documento distinto
+        assert doc_b != doc_a
+        extraction_b = curator.curate_document(UID, doc_b, version_b)
+        fact_b = next(
+            c for c in extraction_b.facts if c.fact.original_expression == "30%"
+        )
+        assert fact_b.fact.status is AcademicFact.FactStatus.CANDIDATE
+        assert extraction_b.conflicts == []
