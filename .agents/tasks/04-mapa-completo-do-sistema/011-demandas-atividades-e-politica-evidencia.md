@@ -1,6 +1,6 @@
 # Task 011: Demandas, atividades e política evidência→demanda v1 (mapa §15.3, §15.4)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 010
 Origem: nenhuma
 
@@ -12,10 +12,23 @@ Implementar a geração de demandas e o ciclo de atividades (mapa §15.3 e §15.
 - Storage (004), contratos (003), commit idempotente (005).
 
 ## Corretude
-- [ ] C1 — Política v1 determinística aplicada por serviço (não pelo LLM): testes cobrem erro crítico, acerto independente 1/3/7, unicidade por chave, consolidação de duplicadas, prioridades 1–3 e prazo pedagógico com dia sem hora.
-- [ ] C2 — Durações: confirmado prevalece; catálogo com estimated/mandatory=false; nenhuma conversão de domínio em duração.
-- [ ] C3 — Transições de atividade e semântica de dependência conforme §15.4 (testes: complete direto, sair de completed, started bloqueia, replan uma vez por evento, splittable confirmado).
-- [ ] C4 — Mapa intocado; commits separados; submódulo não tocado.
+- [x] C1 — Política v1 determinística aplicada por serviço (não pelo LLM): testes cobrem erro crítico, acerto independente 1/3/7, unicidade por chave, consolidação de duplicadas, prioridades 1–3 e prazo pedagógico com dia sem hora.
+- [x] C2 — Durações: confirmado prevalece; catálogo com estimated/mandatory=false; nenhuma conversão de domínio em duração.
+- [x] C3 — Transições de atividade e semântica de dependência conforme §15.4 (testes: complete direto, sair de completed, started bloqueia, replan uma vez por evento, splittable confirmado).
+- [x] C4 — Mapa intocado; commits separados; submódulo não tocado.
+
+## Execução
+- Modelo: GLM-5.3-Flash (via ~/sd2-llm.sh; provider `sd2`, model `GLM-5.3-Flash` — identidade informada pelo runtime)
+- Base: `dccaf64fb9c0078056cafbcd1ff08a1ac3b02c01` (família 010 fechada, suíte 345 passed)
+- Entrega: `2dded12cdf18f044f3ce5b1d39d870571053bd25`
+- Arquivos da entrega: `eduagent/services/scheduling.py` (parte de demandas), `eduagent/agents/planner.py` (atividades/dependências §15.4), `eduagent/storage/migrations.py` (migração 0006), `tests/test_task011_scheduling_activities.py` (27 testes de aceite novos)
+- Evidências:
+  - C1 (política §15.3, testes P1–P12): erro crítico → revisão no próximo dia local com disponibilidade classe1 (P1); acerto independente → três candidatos de recuperação +1/+3/+7 dias da ocorrência local num único commit idempotente (P2); unicidade por chave `(user,topic,kind,due,policy)` com consolidação da pendente unindo `evidence_ids` e prioridade mais alta (P3, M1 — índice único parcial da migração 0006 recusa segunda pendente por inserção direta); retry do mesmo `operation_id` devolve o recibo original sem nova demanda nem incremento (P4 — IDs de demanda determinísticos por chave via uuid5 e digest de payload idempotente, exigidos pela dedup do §11); prioridades 1–3 por prova ≤48h/erro crítico/≤7 dias/vencida/recorrente, com ausência de avaliação nunca inventando urgência (P5, P6); prazo pedagógico com dia sem hora permanece DATA (sem datetime duro) e due que cairia no dia da prova é limitado para antes dele (P7); prazo com avaliação datada = menor entre due e início confirmado (P8); revisão vencida mantém due original com `overdue=True` (P9); sem disponibilidade no horizonte → `pending_next_horizon=True` (P10); `review_due` = primeiro pendente registrado na projeção do tópico, só na demanda quando não há projeção (P11); dificuldade recorrente = dois erros aceitos em famílias distintas nas últimas 5 tentativas, sobre os fatos do redutor da 009 (P12).
+  - C2 (durações, testes D1–D3): catálogo `practice=30`/`review=15`/`flashcard=15` com `estimated` e `mandatory=false` (D1); `confirm_duration` grava valor confirmado e habilita obrigatória, enquanto mandatory com estimated é recusado pelo validador do contrato §4 (D2); estado `favorable` com `estimate=null` não altera a duração estimada — nenhuma conversão de domínio em duração (D3).
+  - C3 (atividades §15.4, testes A1–A11): `planned→started→completed` com started bloqueando o intervalo aprovado uma única vez no conjunto de ocupação e completed ocupando [início real, fim real] (A1); complete direto de planned exige início/fim reais informados (A2); sair de completed é recusa tipada na transição ordinária e `correct_activity` é o caminho explícito (A3); relógio avançado não marca falta — missed só por declaração (A4); sessão iniciada além do fim previsto registra `end_conflict` pedindo atualização de término e o término real esclarece (A5); transição fora do conjunto (started→missed) recusada (A6); replan uma vez por evento — retry do mesmo `operation_id` devolve recibo original sem segundo evento, com digest de intenção estável (A7); `expected_version` divergente → `VERSION_CONFLICT` (A8); dependência referencia demanda (não tópico), duplicata e ciclo recusados com erro tipado (A9); semântica satisfied / waits_confirmed_end / blocked_outside_horizon com razão / ready (A10); decomposição só com `splittable` confirmado e soma ≥ duração original, subdemandas com status `split` fora da chave de pendentes (A11).
+  - Suíte integral: `python -m pytest tests/ -q` → **372 passed** (345 anteriores + 27 novos; nenhum quebrado). Testes de migração da 004 (passo a passo = do zero) verdes com a 0006 na cadeia.
+  - Inspeção de git: `fase2/documentos/04_mapa_completo_do_sistema.md` e `docs/playground-llmagenticsystem` sem diff; diff da entrega confinado aos 4 arquivos listados. Sem runner de lint/teste de sistema no projeto (registro, não aprovação).
+  - Escolhas registradas (defaults de ensaio, não resultados medidos): disponibilidade diária injetável com default "todos os dias" (a grade é do solver, task 012); fuso local só com timezone explicitamente confirmado — sem confirmação, dia local = dia UTC; avaliação só de dia com `days_ahead ∈ {0,1}` conta como janela ≤48h (escolha conservadora documentada); `approve_plan`/preview/confirmação e ICS ficam para a task 013 conforme divisão do plano; prioridade é política de ensaio, não inferência de retenção.
 
 ## Notas
 
@@ -23,7 +36,7 @@ Implementar a geração de demandas e o ciclo de atividades (mapa §15.3 e §15.
 5/10 — Política longa e determinística; risco de converter sugestão em obrigação.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+6/10 — A política em si é determinística, mas três pontos exigiram cuidado além do esperado para 5/10: (1) idempotência real do §11 — o retry da mesma operação quebrava porque `demand_id` e digest dependiam de aleatoriedade/estado, exigindo IDs determinísticos por chave de unicidade (uuid5), digest de payload idempotente (merge estável) e digest de intenção nas transições de atividade com recibo devolvido ANTES da validação de transição; (2) mistura data×datetime no prazo pedagógico — comparar due (data) com início de prova (datetime) sem promover datetime duro nem criar comparação inválida, com o caso-limite em que não existe dia entre ocorrência e prova; (3) colapso de candidatos de recuperação distintos para a mesma chave após o limite "antes do dia da prova", que produziria duas INSERTs da mesma chave única — resolvido com dedup intra-geração. Risco do prompt ("converter sugestão em obrigação") foi contido pelos validadores existentes do contrato §4 e pelos testes D2/D3.
 
 ### Revisão
 - Orquestrador: —
