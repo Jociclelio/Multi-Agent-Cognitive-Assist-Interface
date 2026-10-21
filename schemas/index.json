@@ -1,0 +1,20 @@
+{
+  "models": {
+    "AcademicFact": "AcademicFact.schema.json",
+    "Assessment": "Assessment.schema.json",
+    "Envelope": "Envelope.schema.json",
+    "EvidencePack": "EvidencePack.schema.json",
+    "GraphState": "GraphState.schema.json",
+    "LearningItem": "LearningItem.schema.json",
+    "MemoryPack": "MemoryPack.schema.json",
+    "Operation": "Operation.schema.json",
+    "ScheduleProposal": "ScheduleProposal.schema.json",
+    "SourceRef": "SourceRef.schema.json",
+    "StudyDemand": "StudyDemand.schema.json",
+    "ToolRequest": "ToolRequest.schema.json",
+    "TopicState": "TopicState.schema.json",
+    "TutorTurn": "TutorTurn.schema.json",
+    "TypedError": "TypedError.schema.json"
+  },
+  "schema_version": "1.0"
+}

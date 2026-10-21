@@ -2,9 +2,27 @@
 
 Scaffold do EduAgent-OS v0.1 conforme o mapa normativo
 [`fase2/documentos/04_mapa_completo_do_sistema.md`](fase2/documentos/04_mapa_completo_do_sistema.md)
-(§3: stack, diretórios e configuração). Estado atual: **scaffold e configuração
-apenas** (task 001 do plano `.agents/plans/04-mapa-completo-do-sistema/plan.md`);
-módulos são stubs sem lógica de agentes/serviços.
+(§3: stack, diretórios e configuração). Estado atual: **contratos do mapa §4
+implementados** (task 003 do plano
+`.agents/plans/04-mapa-completo-do-sistema/plan.md`); demais módulos são
+stubs sem lógica de agentes/serviços.
+
+## Contratos (mapa §4)
+
+`eduagent/contracts.py` implementa os 11 artefatos obrigatórios, o envelope
+comum, o estado do grafo e os 12 erros tipados (código, mensagem ao usuário,
+retentabilidade e diagnóstico local), com `extra='forbid'`, enums, IDs UUID,
+datetimes ISO-8601 com zona/UTC, tamanhos limitados, datas parciais com tipo
+próprio e `*_ref` de ID+versão (nunca caminho). Propostas de ferramenta são
+validadas contra a tabela de papéis do mapa §10 — payload externo não muda
+papel/permissões.
+
+Build dos JSON Schemas (determinístico, verificado pelo teste de aceite):
+
+```bash
+uv run python -m eduagent.contracts --export schemas  # exporta/regenera
+uv run python -m eduagent.contracts --check           # verifica schemas/ atualizado
+```
 
 ## Estrutura (mapa §3)
 

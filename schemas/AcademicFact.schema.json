@@ -1,0 +1,202 @@
+{
+  "$defs": {
+    "FactAuthority": {
+      "enum": [
+        "document",
+        "user_direct",
+        "user_confirmed",
+        "derived"
+      ],
+      "title": "FactAuthority",
+      "type": "string"
+    },
+    "FactKind": {
+      "enum": [
+        "date",
+        "datetime",
+        "number",
+        "term"
+      ],
+      "title": "FactKind",
+      "type": "string"
+    },
+    "FactStatus": {
+      "enum": [
+        "candidate",
+        "ambiguous",
+        "confirmed",
+        "rejected"
+      ],
+      "title": "FactStatus",
+      "type": "string"
+    },
+    "Precision": {
+      "enum": [
+        "exact",
+        "day",
+        "month",
+        "year",
+        "approx"
+      ],
+      "title": "Precision",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "``SourceRef`` — origem física resolvível no snapshot (mapa §4/§6.7).\nA resolvibilidade no snapshot é verificada em leitura (task de\narmazenamento); o contrato fixa a forma.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "block_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "doc_id": {
+          "format": "uuid",
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "offsets": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offsets"
+        },
+        "physical_page": {
+          "minimum": 1,
+          "title": "Physical Page",
+          "type": "integer"
+        },
+        "text_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "version_id": {
+          "format": "uuid",
+          "title": "Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "doc_id",
+        "version_id",
+        "physical_page",
+        "block_id",
+        "text_hash"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``AcademicFact`` — fato acadêmico com proveniência (mapa §4/§6.3).",
+  "properties": {
+    "authority": {
+      "$ref": "#/$defs/FactAuthority"
+    },
+    "entity_id": {
+      "format": "uuid",
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/FactKind"
+    },
+    "normalized_value": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Normalized Value",
+      "type": "string"
+    },
+    "original_expression": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Original Expression",
+      "type": "string"
+    },
+    "precision": {
+      "$ref": "#/$defs/Precision"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 64,
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/FactStatus"
+    },
+    "timezone": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z_]+/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Timezone"
+    }
+  },
+  "required": [
+    "entity_id",
+    "kind",
+    "original_expression",
+    "normalized_value",
+    "precision",
+    "status",
+    "authority"
+  ],
+  "title": "AcademicFact",
+  "type": "object"
+}

@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "Chunk": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "rank": {
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "source_ref",
+        "rank"
+      ],
+      "title": "Chunk",
+      "type": "object"
+    },
+    "Coverage": {
+      "enum": [
+        "supported",
+        "partial",
+        "none"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "``SourceRef`` — origem física resolvível no snapshot (mapa §4/§6.7).\nA resolvibilidade no snapshot é verificada em leitura (task de\narmazenamento); o contrato fixa a forma.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "block_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "doc_id": {
+          "format": "uuid",
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "offsets": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offsets"
+        },
+        "physical_page": {
+          "minimum": 1,
+          "title": "Physical Page",
+          "type": "integer"
+        },
+        "text_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "version_id": {
+          "format": "uuid",
+          "title": "Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "doc_id",
+        "version_id",
+        "physical_page",
+        "block_id",
+        "text_hash"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``EvidencePack`` — pacote de recuperação com citações resolvíveis\n(mapa §4/§6.7). Invariante de processo: não contém instruções de servidor\n(fonte/tool result é dado rotulado, mapa §10).",
+  "properties": {
+    "chunks": {
+      "items": {
+        "$ref": "#/$defs/Chunk"
+      },
+      "maxItems": 64,
+      "minItems": 0,
+      "title": "Chunks",
+      "type": "array"
+    },
+    "coverage": {
+      "$ref": "#/$defs/Coverage"
+    },
+    "query": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "retrieval_config_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Retrieval Config Hash",
+      "type": "string"
+    },
+    "topic_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Topic Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "query",
+    "chunks",
+    "retrieval_config_hash",
+    "coverage"
+  ],
+  "title": "EvidencePack",
+  "type": "object"
+}

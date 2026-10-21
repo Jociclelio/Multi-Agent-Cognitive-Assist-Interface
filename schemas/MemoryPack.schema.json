@@ -1,0 +1,519 @@
+{
+  "$defs": {
+    "AcademicFact": {
+      "additionalProperties": false,
+      "description": "``AcademicFact`` — fato acadêmico com proveniência (mapa §4/§6.3).",
+      "properties": {
+        "authority": {
+          "$ref": "#/$defs/FactAuthority"
+        },
+        "entity_id": {
+          "format": "uuid",
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/FactKind"
+        },
+        "normalized_value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Normalized Value",
+          "type": "string"
+        },
+        "original_expression": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Original Expression",
+          "type": "string"
+        },
+        "precision": {
+          "$ref": "#/$defs/Precision"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "maxItems": 64,
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/FactStatus"
+        },
+        "timezone": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z_]+/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        }
+      },
+      "required": [
+        "entity_id",
+        "kind",
+        "original_expression",
+        "normalized_value",
+        "precision",
+        "status",
+        "authority"
+      ],
+      "title": "AcademicFact",
+      "type": "object"
+    },
+    "Contradiction": {
+      "additionalProperties": false,
+      "description": "Contradição não conciliada: devolve ambos os registros e pendência\n(mapa §7).",
+      "properties": {
+        "entity_id": {
+          "format": "uuid",
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "pending": {
+          "default": true,
+          "title": "Pending",
+          "type": "boolean"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/AcademicFact"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Records",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_id",
+        "records"
+      ],
+      "title": "Contradiction",
+      "type": "object"
+    },
+    "EventKind": {
+      "enum": [
+        "attempt",
+        "hint",
+        "assessment",
+        "correction",
+        "reading",
+        "self_report",
+        "preference",
+        "other"
+      ],
+      "title": "EventKind",
+      "type": "string"
+    },
+    "EventRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "help_level": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help Level"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/EventKind"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "id",
+        "occurred_at",
+        "recorded_at",
+        "kind",
+        "source"
+      ],
+      "title": "EventRecord",
+      "type": "object"
+    },
+    "FactAuthority": {
+      "enum": [
+        "document",
+        "user_direct",
+        "user_confirmed",
+        "derived"
+      ],
+      "title": "FactAuthority",
+      "type": "string"
+    },
+    "FactKind": {
+      "enum": [
+        "date",
+        "datetime",
+        "number",
+        "term"
+      ],
+      "title": "FactKind",
+      "type": "string"
+    },
+    "FactStatus": {
+      "enum": [
+        "candidate",
+        "ambiguous",
+        "confirmed",
+        "rejected"
+      ],
+      "title": "FactStatus",
+      "type": "string"
+    },
+    "Origin": {
+      "enum": [
+        "observed",
+        "asserted",
+        "inferred"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "Precision": {
+      "enum": [
+        "exact",
+        "day",
+        "month",
+        "year",
+        "approx"
+      ],
+      "title": "Precision",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "``SourceRef`` — origem física resolvível no snapshot (mapa §4/§6.7).\nA resolvibilidade no snapshot é verificada em leitura (task de\narmazenamento); o contrato fixa a forma.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "block_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "doc_id": {
+          "format": "uuid",
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "offsets": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offsets"
+        },
+        "physical_page": {
+          "minimum": 1,
+          "title": "Physical Page",
+          "type": "integer"
+        },
+        "text_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "version_id": {
+          "format": "uuid",
+          "title": "Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "doc_id",
+        "version_id",
+        "physical_page",
+        "block_id",
+        "text_hash"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "SummaryEntry": {
+      "additionalProperties": false,
+      "description": "Síntese derivada de originais com claim→event_ids (mapa §7/DDL\n``summaries``). Publicada como artefato derivado; nunca apaga\nevento.",
+      "properties": {
+        "claims": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Claims",
+          "type": "array"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "source_event_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Source Event Ids",
+          "type": "array"
+        },
+        "verification": {
+          "enum": [
+            "pending",
+            "verified",
+            "failed"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_event_ids",
+        "claims",
+        "verification",
+        "revision"
+      ],
+      "title": "SummaryEntry",
+      "type": "object"
+    },
+    "TopicState": {
+      "additionalProperties": false,
+      "description": "``TopicState`` — estado de competência por tópico (mapa §4/§8).\n``estimate`` é ``null`` no MVP (mapa §8: BKT é futuro, não inventar\npriors); ``review_due`` é **data** (parcial), nunca datetime.",
+      "properties": {
+        "assisted_attempt_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Assisted Attempt Ids",
+          "type": "array"
+        },
+        "error_codes": {
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Error Codes",
+          "type": "array"
+        },
+        "estimate": {
+          "default": null,
+          "title": "Estimate",
+          "type": "null"
+        },
+        "independent_attempt_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Independent Attempt Ids",
+          "type": "array"
+        },
+        "last_attempt_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Attempt At"
+        },
+        "model_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Model Version",
+          "type": "string"
+        },
+        "review_due": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Due"
+        },
+        "revision": {
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/TopicStatus"
+        },
+        "topic_id": {
+          "format": "uuid",
+          "title": "Topic Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic_id",
+        "status",
+        "model_version",
+        "revision"
+      ],
+      "title": "TopicState",
+      "type": "object"
+    },
+    "TopicStatus": {
+      "enum": [
+        "insufficient",
+        "mixed",
+        "favorable"
+      ],
+      "title": "TopicStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``MemoryPack`` — memória projetada de um snapshot (mapa §4/§7).\nInvariante de processo: não mistura usuários — a projeção é construída\npor usuário no snapshot (mapa §15.1).",
+  "properties": {
+    "contradictions": {
+      "items": {
+        "$ref": "#/$defs/Contradiction"
+      },
+      "maxItems": 64,
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "current_facts": {
+      "items": {
+        "$ref": "#/$defs/AcademicFact"
+      },
+      "maxItems": 256,
+      "title": "Current Facts",
+      "type": "array"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/EventRecord"
+      },
+      "maxItems": 256,
+      "title": "Events",
+      "type": "array"
+    },
+    "snapshot_version": {
+      "minimum": 0,
+      "title": "Snapshot Version",
+      "type": "integer"
+    },
+    "summaries": {
+      "items": {
+        "$ref": "#/$defs/SummaryEntry"
+      },
+      "maxItems": 64,
+      "title": "Summaries",
+      "type": "array"
+    },
+    "topic_state": {
+      "items": {
+        "$ref": "#/$defs/TopicState"
+      },
+      "maxItems": 256,
+      "title": "Topic State",
+      "type": "array"
+    }
+  },
+  "required": [
+    "snapshot_version"
+  ],
+  "title": "MemoryPack",
+  "type": "object"
+}

@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "TopicStatus": {
+      "enum": [
+        "insufficient",
+        "mixed",
+        "favorable"
+      ],
+      "title": "TopicStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``TopicState`` — estado de competência por tópico (mapa §4/§8).\n``estimate`` é ``null`` no MVP (mapa §8: BKT é futuro, não inventar\npriors); ``review_due`` é **data** (parcial), nunca datetime.",
+  "properties": {
+    "assisted_attempt_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Assisted Attempt Ids",
+      "type": "array"
+    },
+    "error_codes": {
+      "items": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Error Codes",
+      "type": "array"
+    },
+    "estimate": {
+      "default": null,
+      "title": "Estimate",
+      "type": "null"
+    },
+    "independent_attempt_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Independent Attempt Ids",
+      "type": "array"
+    },
+    "last_attempt_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Attempt At"
+    },
+    "model_version": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Model Version",
+      "type": "string"
+    },
+    "review_due": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Due"
+    },
+    "revision": {
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/TopicStatus"
+    },
+    "topic_id": {
+      "format": "uuid",
+      "title": "Topic Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "topic_id",
+    "status",
+    "model_version",
+    "revision"
+  ],
+  "title": "TopicState",
+  "type": "object"
+}

@@ -40,25 +40,9 @@ import urllib.request
 from collections import deque
 from concurrent.futures import Future
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Sequence
 
-
-class ErrorCode(str, Enum):
-    """Subconjunto de erros do mapa §4 usados pelo caminho do modelo.
-
-    Os contratos completos e a serialização canônica são da task 003; aqui
-    cada erro já carrega código, mensagem ao usuário, retryability e
-    referência de diagnóstico local (mapa §4).
-    """
-
-    MODEL_NOT_ADMITTED = "MODEL_NOT_ADMITTED"
-    SCHEMA_INVALID = "SCHEMA_INVALID"
-    TOOL_DENIED = "TOOL_DENIED"
-    RESOURCE_LIMIT = "RESOURCE_LIMIT"
-    TIMEOUT = "TIMEOUT"
-    CANCELLED = "CANCELLED"
-    INTERNAL_FAILURE = "INTERNAL_FAILURE"
+from eduagent.contracts import ErrorCode  # reexportado p/ gates (mapa §4)
 
 
 class ModelAdapterError(Exception):
@@ -176,14 +160,18 @@ def _validate_messages(messages: Sequence[dict[str, Any]]) -> None:
         )
     for i, msg in enumerate(messages):
         role = msg.get("role")
+        # Ferramentas negadas por política (mapa §3.1): papel 'tool' OU
+        # qualquer 'tool_calls' no payload — inclusive sob papel permitido
+        # (payload externo não muda papel/permissões; achado F1 da revisão
+        # da task 002, absorvido nos contratos da task 003).
+        if role == "tool" or "tool_calls" in msg:
+            raise ModelAdapterError(
+                ErrorCode.TOOL_DENIED,
+                f"Ferramentas são negadas nesta etapa (mapa §3.1); "
+                f"mensagem {i} com papel '{role}' ou 'tool_calls'.",
+                retryable=False,
+            )
         if role not in _ALLOWED_ROLES:
-            if role == "tool" or "tool_calls" in msg:
-                raise ModelAdapterError(
-                    ErrorCode.TOOL_DENIED,
-                    f"Ferramentas são negadas nesta etapa (mapa §3.1); "
-                    f"mensagem {i} com papel '{role}' ou 'tool_calls'.",
-                    retryable=False,
-                )
             raise ModelAdapterError(
                 ErrorCode.SCHEMA_INVALID,
                 f"Papel de mensagem inválido na posição {i}: {role!r}.",

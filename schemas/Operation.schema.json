@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "OperationAction": {
+      "enum": [
+        "fact.upsert",
+        "fact.correct",
+        "item.publish",
+        "assessment.record",
+        "event.append",
+        "demand.upsert",
+        "plan.approve",
+        "activity.update",
+        "data.delete"
+      ],
+      "title": "OperationAction",
+      "type": "string"
+    },
+    "OperationState": {
+      "enum": [
+        "pending",
+        "committed",
+        "failed"
+      ],
+      "title": "OperationState",
+      "type": "string"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``Operation`` — operação de commit com versionamento (mapa §4/§11/§15.1).\nMesmo ``operation_id`` com digest diferente é erro — verificação do commit\nidempotente (§11), de processo, não deste contrato.",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/OperationAction"
+    },
+    "confirmation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "expected_version": {
+      "minimum": 0,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "operation_id": {
+      "format": "uuid",
+      "title": "Operation Id",
+      "type": "string"
+    },
+    "payload_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Payload Hash",
+      "type": "string"
+    },
+    "receipt_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "state": {
+      "$ref": "#/$defs/OperationState"
+    },
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "operation_id",
+    "user_id",
+    "action",
+    "expected_version",
+    "payload_hash",
+    "state"
+  ],
+  "title": "Operation",
+  "type": "object"
+}

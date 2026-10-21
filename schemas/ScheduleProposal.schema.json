@@ -1,0 +1,217 @@
+{
+  "$defs": {
+    "PlanBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "block_id": {
+          "format": "uuid",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "demand_id": {
+          "format": "uuid",
+          "title": "Demand Id",
+          "type": "string"
+        },
+        "end_utc": {
+          "format": "date-time",
+          "title": "End Utc",
+          "type": "string"
+        },
+        "start_utc": {
+          "format": "date-time",
+          "title": "Start Utc",
+          "type": "string"
+        },
+        "uid": {
+          "format": "uuid",
+          "title": "Uid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_id",
+        "demand_id",
+        "start_utc",
+        "end_utc",
+        "uid"
+      ],
+      "title": "PlanBlock",
+      "type": "object"
+    },
+    "PlanDiff": {
+      "additionalProperties": false,
+      "description": "Diff por identidade (§15.5): adições/movimentos/remoções e déficit.",
+      "properties": {
+        "added": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 1024,
+          "title": "Added",
+          "type": "array"
+        },
+        "deficit_minutes": {
+          "minimum": 0,
+          "title": "Deficit Minutes",
+          "type": "integer"
+        },
+        "moved": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 1024,
+          "title": "Moved",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 1024,
+          "title": "Removed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "deficit_minutes"
+      ],
+      "title": "PlanDiff",
+      "type": "object"
+    },
+    "PlanValidation": {
+      "additionalProperties": false,
+      "description": "Verificador independente (mapa §9) — separado do solver.",
+      "properties": {
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Issues",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "verifier_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Verifier Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "passed",
+        "verifier_id",
+        "checked_at"
+      ],
+      "title": "PlanValidation",
+      "type": "object"
+    },
+    "SolverStatus": {
+      "enum": [
+        "OPTIMAL",
+        "FEASIBLE",
+        "UNKNOWN",
+        "INFEASIBLE",
+        "MODEL_INVALID"
+      ],
+      "title": "SolverStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``ScheduleProposal`` — proposta de grade (mapa §4/§9/§15.5).\nSem validação do verificador independente não há aprovação: status\nOPTIMAL/FEASIBLE exige ``validation.passed=True``.",
+  "properties": {
+    "blocks": {
+      "items": {
+        "$ref": "#/$defs/PlanBlock"
+      },
+      "maxItems": 1024,
+      "title": "Blocks",
+      "type": "array"
+    },
+    "bound": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bound"
+    },
+    "diff": {
+      "$ref": "#/$defs/PlanDiff"
+    },
+    "explanation": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Explanation",
+      "type": "string"
+    },
+    "objective": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "plan_id": {
+      "format": "uuid",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "snapshot_version": {
+      "minimum": 0,
+      "title": "Snapshot Version",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/SolverStatus"
+    },
+    "unmet_demands": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 1024,
+      "title": "Unmet Demands",
+      "type": "array"
+    },
+    "validation": {
+      "$ref": "#/$defs/PlanValidation"
+    }
+  },
+  "required": [
+    "plan_id",
+    "revision",
+    "snapshot_version",
+    "status",
+    "diff",
+    "validation",
+    "objective",
+    "explanation"
+  ],
+  "title": "ScheduleProposal",
+  "type": "object"
+}

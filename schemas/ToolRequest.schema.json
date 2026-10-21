@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    },
+    "SenderRole": {
+      "description": "Papéis lógicos (mapa §1/§4). O papel é atribuído pelo dispatcher a\npartir do contexto autenticado local — nunca lido do payload.",
+      "enum": [
+        "curator",
+        "librarian",
+        "tutor",
+        "monitor",
+        "planner",
+        "system",
+        "user"
+      ],
+      "title": "SenderRole",
+      "type": "string"
+    },
+    "ToolName": {
+      "description": "Ferramentas da tabela do mapa §10.",
+      "enum": [
+        "document.extract",
+        "document.search",
+        "memory.query",
+        "assessment.check",
+        "schedule.solve",
+        "calendar.render",
+        "web.search",
+        "web.fetch",
+        "domain.commit",
+        "calendar.apply"
+      ],
+      "title": "ToolName",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Proposta de chamada de ferramenta com papel explícito do proponente.\n\n``sender_role`` é preenchido pelo dispatcher a partir do contexto\nautenticado local; um payload externo que chegue com ``sender_role``\ndiferente não altera a permissão — a validação usa o papel atribuído.",
+  "properties": {
+    "sender_role": {
+      "$ref": "#/$defs/SenderRole"
+    },
+    "target_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolName"
+    }
+  },
+  "required": [
+    "tool",
+    "sender_role"
+  ],
+  "title": "ToolRequest",
+  "type": "object"
+}

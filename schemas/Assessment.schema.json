@@ -1,0 +1,246 @@
+{
+  "$defs": {
+    "Correctness": {
+      "enum": [
+        "correct",
+        "partial",
+        "incorrect",
+        "undecidable"
+      ],
+      "title": "Correctness",
+      "type": "string"
+    },
+    "CriterionResult": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "evidence_kind": {
+          "$ref": "#/$defs/EvidenceKind"
+        },
+        "level": {
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Level",
+          "type": "integer"
+        },
+        "misconception_code": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Misconception Code"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "response_span": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Span"
+        },
+        "topic_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Topic Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "topic_ids",
+        "level",
+        "evidence_kind",
+        "reason"
+      ],
+      "title": "CriterionResult",
+      "type": "object"
+    },
+    "EvidenceKind": {
+      "enum": [
+        "present",
+        "missing"
+      ],
+      "title": "EvidenceKind",
+      "type": "string"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    },
+    "Reliability": {
+      "enum": [
+        "accepted",
+        "abstain"
+      ],
+      "title": "Reliability",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``Assessment`` — avaliação por critérios com spans (mapa §4/§8/§15.2).\nSpan existe salvo ``evidence_kind='missing'``; ``missing`` exige span nulo\ne descrição do critério ausente em ``reason`` (§15.2).",
+  "properties": {
+    "assessment_revision": {
+      "minimum": 1,
+      "title": "Assessment Revision",
+      "type": "integer"
+    },
+    "attempt_id": {
+      "format": "uuid",
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "correctness": {
+      "$ref": "#/$defs/Correctness"
+    },
+    "criterion_results": {
+      "items": {
+        "$ref": "#/$defs/CriterionResult"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Criterion Results",
+      "type": "array"
+    },
+    "evidence_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "help_level": {
+      "maximum": 3,
+      "minimum": 0,
+      "title": "Help Level",
+      "type": "integer"
+    },
+    "item_ref": {
+      "$ref": "#/$defs/Ref"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "reliability": {
+      "$ref": "#/$defs/Reliability"
+    },
+    "revealed": {
+      "title": "Revealed",
+      "type": "boolean"
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "attempt_id",
+    "item_ref",
+    "assessment_revision",
+    "criterion_results",
+    "correctness",
+    "help_level",
+    "revealed",
+    "reliability",
+    "reason"
+  ],
+  "title": "Assessment",
+  "type": "object"
+}

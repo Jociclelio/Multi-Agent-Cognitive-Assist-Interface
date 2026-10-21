@@ -1,0 +1,304 @@
+{
+  "$defs": {
+    "Budgets": {
+      "additionalProperties": false,
+      "description": "Orçamentos do turno (mapa §12). Valores atribuídos por configuração\n(defaults de ensaio, mapa §3); ``null`` significa desconhecido, nunca\nzero (mapa §12: \"Métricas desconhecidas ficam null com razão\").",
+      "properties": {
+        "llm_calls_remaining": {
+          "minimum": 0,
+          "title": "Llm Calls Remaining",
+          "type": "integer"
+        },
+        "tokens_remaining": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokens Remaining"
+        },
+        "tool_calls_remaining": {
+          "minimum": 0,
+          "title": "Tool Calls Remaining",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "llm_calls_remaining",
+        "tool_calls_remaining"
+      ],
+      "title": "Budgets",
+      "type": "object"
+    },
+    "ErrorCode": {
+      "description": "Os 12 códigos de erro do mapa §4.",
+      "enum": [
+        "SCHEMA_INVALID",
+        "SOURCE_UNRESOLVED",
+        "AMBIGUOUS_INPUT",
+        "VERSION_CONFLICT",
+        "TOOL_DENIED",
+        "MODEL_NOT_ADMITTED",
+        "NO_EVIDENCE",
+        "RESOURCE_LIMIT",
+        "TIMEOUT",
+        "UNKNOWN_EFFECT",
+        "CANCELLED",
+        "INTERNAL_FAILURE"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "GraphStatus": {
+      "enum": [
+        "running",
+        "waiting_student",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "GraphStatus",
+      "type": "string"
+    },
+    "Intent": {
+      "description": "Intenções do grafo (mapa §10).",
+      "enum": [
+        "ingest",
+        "ask",
+        "practice",
+        "submit_answer",
+        "plan",
+        "replan",
+        "approve_plan",
+        "update_activity",
+        "memory_query",
+        "correct_fact",
+        "delete_data",
+        "export_calendar",
+        "curate",
+        "cancel"
+      ],
+      "title": "Intent",
+      "type": "string"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    },
+    "TypedError": {
+      "additionalProperties": false,
+      "description": "Erro tipado do mapa §4: código, mensagem ao usuário, retentabilidade e\nreferência de diagnóstico local.",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "diagnostic": {
+          "default": "eduagent/graph.py",
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Diagnostic",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "TypedError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Estado do grafo com os campos do mapa §4.\n\n``artifact_refs`` guarda refs (ID+versão), não conteúdo — checkpoint\nguarda refs, não PDFs integrais; estado de domínio é autoridade e\ncheckpoint não substitui commit (mapa §4/§11).",
+  "properties": {
+    "artifact_refs": {
+      "items": {
+        "$ref": "#/$defs/Ref"
+      },
+      "maxItems": 256,
+      "title": "Artifact Refs",
+      "type": "array"
+    },
+    "budgets": {
+      "$ref": "#/$defs/Budgets"
+    },
+    "cancel_requested": {
+      "default": false,
+      "title": "Cancel Requested",
+      "type": "boolean"
+    },
+    "deadline": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deadline"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/TypedError"
+      },
+      "maxItems": 32,
+      "title": "Errors",
+      "type": "array"
+    },
+    "intent": {
+      "$ref": "#/$defs/Intent"
+    },
+    "pending_item_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "pending_question": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pending Question"
+    },
+    "session_id": {
+      "format": "uuid",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "snapshot_version": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Version"
+    },
+    "status": {
+      "$ref": "#/$defs/GraphStatus"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "trace_id": {
+      "format": "uuid",
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "turn_id": {
+      "format": "uuid",
+      "title": "Turn Id",
+      "type": "string"
+    },
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_id",
+    "session_id",
+    "turn_id",
+    "trace_id",
+    "intent",
+    "budgets",
+    "status"
+  ],
+  "title": "GraphState",
+  "type": "object"
+}

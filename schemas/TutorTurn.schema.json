@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    },
+    "Terminal": {
+      "enum": [
+        "waiting_student",
+        "completed",
+        "cancelled",
+        "failed"
+      ],
+      "title": "Terminal",
+      "type": "string"
+    },
+    "TutorState": {
+      "enum": [
+        "explain",
+        "attempt",
+        "hint",
+        "self_explain",
+        "transfer",
+        "close"
+      ],
+      "title": "TutorState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``TutorTurn`` — um turno principal por chamada com terminal de\ninvocação explícito (mapa §4/§8).",
+  "properties": {
+    "citations": {
+      "items": {
+        "maxLength": 160,
+        "minLength": 1,
+        "pattern": "^doc:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@[1-9][0-9]*:p[1-9][0-9]*:b[1-9][0-9]*$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Citations",
+      "type": "array"
+    },
+    "hint_level": {
+      "maximum": 3,
+      "minimum": 0,
+      "title": "Hint Level",
+      "type": "integer"
+    },
+    "item_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "next_state": {
+      "$ref": "#/$defs/TutorState"
+    },
+    "objective": {
+      "$ref": "#/$defs/TutorState"
+    },
+    "skill_id": {
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+      "title": "Skill Id",
+      "type": "string"
+    },
+    "skill_version": {
+      "minimum": 1,
+      "title": "Skill Version",
+      "type": "integer"
+    },
+    "terminal": {
+      "$ref": "#/$defs/Terminal"
+    },
+    "text": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "skill_id",
+    "skill_version",
+    "objective",
+    "text",
+    "hint_level",
+    "next_state",
+    "terminal"
+  ],
+  "title": "TutorTurn",
+  "type": "object"
+}

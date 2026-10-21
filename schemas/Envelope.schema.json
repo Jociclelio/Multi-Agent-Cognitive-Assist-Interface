@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "description": "Os 11 artefatos obrigatórios da tabela do mapa §4.",
+      "enum": [
+        "SourceRef",
+        "AcademicFact",
+        "EvidencePack",
+        "MemoryPack",
+        "LearningItem",
+        "TutorTurn",
+        "Assessment",
+        "TopicState",
+        "StudyDemand",
+        "ScheduleProposal",
+        "Operation"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "EnvelopeStatus": {
+      "enum": [
+        "pending",
+        "running",
+        "waiting_student",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "EnvelopeStatus",
+      "type": "string"
+    },
+    "ErrorCode": {
+      "description": "Os 12 códigos de erro do mapa §4.",
+      "enum": [
+        "SCHEMA_INVALID",
+        "SOURCE_UNRESOLVED",
+        "AMBIGUOUS_INPUT",
+        "VERSION_CONFLICT",
+        "TOOL_DENIED",
+        "MODEL_NOT_ADMITTED",
+        "NO_EVIDENCE",
+        "RESOURCE_LIMIT",
+        "TIMEOUT",
+        "UNKNOWN_EFFECT",
+        "CANCELLED",
+        "INTERNAL_FAILURE"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    },
+    "SenderRole": {
+      "description": "Papéis lógicos (mapa §1/§4). O papel é atribuído pelo dispatcher a\npartir do contexto autenticado local — nunca lido do payload.",
+      "enum": [
+        "curator",
+        "librarian",
+        "tutor",
+        "monitor",
+        "planner",
+        "system",
+        "user"
+      ],
+      "title": "SenderRole",
+      "type": "string"
+    },
+    "TypedError": {
+      "additionalProperties": false,
+      "description": "Erro tipado do mapa §4: código, mensagem ao usuário, retentabilidade e\nreferência de diagnóstico local.",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "diagnostic": {
+          "default": "eduagent/graph.py",
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Diagnostic",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "TypedError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Envelope comum de mensagem/artefato (mapa §4).\n\n``sender_role`` é atribuído pelo dispatcher a partir do contexto\nautenticado local; payload externo não muda papel/permissões (mapa §4).",
+  "properties": {
+    "artifact_type": {
+      "$ref": "#/$defs/ArtifactType"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TypedError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parent_task_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Task Id"
+    },
+    "payload_ref": {
+      "$ref": "#/$defs/Ref"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sender_role": {
+      "$ref": "#/$defs/SenderRole"
+    },
+    "snapshot_version": {
+      "minimum": 0,
+      "title": "Snapshot Version",
+      "type": "integer"
+    },
+    "source_refs": {
+      "items": {
+        "maxLength": 160,
+        "minLength": 1,
+        "pattern": "^doc:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@[1-9][0-9]*:p[1-9][0-9]*:b[1-9][0-9]*$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/EnvelopeStatus"
+    },
+    "task_id": {
+      "format": "uuid",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "format": "uuid",
+      "title": "Trace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "trace_id",
+    "sender_role",
+    "artifact_type",
+    "snapshot_version",
+    "payload_ref",
+    "status"
+  ],
+  "title": "Envelope",
+  "type": "object"
+}

@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "ErrorCode": {
+      "description": "Os 12 códigos de erro do mapa §4.",
+      "enum": [
+        "SCHEMA_INVALID",
+        "SOURCE_UNRESOLVED",
+        "AMBIGUOUS_INPUT",
+        "VERSION_CONFLICT",
+        "TOOL_DENIED",
+        "MODEL_NOT_ADMITTED",
+        "NO_EVIDENCE",
+        "RESOURCE_LIMIT",
+        "TIMEOUT",
+        "UNKNOWN_EFFECT",
+        "CANCELLED",
+        "INTERNAL_FAILURE"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Erro tipado do mapa §4: código, mensagem ao usuário, retentabilidade e\nreferência de diagnóstico local.",
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/ErrorCode"
+    },
+    "diagnostic": {
+      "default": "eduagent/graph.py",
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Diagnostic",
+      "type": "string"
+    },
+    "message": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "retryable"
+  ],
+  "title": "TypedError",
+  "type": "object"
+}

@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "DemandKind": {
+      "enum": [
+        "practice",
+        "review",
+        "flashcard",
+        "other"
+      ],
+      "title": "DemandKind",
+      "type": "string"
+    },
+    "DurationStatus": {
+      "enum": [
+        "confirmed",
+        "estimated"
+      ],
+      "title": "DurationStatus",
+      "type": "string"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``StudyDemand`` — demanda de estudo (mapa §4/§9/§15.3). ``deadline``\né ``PartialDate``: prazo só de dia não ganha horário automático (§6.3).",
+  "properties": {
+    "deadline": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "format": "date-time",
+          "type": "string"
+        }
+      ],
+      "title": "Deadline"
+    },
+    "demand_id": {
+      "format": "uuid",
+      "title": "Demand Id",
+      "type": "string"
+    },
+    "dependencies": {
+      "items": {
+        "$ref": "#/$defs/Ref"
+      },
+      "maxItems": 64,
+      "title": "Dependencies",
+      "type": "array"
+    },
+    "duration_minutes": {
+      "exclusiveMinimum": 0,
+      "maximum": 10080,
+      "title": "Duration Minutes",
+      "type": "integer"
+    },
+    "duration_status": {
+      "$ref": "#/$defs/DurationStatus"
+    },
+    "earliest": {
+      "format": "date-time",
+      "title": "Earliest",
+      "type": "string"
+    },
+    "evidence_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "kind": {
+      "$ref": "#/$defs/DemandKind"
+    },
+    "mandatory": {
+      "title": "Mandatory",
+      "type": "boolean"
+    },
+    "priority_class": {
+      "maximum": 3,
+      "minimum": 1,
+      "title": "Priority Class",
+      "type": "integer"
+    },
+    "topic_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Topic Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "demand_id",
+    "topic_ids",
+    "kind",
+    "duration_minutes",
+    "earliest",
+    "deadline",
+    "mandatory",
+    "priority_class",
+    "duration_status"
+  ],
+  "title": "StudyDemand",
+  "type": "object"
+}

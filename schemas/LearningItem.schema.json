@@ -1,0 +1,230 @@
+{
+  "$defs": {
+    "ItemKind": {
+      "enum": [
+        "quiz",
+        "flashcard",
+        "self_explanation",
+        "open_response"
+      ],
+      "title": "ItemKind",
+      "type": "string"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "description": "Referência ``ID + versão`` (mapa §4: \"campos ``*_ref`` contêm ID+versão,\nnão caminho produzido pelo LLM\"). Forma string aceita:\n``<uuid>@<versão>`` ou ``<prefixo>:<uuid>@<versão>``; separadores de\ncaminho (``/``, ``\\``, ``..``) não casam com o padrão e são rejeitados.",
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "artifact",
+                "item",
+                "plan",
+                "fact",
+                "answer",
+                "rubric",
+                "receipt",
+                "confirmation",
+                "demand",
+                "block",
+                "attempt",
+                "assessment",
+                "event",
+                "summary",
+                "operation",
+                "doc"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "Ref",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "``SourceRef`` — origem física resolvível no snapshot (mapa §4/§6.7).\nA resolvibilidade no snapshot é verificada em leitura (task de\narmazenamento); o contrato fixa a forma.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "block_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "doc_id": {
+          "format": "uuid",
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "offsets": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offsets"
+        },
+        "physical_page": {
+          "minimum": 1,
+          "title": "Physical Page",
+          "type": "integer"
+        },
+        "text_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Text Hash",
+          "type": "string"
+        },
+        "version_id": {
+          "format": "uuid",
+          "title": "Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "doc_id",
+        "version_id",
+        "physical_page",
+        "block_id",
+        "text_hash"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``LearningItem`` — item de prática com pergunta e solução separadas\n(mapa §4/§8): a solução vive atrás de ``expected_answer_ref``/``rubric_ref``;\no contrato carrega o ``prompt`` somente.",
+  "properties": {
+    "expected_answer_ref": {
+      "$ref": "#/$defs/Ref"
+    },
+    "family_id": {
+      "format": "uuid",
+      "title": "Family Id",
+      "type": "string"
+    },
+    "item_id": {
+      "format": "uuid",
+      "title": "Item Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ItemKind"
+    },
+    "prompt": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+    },
+    "published_at": {
+      "format": "date-time",
+      "title": "Published At",
+      "type": "string"
+    },
+    "rubric_ref": {
+      "$ref": "#/$defs/Ref"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "topic_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Topic Ids",
+      "type": "array"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "item_id",
+    "family_id",
+    "version",
+    "topic_ids",
+    "prompt",
+    "expected_answer_ref",
+    "rubric_ref",
+    "source_refs",
+    "kind",
+    "published_at"
+  ],
+  "title": "LearningItem",
+  "type": "object"
+}

@@ -22,6 +22,10 @@ dependencies = [
 [project.scripts]
 eduagent = "eduagent.cli:main"
 
+[dependency-groups]
+# Ferramentas de desenvolvimento/teste (fora do runtime do MVP).
+dev = ["pytest>=8,<9"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
