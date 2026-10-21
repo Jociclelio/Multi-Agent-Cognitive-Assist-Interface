@@ -51,13 +51,18 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de três células de tabela com script de comparação normalizada; a caracterização de sustentação do núcleo exigiu confronto com a seção "Dependências e prioridades" do fonte, mas o desvio encontrado foi apenas o mesmo ponto final tipográfico já corrigido nas tasks 001–004 (aqui em três pontos, incluindo o C14 antes da nota de ambiguidade).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (sd2/GLM-5.3-Flash, via ~/sd2-llm.sh)
+- Alvo: task 005; base `381e506`, entrega `1cf8eab` (correção de fidelidade, só o arquivo da task, 3+/3−), registro `68a771f` (HEAD, árvore limpa conferida antes da rodada). Modo da rodada: **paralelo** — revisão somente leitura, sem recursos compartilhados do sistema; os três revisores rodaram simultaneamente, cada um em sessão nova.
+- Avaliações:
+  - GLM-5.3-Flash (sd2) — 9,5/10 — aprovada; conferência normalizada independente das células C13–C15; achado A1 (baixo): travessão no lugar dos dois-pontos na nota da ambiguidade 5, divulgado e sem efeito de conteúdo.
+  - GPT-6 Luna (openai/gpt-6-luna) — 10/10 — aprovada; sem achados; todos os critérios verificados, diff da entrega limitado aos três pontos finais.
+  - MiMo v2.6 Flash (opencode/mimo-v2.6-flash-free) — 9/10 — aprovada; achados A1 (baixo): "allowlist" minúsculo vs "Allowlist" do fonte (posição na frase, convenção aceita em 001–004) e A2 (baixo): dois-pontos→travessão na nota da ambiguidade, ambos tipográficos e documentados.
+- Nota final: 9,5/10 — consenso dos três revisores de que C1–C5 estão comprovados com verificação independente (cada revisor rodou sua própria comparação normalizada e o verificador documental, `status: passed`); os únicos achados residuais são adaptações tipográficas conscientes, divulgadas em Evidências e coerentes com o padrão já fechado nas tasks 001–004, sem qualquer efeito sobre requisitos, números ou decisões pendentes.
+- Parecer: a especificação C13–C15 reproduz fielmente a tabela do fonte após a remoção dos três pontos finais acrescidos (correção mínima, commit de entrega isolado); IDs permanentes preservados, ambiguidade 5 permanece apenas como decisão pendente, caracterização de sustentação do núcleo desde o início coerente com "Dependências e prioridades" do fonte, documento-fonte intocado e commits de entrega/registro separados e íntegros.
+- Decisão: fechar
+- Reversão: não se aplica — entrega aprovada, sem reversão.
+- Próximo passo: liberar a task 006 (validar persistência, observabilidade e empacotamento — C16, C17 e C20), que depende desta.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
