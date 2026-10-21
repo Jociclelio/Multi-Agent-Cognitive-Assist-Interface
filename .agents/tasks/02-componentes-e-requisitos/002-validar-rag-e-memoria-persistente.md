@@ -1,6 +1,6 @@
 # Task 002: Validar especificação de RAG documental e memória persistente — C04 e C09
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 001
 Origem: nenhuma
 
@@ -51,13 +51,18 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual direta de duas células contra a tabela do próprio documento-fonte, com checagem automatizada por script isolado; a única decisão de julgamento foi classificar o ponto final acrescido como desvio tipográfico de fidelidade (corrigido em dif mínimo, seguindo o precedente da task 001) e não como reescrita legítima, além de manter o enquadramento de "medição de recall e sustentação" como critério verificável de avaliação futura, sem apresentá-lo como resultado medido.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: sd2/GLM-5.3-Flash (master do ciclo opt-in; sessão própria)
+- Alvo: base `05b213a26c2dea1257e6b2072a7e8fe935ee061c`; entrega `d980d80b0d7294995cad5b1f5c49280205f9c323`; registro `69d038ef0dbfebb61f1923d60b9186e78d087b21`; árvore limpa na rodada.
+- Modo da rodada: paralelo (revisão textual somente leitura, sem recursos compartilhados do sistema); três sessões novas, modelos distintos.
+- Avaliações: sd2/GLM-5.3-Flash — 9,5/10, aprovada; openai/gpt-6-luna — 9/10, aprovada; opencode/mimo-v2.6-flash-free — 9/10, aprovada. Sem revisores substituídos; nenhum falhou.
+- Nota final: 9/10 — Os três revisores reproduziram independentemente a conferência item a item de C04 e C09 contra `fase2/documentos/02_componentes_e_requisitos.md` (linhas 10 e 15), confirmando fidelidade literal após o dif mínimo da entrega (remoção de ponto final nas duas células); cadeia do núcleo conferida contra a linha 30 do fonte; documento-fonte intocado (`git diff` vazio contra a base); commits de entrega e registro separados e não vazios; verificar_documentos.py `passed` (checagem documental, não resultado medido). Divergência irrelevante entre revisores restringe-se à nota (9–9,5); achados menores convergentes: a evidência C1 cita script efêmero em `/tmp/opencode/check_002.py` não versionado (mitigado pela reprodução independente idêntica de dois revisores; impacto baixo, sem ação).
+- Parecer: todos os critérios C1–C5 comprovados por evidência independente dos três revisores; entrega fiel, mínima e corretamente registrada.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos a reverter (entrega de validação sem desvios).
+- Próximo passo: liberar a task 003 (`003-validar-tutor-monitor-e-estado-de-aprendizagem.md`, critérios C06/C07/C08).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/003-validar-tutor-monitor-e-estado-de-aprendizagem.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
+
+Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
