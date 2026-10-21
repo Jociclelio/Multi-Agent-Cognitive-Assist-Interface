@@ -1,6 +1,6 @@
 # Task 003: Contratos Pydantic, envelope e erros tipados (mapa §4)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 002
 Origem: nenhuma
 
@@ -12,10 +12,23 @@ Implementar em `eduagent/contracts.py` (e módulos afins) todos os contratos do 
 - `eduagent/contracts.py` (stub da task 001).
 
 ## Corretude
-- [ ] C1 — Todos os 11 tipos da tabela §4 implementados com os campos/invariantes listados; validação rejeita extra fields, datas ingênuas e `*_ref` com caminho.
-- [ ] C2 — Envelope e estado do grafo conforme §4; os 12 erros tipados existem com retryability e mensagem.
-- [ ] C3 — JSON Schemas exportados em `schemas/` e regeneráveis pelo build; teste mínimo de round-trip (instância válida → schema → valida).
-- [ ] C4 — Mapa intocado; commits separados; submódulo não tocado.
+- [x] C1 — Todos os 11 tipos da tabela §4 implementados com os campos/invariantes listados; validação rejeita extra fields, datas ingênuas e `*_ref` com caminho.
+- [x] C2 — Envelope e estado do grafo conforme §4; os 12 erros tipados existem com retryability e mensagem.
+- [x] C3 — JSON Schemas exportados em `schemas/` e regeneráveis pelo build; teste mínimo de round-trip (instância válida → schema → valida).
+- [x] C4 — Mapa intocado; commits separados; submódulo não tocado.
+
+## Execução
+- Modelo: GLM-5.3-Flash (via ~/sd2-llm.sh; provider `sd2`, model id `GLM-5.3-Flash`)
+- Base: 64a1e162510ab954130acce4b766804331a3ea42 (árvore limpa)
+- Entrega: 82bac2dd3600967358f1db42154913a3c7375834 (commit de entrega único; código + schemas + testes + lock)
+- Arquivos da entrega: `eduagent/contracts.py` (11 artefatos da tabela §4, envelope, `GraphState`, 12 erros tipados com `TypedError`/`EduAgentError`, `Ref` ID+versão, `SourceLocator`, `PartialDate`, permissões de ferramenta por papel), `eduagent/services/model_adapter.py` (dedupe do `ErrorCode` — passa a importar o enum canônico dos contratos — e negação de `tool_calls` sob papel permitido), `schemas/` (15 JSON Schemas + `index.json`, export determinístico), `tests/test_task003_contracts.py` (61 testes), `pyproject.toml`/`uv.lock` (grupo dev com `pytest>=8,<9`; pytest 8.4.2 e iniconfig 2.3.1 instalados via `uv lock`/`uv sync` — dependências de runtime inalteradas), `README-eduagent.md` (seção Contratos + build de schemas).
+- Evidências:
+  - **Suíte de aceite (C1–C3)**: `python -m pytest tests/ -q` → **61 passed** (~0,25 s): round-trip dos 11 artefatos + envelope + estado do grafo; `extra='forbid'` verificado para todos os 15 modelos via payload mínimo + campo intruso; datas ingênuas rejeitadas; `deadline` só de dia vira `date` (sem coerção para datetime) e datetime sem zona é rejeitado; `review_due` rejeita datetime (objeto e string com hora); `estimate != None` rejeitado (MVP, mapa §8); `Ref` rejeita `../../etc/passwd`, caminhos com `/`, prefixo inventado (`gadget:`) e versão 0; localizador de citação `doc:<uuid>@<v>:p<bloco>` validado por regex; fato `confirmed` sem autoridade do usuário rejeitado; ranks duplicados no `EvidencePack` rejeitados; spans da §15.2 (present exige offsets 0≤start≤end; missing exige span nulo); hint_level 1..3 só em turno de hint; plano OPTIMAL/FEASIBLE sem `validation.passed=True` rejeitado (mapa §9: sem validação não há aprovação); `Operation` committed sem `receipt_ref` rejeitado; envelope `failed` sem erro (e `completed` com erro) rejeitado; `GraphState` cancelled exige erro `CANCELLED`.
+  - **Erros tipados (C2)**: os 12 códigos do §4 presentes; cada `TypedError` carrega código, mensagem ao usuário, `retryable` e `diagnostic` local (`eduagent/...`); invariantes contratuais conferidos: `UNKNOWN_EFFECT` não-retentável (mapa §11), `VERSION_CONFLICT` retentável (reload do snapshot, §15.1); `EduAgentError.to_dict()` valida como `TypedError` (round-trip exceção→contrato).
+  - **Payload externo não muda papel/permissões (C2; absorve F1 da revisão da 002)**: `TOOL_PERMISSIONS` implementa a tabela de ferramentas do mapa §10; `ToolRequest`/`validate_tool_request` decidem pela papel explícito atribuído pelo dispatcher — teste `test_payload_external_sender_role_does_not_grant_permission` prova que payload alegando outro papel não autoriza (tutor propondo `assessment.check` → `TOOL_DENIED`). Aproveitando o exercício offline do adaptador, o gap do F1 foi fechado também em `model_adapter._validate_messages`: `tool_calls` sob papel permitido (`assistant`/`user`) agora produz `TOOL_DENIED` (antes a checagem de papel curto-circuitava a checagem de `tool_calls`); verificação offline: 4 cenários negados corretamente, mensagens normais inalteradas.
+  - **Schemas (C3)**: `python -m eduagent.contracts --export schemas` (15 schemas + índice, `sort_keys`, determinístico) e `--check` → "schemas/ atualizado"; teste de regeneração byte a byte em diretório temporário (`test_exported_schemas_match_regeneration`) e de sincronia do `schemas/` versionado (`test_committed_schemas_are_current_in_repo`); round-trip instância→JSON→`jsonschema` Draft 2020-12 valida para os 15 modelos (`jsonschema` 4.26.0 já presente no lock, sem dependência nova).
+  - **Estriteza extra (C1)**: `StrictInt`/`StrictBool` em todos os campos numéricos/booleanos — `bool→1` e `"3"→3` rejeitados (`test_numeric_and_boolean_strictness`); strings ISO-8601 canônicas seguem aceitas para datetime com zona/UUID/data parcial via before-validators explícitos (mapa §4: "datetimes ISO-8601 com zona/UTC").
+  - **Intocabilidade (C4)**: `fase2/documentos/04_mapa_completo_do_sistema.md`, plano 04 e submodule `docs/playground-llmagenticsystem` sem qualquer alteração (`git status` limpo entre commits; `git submodule status` inalterado). Temporários em `/tmp/opencode`.
 
 ## Notas
 
@@ -23,7 +36,7 @@ Implementar em `eduagent/contracts.py` (e módulos afins) todos os contratos do 
 4/10 — Muitos contratos com invariantes finos (spans, confirmações, supersedes); risco de omissão de campo.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+4/10 — O volume de contratos foi o principal custo (11 artefatos + envelope + estado + 12 erros, ~1.300 linhas), mas o mapa §4/§15.2 é preciso e reduziu ambiguidade; enums e nomes de ação não fixados pelo mapa (kinds de evento, ações de `Operation`, statuses de envelope) foram definidos como defaults de ensaio documentados no docstring. Dois pontos exigiram cuidado real: (1) o requisito "datas parciais sem coerção para datetime" precisa de before-validators próprios — o modo lax do Pydantic 2.14 aceitava `datetime` em campo `date` e `bool`/`"3"` em campos int, contornando validadores `after`; resolvido com `StrictInt`/`StrictBool` e validadores `before` explícitos (o `strict=True` integral foi descartado porque rejeitaria as strings ISO-8601 que o próprio mapa exige aceitar); (2) a forward reference `MemoryPack→TopicState` (ordem da tabela §4) exigiu `model_rebuild()`. A absorção do F1 no adaptador foi encontrada por acaso ao reexercitar `_validate_messages` offline — o gap real (`tool_calls` sob papel permitido) não era visível só lendo o gate da 002.
 
 ### Revisão
 - Orquestrador: —
