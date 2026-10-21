@@ -1,6 +1,6 @@
 # Task 010a: Correção da 010 — verificação exata, corte de fontes e correção sucessiva
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 010
 Origem: 010 (correção — decisão `corrigir`, 7/10, entrega `e106baf` preservada)
 
@@ -50,13 +50,16 @@ Manter commits SEPARADOS (entrega e registro), mapa `fase2/documentos/04_mapa_co
 5/10 — As correções em si são localizadas, mas três pontos exigiram cuidado: (1) o rigor numérico sem criar falso negativo (datas normalizadas por valor para não rejeitar data presente em formato distinto; igualdade numérica preserva "7" vs "7,0"); (2) alinhar `_apply_corrections` sem quebrar B6, que depende de `trigger_ref` — a solução consumiu as três refs emitidas (`trigger_ref`, `artifact_ref`, `old_fact_ref`) em vez de trocar uma pela outra; (3) provar a reconstituição dentro do commit idempotente: a sonda direta com `compute_topic_states` vazio não discriminava (statements vazios também não escrevem), então a regressão R9 usa falha injetada na projeção para provar atomicidade (rollback total) e incremento único de revisão. Descoberta de execução: `preview_delete` com ID inexistente não reproduzia `TypeError` na versão atual — reproduzia no-op silencioso; a recusa tipada `SOURCE_UNRESOLVED` cobre ambos (e também `delete_data`, que antes aplicava nada e devolvia sucesso).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — master do ciclo; rodada **paralela** (leitura de código/testes sem disputa de recursos compartilhados: sem build concorrente, GPU ou portas; cada revisor em sessão nova).
+- Alvo: base `c3f4c70` (entrega da 010 `e106baf` preservada); entrega `fd3e359` (context.py, services/memory.py, test_task010_memory_context.py); registro `7bd320e`; HEAD em `7bd320e` com árvore limpa; mapa e submodule sem diff em `c3f4c70..7bd320e` (confirmado pelos três revisores).
+- Avaliações: **sd2/GLM-5.3-Flash 9/10 — aprovada** (sondas próprias em /tmp/opencode + suíte integral 345 passed reproduzida); **openai/gpt-6-luna 7/10 — inconclusiva** (não executou a suíte: rodou pytest com interpretador sem `.venv` e falhou a coleta por `rank_bm25` ausente — limitação ambiental, não defeito da entrega; nenhuma sonda de código contradita, C1/C2 parcialmente provados por sondas próprias, C4 verificado por Git); **opencode/beam-free 9/10 — aprovada** (suíte focada 32 passed e integral 345 passed via `.venv/bin/python`, sondas de C1 reproduzidas, R4–R8 verdes). Quórum de três modelos distintos cumprido; nenhum substituto necessário.
+- Síntese: os achados médios da revisão da 010 (substring numérico, prefixo em `_fit_sources`, percurso de correção-substituição) estão corrigidos com regressões reais R1–R9, provadas por três execuções independentes da suíte (executor, GLM e Beam — 345 passed) e por sondas convergentes de dois revisores. O achado A1 de Luna ("rank_bm25 ausente") foi resolvido como alarme ambiental: Beam reproduziu a suíte no `.venv` e registrou explicitamente que a execução exige esse interpretador, não sendo defeito da entrega. Resíduos de baixa severidade registrados por GLM, sem violar o prompt nem o §7: A-01 mapa de opostos de polaridade/estado cobre só `correct`↔`incorrect` (negação cobre o caso testado em R3); A-02 números dentro de datas podem servir de suporte numérico (resíduo herdado do desenho, coerente com o pedido); A-03 janela de negação heurística (2 palavras/32 caracteres), conservadora e documentada. Divergência Luna × GLM/Beam era só de ambiente de execução, não de fundo.
+- Nota final: **9/10** — todos os critérios obrigatórios C1–C4 provados com evidência reproduzível e confirmação independente; resíduos documentados como dívida de baixa severidade, não bloqueantes.
+- Parecer: fechada — os cinco itens do prompt implementados, suíte integral verde (345 passed, B/X/S/D/P intactos), mapa e submodule intocados, commits de entrega e registro separados, nada apresentado como resultado medido.
+- Decisão: **fechar**
+- Reversão: não se aplica — entrega aprovada.
+- Próximo passo: task 011 (`.agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md`); família 010 resolvida por subtasks.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
