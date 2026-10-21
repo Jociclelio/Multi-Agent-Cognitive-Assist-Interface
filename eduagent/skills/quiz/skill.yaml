@@ -1,0 +1,16 @@
+# Stub declarativo da skill (mapa §8: id, version, tasks, input_schema,
+# preconditions, steps, allowed_tools, output_schema, postconditions,
+# stop_conditions, max_calls, cases). Preenchido na task 008; não é catálogo
+# final. Hash/version registrados quando implementado.
+id: quiz
+version: "0.0.0-stub"
+tasks: []
+input_schema: {}
+preconditions: []
+steps: []
+allowed_tools: []
+output_schema: {}
+postconditions: []
+stop_conditions: []
+max_calls: null
+cases: []

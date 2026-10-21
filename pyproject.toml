@@ -1,0 +1,41 @@
+[project]
+name = "eduagent"
+version = "0.1.0"
+description = "EduAgent-OS v0.1 — núcleo textual local (mapa normativo: fase2/documentos/04_mapa_completo_do_sistema.md)"
+readme = "README-eduagent.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary-Academic" }
+dependencies = [
+    "langgraph>=0.4,<2",
+    "pydantic>=2.9,<3",
+    "docling>=2.31,<3",
+    "easyocr>=1.7,<2",
+    "sentence-transformers>=3.3,<6",
+    "flagembedding>=1.3,<2",
+    "ortools>=9.11,<10",
+    "icalendar>=6.1,<7",
+    "rank-bm25>=0.2.2,<1",
+    "torch>=2.6,<3",
+    "torchvision>=0.21,<1",
+]
+
+[project.scripts]
+eduagent = "eduagent.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["eduagent"]
+
+# Torch CPU: build local textual (mapa §1-§3); sem GPU assumida.
+# Escolha de ambiente para o MVP local — não é um resultado medido.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
