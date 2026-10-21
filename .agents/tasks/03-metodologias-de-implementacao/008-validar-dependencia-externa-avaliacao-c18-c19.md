@@ -1,6 +1,6 @@
 # Task 008: Validar dependência externa — avaliação experimental (C18/C19)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 007
 Origem: nenhuma
 
@@ -50,13 +50,20 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não ante
 1/10 — Conferência textual direta de uma linha de tabela contra o texto já extraído na task; correspondência integral, sem necessidade de correção. Único cuidado: distinguir ajuste de caixa tipográfica de desvio de fidelidade e registrar a pendência das etapas 6–7 sem antecipar design experimental.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: task-master GLM-5.3-Flash (provider `sd2`), ciclo opt-in `008-validar-dependencia-externa-avaliacao-c18-c19`.
+- Alvo: esta task; base `c442af31484c45c23fca4d440bed6b450b4d48f5`; sem commit de entrega (nenhuma correção de fidelidade necessária); commit de registro `473f855712a7db710d4e83d061e4ffd5eea45fff` (única alteração: este arquivo).
+- Modo da rodada: **paralelo** — conferência textual pura, sem uso de recursos compartilhados do sistema (build, portas, hardware); três revisores acionados simultaneamente, cada um em sessão nova, com o mesmo caminho/base/SHAs e sem acesso aos pareceres dos demais.
+- Avaliações (quórum de três modelos distintos, todos aprovam):
+  1. sd2/GLM-5.3-Flash — nota 9,5/10: fidelidade da linha 28 confirmada por leitura independente; C1–C3 verificados diretamente (incl. `verificar_documentos.py` reexecutado, `passed`); sem achados relevantes; desconto apenas procedural (ausência de commit de entrega é correta; C2 é critério de ausência).
+  2. openai/gpt-6-luna — nota 10/10: correspondência item a item confirmada; pendência das etapas 6–7 preservada sem antecipação; registro altera apenas a task; recomendou fechar.
+  3. opencode/mimo-v2.6-flash-free — nota 9,5/10: fidelidade confirmada; diferenças de caixa corretamente divulgadas como ajuste tipográfico; reflog sem amend/reset/force-push; ressalva de cautela: identidade do executor é autodeclarada (não verificável pelo repositório), sem prejuízo aos critérios.
+- Síntese: não houve divergência essencial entre os três pareceres — todos confirmam correspondência integral da decisão C18/C19 com a linha 28 do fonte, manutenção da dependência externa (etapas 6–7) como pendência, IDs permanentes e isolamento do commit de registro. Achados foram apenas observações menores, sem ação.
+- Nota final: 9,7/10 — os três critérios obrigatórios foram comprovados por evidência independente dos três revisores; a execução foi minimalista e fiel ao escopo da task, sem nenhum acréscimo além do fonte.
+- Parecer: entrega aprovada; nada a corrigir, reverter ou repartir.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos (nenhum commit de entrega a reverter).
+- Próximo passo: liberar a task 009 (`.agents/tasks/03-metodologias-de-implementacao/009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md`), última da família.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/03-metodologias-de-implementacao/009-consolidar-parametros-etapa-4-limites-bibliograficos-e-cobertura.md","family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)
