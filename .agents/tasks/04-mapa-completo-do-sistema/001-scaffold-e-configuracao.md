@@ -1,6 +1,6 @@
 # Task 001: Scaffold do projeto e configuração (mapa §3)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: nenhuma
 Origem: nenhuma
 
@@ -42,13 +42,18 @@ Restrições: mapa intocado; defaults são escolhas de ensaio, não resultados m
 3/10 — Transcrição dos defaults foi mecânica, mas a resolução do lock exigiu depuração: `[tool.uv.sources]` para o índice CPU do PyTorch foi ignorado enquanto `torch` era dependência apenas transitiva (lock saía com stack CUDA do PyPI); foi necessário declarar `torch`/`torchvision` como dependências diretas e regerar `uv.lock`. Cancelamento e repetição do `uv sync` por mudança de lock consumiram tempo. Nenhuma lógica implementada (stubs), conforme escopo.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — task-master do ciclo opt-in. Rodada **paralela** (padrão): verificação de leitura/config, sem uso exclusivo de recursos compartilhados; revisores instruídos a não escrever na árvore.
+- Alvo: entrega `bf5b812` (43 arquivos: scaffold, config, uv.lock, stubs) e registro `f90f2de` (apenas task.md); base `8e5c56b`; HEAD `f90f2de`, árvore limpa.
+- Avaliações (quórum de três modelos distintos, sem falhas nem substituições):
+  - `sd2/GLM-5.3-Flash` — 9,5/10, aprovada. Defaults 25/25 conferidos por parser YAML, zero divergências; pins do lock idênticos às Evidências. Achado A1 (baixo): `data/<user_id>/` criado como diretório literal com colchetes angulares (placeholder) — decidir destino na task 004; A2 informativo: `cli.py` stub levanta NotImplementedError (escopo).
+  - `openai/gpt-6-luna` — 9/10, aprovada. Sem achado relevante; ressalva: instalação/smoke test aceitos com base nas evidências registradas, sem repetição independente.
+  - `opencode/mimo-v2.6-flash-free` — 9,5/10, aprovada. Versões do venv conferidas via importlib.metadata — idênticas ao lock e ao relato; 25/25 defaults corretos; observações sem impacto (contagem "38/38" não reproduzível como número exato, porém nenhum item do §3 ausente; .python-version 3.12 dentro de "3.11+").
+- Nota final: 9/10 — scaffold fiel ao mapa §3 com defaults verificados por dois revisores de forma independente (parser YAML e importlib.metadata), pins reais, commits separados, mapa/plano/submódulo intocados. Deduções: placeholder literal `data/<user_id>/` (A1, sem efeito nesta task) e verificação de runtime apoiada no ambiente do executor (nenhum revisor reexecutou uv sync, por restrição).
+- Parecer: C1–C4 comprovados por evidência direta e independente. Registro de incidente de processo: a primeira execução do ciclo retornou antes de commitar (aguardava `uv sync` em background); uma retomada manual via subagente e a continuação da sessão original se sobreporam sem duplicação — os commits existentes são únicos e íntegros (verificado pelo master e pelo revisor GLM); nenhuma reexecução de trabalho ocorreu. Divergências entre revisores: nenhuma essencial.
+- Decisão: fechar — todos os critérios obrigatórios comprovados; libera a task 002.
+- Reversão: não se aplica.
+- Próximo passo: task 002 (manifesto/hardware e gate de modelo). A task 004 deve decidir o destino do placeholder `data/<user_id>/` (achado A1) — anotado no prompt da 004.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/002-manifesto-hardware-e-gate-de-modelo.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
