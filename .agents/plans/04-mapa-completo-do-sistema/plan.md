@@ -1,6 +1,6 @@
 # Plano: Implementação do EduAgent-OS v0.1 (núcleo textual local)
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: aprovado — tasks derivadas (001–017, ordem da sequência do mapa §13); execução pendente de início do ciclo
 
 ## Objetivo
 
@@ -116,5 +116,24 @@ Aceite funcional do mapa §13.235, verificável por inspeção/execução:
   independentemente (mapa §3.1).
 
 ## Tasks
+| Ordem | Task | Cobertura (mapa) | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-scaffold-e-configuracao.md](../../tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md) | §3 stack/diretórios/config | nenhuma | pendente |
+| 2 | [002-manifesto-hardware-e-gate-de-modelo.md](../../tasks/04-mapa-completo-do-sistema/002-manifesto-hardware-e-gate-de-modelo.md) | §3.1, §13.1 | 001 | pendente |
+| 3 | [003-contratos-pydantic-e-erros-tipados.md](../../tasks/04-mapa-completo-do-sistema/003-contratos-pydantic-e-erros-tipados.md) | §4 | 002 | pendente |
+| 4 | [004-armazenamento-ddl-migracoes-snapshot.md](../../tasks/04-mapa-completo-do-sistema/004-armazenamento-ddl-migracoes-snapshot.md) | §5, §15.1 | 003 | pendente |
+| 5 | [005-commit-idempotente-e-recuperacao.md](../../tasks/04-mapa-completo-do-sistema/005-commit-idempotente-e-recuperacao.md) | §11, §13.2 | 004 | pendente |
+| 6 | [006-ingestao-docling-ocr-proveniencia-fatos.md](../../tasks/04-mapa-completo-do-sistema/006-ingestao-docling-ocr-proveniencia-fatos.md) | §6.1–3, §13.3 | 005 | pendente |
+| 7 | [007-rag-bm25-denso-rrf-citacao-abstinencia.md](../../tasks/04-mapa-completo-do-sistema/007-rag-bm25-denso-rrf-citacao-abstinencia.md) | §6.4–8, §13.4 | 006 | pendente |
+| 8 | [008-skills-yaml-e-tutor.md](../../tasks/04-mapa-completo-do-sistema/008-skills-yaml-e-tutor.md) | §8 tutor/skills, §13.5 | 007 | pendente |
+| 9 | [009-monitor-e-redutor-deterministico.md](../../tasks/04-mapa-completo-do-sistema/009-monitor-e-redutor-deterministico.md) | §8 monitor/redutor, §15.2 | 008 | pendente |
+| 10 | [010-memoria-temporal-e-contexto.md](../../tasks/04-mapa-completo-do-sistema/010-memoria-temporal-e-contexto.md) | §7, §13.6 | 009 | pendente |
+| 11 | [011-demandas-atividades-e-politica-evidencia.md](../../tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md) | §15.3, §15.4 | 010 | pendente |
+| 12 | [012-solver-cpsat-lexicografico-e-verificador.md](../../tasks/04-mapa-completo-do-sistema/012-solver-cpsat-lexicografico-e-verificador.md) | §9 solver, §15.5, §13.7 | 011 | pendente |
+| 13 | [013-ics-preview-confirmacao-outbox.md](../../tasks/04-mapa-completo-do-sistema/013-ics-preview-confirmacao-outbox.md) | §9 ICS/confirmação | 012 | pendente |
+| 14 | [014-grafo-langgraph-intencoes-rotas-checkpoints.md](../../tasks/04-mapa-completo-do-sistema/014-grafo-langgraph-intencoes-rotas-checkpoints.md) | §10, §12 limites, §13.8 | 013 | pendente |
+| 15 | [015-cli-e-api-loopback.md](../../tasks/04-mapa-completo-do-sistema/015-cli-e-api-loopback.md) | §12 CLI/API/traces | 014 | pendente |
+| 16 | [016-conectores-opcionais-web-e-sync.md](../../tasks/04-mapa-completo-do-sistema/016-conectores-opcionais-web-e-sync.md) | §6 web, §9 sync, §13.9 | 015 | pendente |
+| 17 | [017-ensaio-longitudinal-congelamento-e-relatorio.md](../../tasks/04-mapa-completo-do-sistema/017-ensaio-longitudinal-congelamento-e-relatorio.md) | §13.8, §13.10, §13.235 | 016 | pendente |
 
-<A preencher pelo task-writer.>
+Sequência segue o mapa §13 com gates de aceite por etapa (plano, Abordagem); etapas grandes de §13 foram divididas (13.1→001/002; 13.2→003/004/005; 13.5→008/009; 13.7→012/013; 13.8→014/015) mantendo a ordem. Pendências que nenhuma task decide: reranker (007 registra; seleção em validação, mapa §6.6); conector de busca (016: sem ele `CONNECTOR_DISABLED`); modo non-thinking vs thinking (002: perfil congelado no manifesto); timezone `America/Sao_Paulo` (001/017: só após confirmação); suporte a JSON schema do fork (002: verificar por hash). BKT fora do MVP (009 não implementa). Defaults numéricos são escolhas de ensaio, nunca resultados medidos.
