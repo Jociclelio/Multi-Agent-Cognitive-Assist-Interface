@@ -1,6 +1,6 @@
 # Plano: Metodologias de implementação — decisões reconciliadas da etapa 3
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Consolidar, em plano acionável, a implementação da primeira versão do EduAgent-OS segundo as decisões metodológicas reconciliadas no documento-fonte (síntese da etapa 3, requisitos C01–C20), sem reabrir a pesquisa: os métodos já foram selecionados e os conflitos de parâmetros já foram resolvidos para a etapa 4.

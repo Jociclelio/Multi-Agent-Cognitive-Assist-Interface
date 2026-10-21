@@ -1,6 +1,6 @@
 # Plano: Relatório técnico da fase 2 — manutenção, compilação e entrega
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Manter, compilar e entregar o relatório científico da fase 2 (`fase2/fase2_metodologia.tex` → `fase2_metodologia.pdf`), garantindo que o texto siga o template, as convenções de citação e que a entrega publicada (PDFs, verificação documental, SHA256, ZIP) esteja íntegra e sincronizada com o fonte.

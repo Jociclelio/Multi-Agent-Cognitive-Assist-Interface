@@ -1,6 +1,6 @@
 # Plano: Síntese da pesquisa metodológica de testes (Etapa 7)
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Consolidar a pesquisa metodológica de testagem (documentos 07a/07b) em um documento de síntese (`fase2/documentos/07_metodologias_de_testagem.md`) que registre os métodos selecionados para cada família de saída/falha (O01–O18, F01–F24, C18/C19), as correções que a pesquisa exige em etapas anteriores e as decisões de implementação do testbed — mantendo o caráter de especificação (pesquisa dirigida), sem apresentá-lo como revisão sistemática ou resultado experimental medido.

@@ -1,6 +1,6 @@
 # Plano: Protocolo de avaliação de saídas e fragilidades (Etapa 6)
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Materializar o protocolo de avaliação definido em `fase2/documentos/06_protocolo_de_avaliacao.md`: preparar dados e desenho experimental, construir a matriz de avaliação por saída (O01–O18), o catálogo de testes de falha (F01–F24) e os produtos de avaliação (manifesto congelado, datasets/anotações, logs, métricas com denominadores, relatório de limitações), respondendo às questões Q1–Q3 (integração MA vs. agente único; custo/qualidade da compactação e seleção de skills; contenção de falhas por contratos/validação/limites).

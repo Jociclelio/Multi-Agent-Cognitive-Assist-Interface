@@ -1,6 +1,6 @@
 # Plano: Implementação do EduAgent-OS v0.1 (núcleo textual local)
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 

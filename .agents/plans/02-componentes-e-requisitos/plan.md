@@ -1,6 +1,6 @@
 # Plano: Componentes faltantes e requisitos (Etapa 2)
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no sentido técnico do documento-fonte (não especificados na proposta, não ausência comprovada em implementação), com IDs permanentes (C01–C20) que ligam pesquisa, arquitetura e testes, suas características exigidas, critérios verificáveis, dependências/prioridades e as ambiguidades que exigem decisão antes da implementação.

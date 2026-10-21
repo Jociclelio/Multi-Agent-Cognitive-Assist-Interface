@@ -1,6 +1,6 @@
 # Plano: Materializar a Etapa 5 — fluxos, saídas esperadas e pontos de falha do EduAgent-OS
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Consolidar `05_fluxos_resultados_e_falhas.md` como a referência de fluxos operacionais, qualidade de saídas e catálogo de falhas do EduAgent-OS, garantindo que o material esteja coerente com a especificação v0.1 (etapa 4), registrado no índice da entrega e rastreável (IDs W, O e F), sem apresentar nada como resultado medido.

@@ -1,6 +1,6 @@
 # Plano: Correções documentais pendentes da revisão externa (fase2)
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Executar a decisão **"corrigir"** da revisão externa de 2026-10-13 (registrada em `fase2/documentos/revisao_externa.md`): aplicar as cinco correções documentais delimitadas (itens 1–5 da seção "Decisão e encaminhamento") na árvore `fase2/`, preservando a entrega já avaliada (nota consolidada 8,3/10), sem reverter nada e sem reabrir decisões de arquitetura.

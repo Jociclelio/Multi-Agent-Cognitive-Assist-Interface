@@ -1,6 +1,6 @@
 # Plano: Auditoria de referências da metodologia (fase 2)
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Auditar as citações de `fase2/fase2_metodologia.tex` contra as fontes registradas nas pesquisas, produzindo `fase2/references.bib` consolidado e o relatório `fase2/documentos/10_auditoria_de_referencias.md`, com zero chaves citadas sem entrada e zero divergências de identidade bibliográfica (autor/título/ano/DOI/URL).

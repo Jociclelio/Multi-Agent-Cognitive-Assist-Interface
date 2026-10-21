@@ -1,6 +1,6 @@
 # Plano: Manutenção do índice e pacote de entrega da fase 2
 
-Estado: rascunho
+Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
 
 ## Objetivo
 Manter o pacote de entrega da fase 2 íntegro e sincronizado: o índice (`11_indice_da_entrega.md`) refletindo os documentos atuais, a entrega regenerável/empacotável de forma reprodutível e os checksums conferíveis.
