@@ -1,6 +1,6 @@
 # Task 005: Validar decisões de método — memória/contexto e planejamento (C09/C10 e C11)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 004
 Origem: nenhuma
 
@@ -49,13 +49,15 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não posi
 1/10 — Conferência textual direta de duas linhas de tabela, com correspondência exata em método, chaves e limite; o único cuidado foi separar a decisão de método de C10 ("recuperação antes de síntese") do posicionamento dele na cadeia do núcleo, que permanece pendente da etapa 2.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: sd2/GLM-5.3-Flash (task-master, ciclo opt-in)
+- Alvo: esta task; base `0322e40`; commit de entrega: nenhum ("não se aplica — sem artefatos", não houve desvio de fidelidade); commit de registro `2906d51` (único commit base→HEAD, somente este arquivo); árvore limpa; fonte normativo e submódulo intocados.
+- Modo da rodada: paralelo — conferência textual sem recursos compartilhados do sistema; três revisores independentes do pool fixo do ciclo, sessões novas.
+- Avaliações: sd2/GLM-5.3-Flash — 9/10, aprovada; openai/gpt-6-luna — 9/10, aprovada; opencode/mimo-v2.6-flash-free — 9/10, aprovada. Nenhum revisor falhou; sem substituições.
+- Nota final: 9/10 — fidelidade das linhas 22 e 23 do fonte confirmada por comparação textual independente (um revisor com script de normalização em `/tmp/opencode`); chaves confirmadas em `fase2/references.bib` (225, 296, 305, 313, 252); pendências de C10 e ambiguidade 3 preservadas; `verificar_documentos.py` passed; desconto pela natureza de registro documental da entrega.
+- Parecer: achados apenas baixos/informativos, pré-existentes na base e não imputáveis ao executor — (A1) a frase do Prompt "fronteira da etapa 2 (prazo/duração mal interpretados = erro upstream)" atribui à etapa 2 um limite que é texto da linha 23 da etapa 3; (A2) rótulos "Memória e gestão do contexto" e "Planejamento" abreviam nomes canônicos da etapa 2, coerente com as tasks 001–004 da família. Nenhum bloqueia; sem correção exigida.
+- Decisão: fechar — todos os critérios C1–C3 comprovados por evidência independente; pendências registradas, não resolvidas.
+- Reversão: não se aplica — sem artefatos a reverter.
+- Próximo passo: liberar task 006 (C12/C13/C14 — agenda/orquestração), dependência cumprida.
 
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/03-metodologias-de-implementacao/006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md","family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)

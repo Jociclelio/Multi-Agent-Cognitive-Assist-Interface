@@ -45,7 +45,7 @@ Consolidar, em plano acionável, a implementação da primeira versão do EduAge
 | 2 | [002-validar-decisao-ingestao-ontologia-c02-c03.md](../../tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md) | C02, C03 | 001 | fechada |
 | 3 | [003-validar-decisoes-recuperacao-curadoria-c04-c05.md](../../tasks/03-metodologias-de-implementacao/003-validar-decisoes-recuperacao-curadoria-c04-c05.md) | C04, C05 | 002 | liberada |
 | 4 | [004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md](../../tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md) | C06, C07, C08 | 003 | pendente |
-| 5 | [005-validar-decisoes-memoria-planejamento-c09-c10-c11.md](../../tasks/03-metodologias-de-implementacao/005-validar-decisoes-memoria-planejamento-c09-c10-c11.md) | C09, C10, C11 | 004 | pendente |
+| 5 | [005-validar-decisoes-memoria-planejamento-c09-c10-c11.md](../../tasks/03-metodologias-de-implementacao/005-validar-decisoes-memoria-planejamento-c09-c10-c11.md) | C09, C10, C11 | 004 | fechada |
 | 6 | [006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md](../../tasks/03-metodologias-de-implementacao/006-validar-decisoes-agenda-orquestracao-c12-c13-c14.md) | C12, C13, C14 | 005 | pendente |
 | 7 | [007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md](../../tasks/03-metodologias-de-implementacao/007-validar-decisoes-persistencia-observabilidade-c15-c16-c17.md) | C15, C16, C17 | 006 | pendente |
 | 8 | [008-validar-dependencia-externa-avaliacao-c18-c19.md](../../tasks/03-metodologias-de-implementacao/008-validar-dependencia-externa-avaliacao-c18-c19.md) | C18, C19 | 007 | pendente |
