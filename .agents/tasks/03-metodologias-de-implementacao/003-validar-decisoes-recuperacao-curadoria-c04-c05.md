@@ -1,6 +1,6 @@
 # Task 003: Validar decisões de método — recuperação e curadoria (C04 e C05)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 002
 Origem: nenhuma
 
@@ -23,16 +23,21 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 - `AGENTS.md` (raiz) — convenções do repositório.
 
 ## Corretude
-- [ ] C1 — As decisões de método para C04 e C05 nesta task correspondem item a item às linhas 18 e 19 do fonte (método selecionado, referências/chaves e limite de cada linha); desvios apenas tipográficos corrigidos em dif mínimo no arquivo desta task.
-- [ ] C2 — Nada acrescido além do fonte; a pendência de validação em português (C04) e o caráter opcional de C05 permanecem registrados, sem resolução ou reclassificação; reranker permanece opcional; IDs permanentes; nada apresentado como resultado medido.
-- [ ] C3 — O documento-fonte permanece intocado (`git diff` vazio em relação à base); correções limitadas ao arquivo desta task em dif mínimo; commits de entrega e de registro separados; sem commits vazios, amend ou force-push; submódulo não tocado.
+- [x] C1 — As decisões de método para C04 e C05 nesta task correspondem item a item às linhas 18 e 19 do fonte (método selecionado, referências/chaves e limite de cada linha); desvios apenas tipográficos corrigidos em dif mínimo no arquivo desta task.
+- [x] C2 — Nada acrescido além do fonte; a pendência de validação em português (C04) e o caráter opcional de C05 permanecem registrados, sem resolução ou reclassificação; reranker permanece opcional; IDs permanentes; nada apresentado como resultado medido.
+- [x] C3 — O documento-fonte permanece intocado (`git diff` vazio em relação à base); correções limitadas ao arquivo desta task em dif mínimo; commits de entrega e de registro separados; sem commits vazios, amend ou force-push; submódulo não tocado.
 
 ## Execução
-- Modelo: —
-- Base: —
-- Entrega: —
-- Arquivos da entrega: —
-- Evidências: —
+- Modelo: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime
+- Base: 2cba3921c72dc53ca2fde281560e0dce96db9d2b (branch `main`, árvore limpa)
+- Entrega: sem alteração de artefatos — a conferência não encontrou desvio de fidelidade; nenhuma correção no arquivo desta task nem em qualquer outro arquivo (task apenas de verificação; commit documental de registro único)
+- Arquivos da entrega: nenhum
+- Evidências:
+  - **C1 (fidelidade item a item, linhas 18 e 19 do fonte)** — Conferência textual automatizada (script isolado em `/tmp/opencode/check_003.py`, extração das linhas `| C04 |` e `| C05 |` de `fase2/documentos/03_metodologias_de_implementacao.md` — confirmadas nas linhas 18 e 19 — e dos bullets de decisão desta task, comparação após normalização NFC/aspas/travessões/minúsculas/espaços): C04 `método FIEL: True`, `refs FIEL: True`, `porquê FIEL (normalizado): True`; C05 `método FIEL: True`, `refs FIEL: True`, `porquê FIEL (normalizado): True`. **C04, campo a campo:** (1) método selecionado — "BM25 + BGE-M3 denso, RRF explícito e reranker opcional", idêntico ao fonte; (2) referências/chaves — `m3`, `rrf09`, `qdranthyb`, `bgerank`, mesmas quatro chaves, mesma ordem, todas presentes em `fase2/pesquisa/references_arquitetura.bib` (linhas 52, 74, 88 e 65 do `.bib`); (3) por quê e limite — "Recupera literais e paráfrases; parâmetros e benefício precisam de validação em português", idêntico ao fonte após normalização. **C05, campo a campo:** (1) método selecionado — "Curadoria com estados de conteúdo realmente acessado", idêntico ao fonte; (2) referências/chaves — `ytcaptions`, `mcpsec`, mesmas duas chaves, mesma ordem, presentes no `.bib` (linhas 163 e 125); (3) por quê e limite — "Metadados de vídeo não autorizam resumo da transcrição; provedor conectado é configurável", idêntico ao fonte após normalização. Diferenças literais mantidas sem correção, todas adaptações tipográficas de prosa pré-existentes no prompt da task na base: iniciais minúsculas em "recupera", "curadoria" e "metadados" na task (posição na frase, dentro do parêntese "por quê e limite:") contra maiúscula no início das células do fonte — mesmo padrão classificado como não-desvio nas tasks 001 e 002 desta família. Os rótulos dos bullets, "Recuperação" e "Curadoria (opcional)", são rótulos de agrupamento pré-existentes na base e não acrescentam requisito nem renomeiam os IDs; "Recuperação" nomeia a área do componente e "(opcional)" reproduz o caráter de conector opcional de C05 registrado na etapa 2, sem reclassificação.
+  - **C2 (nada acrescido além do fonte; nada como resultado medido; pendências preservadas)** — Varredura de números no texto da task: apenas numeração estrutural (número da task `003`, dependência `002`, IDs `C04`/`C05`/`C09`, referência à task `008` da etapa 2, numeração de linhas/escalas) e `25` de "BM25" — nome do método presente na própria célula do fonte; nenhum orçamento, parâmetro, métrica, número novo ou requisito acrescido (script: números fora do conjunto estrutural identificados e todos rastreados ao fonte ou à estrutura). A pendência de validação dos parâmetros de recuperação em português (C04) aparece no bullet apenas como limite do método ("parâmetros e benefício precisam de validação em português", reproduzindo a coluna "por quê e sob qual limite" do fonte) e permanece registrada como não resolvida: a questão aberta do plano segue íntegra (`.agents/plans/03-metodologias-de-implementacao/plan.md`, "Questões abertas": "Validação dos parâmetros de recuperação (C04) em português ainda pendente, conforme apontado no documento." — script: `plano mantém questão aberta C04 em português: True`); nenhuma validação foi executada nem proposta nesta task. C05 permanece conector opcional, sem reclassificação: coerente com a seção "Dependências e prioridades" do fonte da etapa 2 (`fase2/documentos/02_componentes_e_requisitos.md`: "C05 e a sincronização remota de C12 são conectores opcionais avaliados separadamente; ICS local de C12 é obrigatório no núcleo") e com a validação da etapa 2 (task 008). O reranker permanece explícito como "opcional" no bullet C04, sem promoção a obrigatório nem exclusão. A fronteira da etapa 2 (metadados de vídeo ≠ leitura de transcrição) permanece coerente: o limite do bullet C05 ("Metadados de vídeo não autorizam resumo da transcrição") reproduz a coluna de limite do fonte, que já reconcilia essa fronteira. IDs tratados apenas como C04/C05, permanentes, sem renomeação. Nenhuma frase apresenta a decisão como resultado medido.
+  - **C3 (fonte intocado; commits separados)** — Árvore limpa na base `2cba392` antes da execução (estado confirmado por `git status`); após o registro, `git diff` vazio para `fase2/documentos/03_metodologias_de_implementacao.md` e para o submódulo `docs/playground-llmagenticsystem` (não tocado); único arquivo alterado é esta task (registro). Sem commit de entrega (não houve correção de fidelidade); único commit documental de registro, sem amend/force-push/commits vazios. `.agents/` não é ignorado pelo Git (`git check-ignore -v` sem correspondência), dispensando `git add -f`.
+  - **Verificador do repositório (apoio)** — `python3 fase2/scripts/verificar_documentos.py` a partir da raiz: `status: "passed"`, `components: 20`, `missing_citations: []`, `local_links_checked: 39`, `delivery_pending: []` — integridade documental da fase 2 confirmada na base trabalhada. Limitação anotada: verificação documental (stdlib only), não constitui resultado medido nem validação experimental — em particular, não valida os parâmetros de recuperação de C04 em português, que permanece questão aberta do plano.
+- Pendências/bloqueios: nenhum bloqueio. Permanecem pendentes, sem resolução nesta task: validação de C04 em português (questão aberta da etapa 3 do plano); posicionamento de C10 na cadeia do núcleo; ambiguidades 1–6 da etapa 2; pesquisa específica das etapas 6–7 para C18–C19; feature flag da agenda remota.
 
 ## Notas
 
@@ -40,7 +45,7 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de duas linhas de tabela; cuidado em preservar o caráter opcional do reranker e de C05 e a pendência de validação em português.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+2/10 — Conferência textual de dois bullets contra duas linhas de tabela, com checagem automatizada por script isolado; as decisões de julgamento foram classificar as iniciais minúsculas ("recupera", "curadoria", "metadados") como adaptação tipográfica de prosa (não-desvio, mesmo padrão das tasks 001–002) e não transformar o limite "precisam de validação em português" em resolução da questão aberta, que permanece pendente no plano.
 
 ### Revisão
 - Orquestrador: —
