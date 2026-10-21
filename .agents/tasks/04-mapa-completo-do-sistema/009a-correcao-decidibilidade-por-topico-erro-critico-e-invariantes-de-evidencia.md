@@ -1,6 +1,6 @@
 # Task 009a: Correção — decidibilidade por tópico, erro crítico e invariantes de evidência (mapa §8, §15.2, §11)
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 009
 Origem: 009 — correção
 
@@ -27,20 +27,35 @@ Restrições: fonte normativa `fase2/documentos/04_mapa_completo_do_sistema.md` 
 - Task mãe: `009-monitor-e-redutor-deterministico.md` (execução, escolhas 1–7 e Revisão com os achados).
 
 ## Corretude
-- [ ] C1 — F2: sondas do revisor viram testes de regressão nas duas direções — (i) tópico A correta + critério de B indecidível: A segue a regra exata de §8 conforme o caso (interrompe/compõe por decisão no tópico A, não pelo `correctness` global); (ii) critério de A indecidível: tópico A `undecidable`, não elegível e sem atualização de competência (sem `last_attempt_at`/`independent_attempt_ids`); tópicos integralmente decididos do mesmo assessment continuam a atualizar estado.
-- [ ] C2 — F1: critério `critical` nível 0 presente + outro critério indecidível → estado volta a `mixed` (erro crítico aceito), teste ponta a ponta serviço+persistência; erro crítico assistido também volta a `mixed` (§8), regressão R3i continua verde.
-- [ ] C3 — F4: `level>0` sem span → abstinência/divergência formal (nunca `missing` com nível>0 nem `correct` sem evidência); invariantes de `evidence_kind` re-verificadas nos testes de contrato.
-- [ ] C4 — A2 (luna): `critical_criterion_ids` fora da rubrica publicada → recusa tipada ou abstinência documentada, sem commit de projeção; teste cobre o caso incompatível.
-- [ ] C5 — F3: retry de `check` com mesmo `operation_id`+digest após sucesso devolve o recibo anterior (não `SCHEMA_INVALID`); idem para `record_attempt` com `attempt_id` repetido; §11 respeitado.
-- [ ] C6 — F5/F6/A2 (GLM): tabela M8 cobre critério duplicado; ramo `len(rubric)!=1` testado; `last_attempt_at` populado a partir das tentativas mesmo sem avaliação aceita (`insufficient` mantido); reason da abstinência cita a descrição do critério.
-- [ ] C7 — Suíte integral verde (297 + regressões novas); `estimate=null` e BKT ausentes; mapa e submodule intocados; schemas sincronizados; commits entrega/registro separados.
+- [x] C1 — F2: sondas do revisor viram testes de regressão nas duas direções — (i) tópico A correta + critério de B indecidível: A segue a regra exata de §8 conforme o caso (interrompe/compõe por decisão no tópico A, não pelo `correctness` global); (ii) critério de A indecidível: tópico A `undecidable`, não elegível e sem atualização de competência (sem `last_attempt_at`/`independent_attempt_ids`); tópicos integralmente decididos do mesmo assessment continuam a atualizar estado.
+- [x] C2 — F1: critério `critical` nível 0 presente + outro critério indecidível → estado volta a `mixed` (erro crítico aceito), teste ponta a ponta serviço+persistência; erro crítico assistido também volta a `mixed` (§8), regressão R3i continua verde.
+- [x] C3 — F4: `level>0` sem span → abstinência/divergência formal (nunca `missing` com nível>0 nem `correct` sem evidência); invariantes de `evidence_kind` re-verificadas nos testes de contrato.
+- [x] C4 — A2 (luna): `critical_criterion_ids` fora da rubrica publicada → recusa tipada ou abstinência documentada, sem commit de projeção; teste cobre o caso incompatível.
+- [x] C5 — F3: retry de `check` com mesmo `operation_id`+digest após sucesso devolve o recibo anterior (não `SCHEMA_INVALID`); idem para `record_attempt` com `attempt_id` repetido; §11 respeitado.
+- [x] C6 — F5/F6/A2 (GLM): tabela M8 cobre critério duplicado; ramo `len(rubric)!=1` testado; `last_attempt_at` populado a partir das tentativas mesmo sem avaliação aceita (`insufficient` mantido); reason da abstinência cita a descrição do critério.
+- [x] C7 — Suíte integral verde (297 + regressões novas); `estimate=null` e BKT ausentes; mapa e submodule intocados; schemas sincronizados; commits entrega/registro separados.
 
 ## Execução
-- Modelo: _
-- Base: _
-- Entrega: _
-- Arquivos da entrega: _
-- Evidências: _
+- Modelo: GLM-5.3-Flash, provider `sd2` (`~/sd2-llm.sh`) — identidade informada pelo runtime do OpenCode.
+- Base: `db57f68785da24bfe88c96ef752fbc08d5c49981` (entrega da 009, PRESERVADA — sem reversão; HEAD de partida `2ff1bff35fdf16f9eaf958461a0a51c691d0b819`, árvore limpa).
+- Entrega: `563acd6e26a4f1adf53a1a1a2f701edafafa8e38`
+- Arquivos da entrega:
+  - `eduagent/contracts.py` — `Assessment.EvidenceKind.UNDECIDABLE` (§15.2 cita `undecidable` no rol de evidência) com invariantes: marcador não inferencial exige `level=0` e `response_span=null` (nunca inventar span para silêncio; fecha o caminho "nível>0 sem evidência" por construção — F4);
+  - `schemas/Assessment.schema.json` — schema regenerado (`python -m eduagent.contracts --export schemas`; `schemas_are_current('schemas')` → True);
+  - `eduagent/agents/monitor.py` — critério essencial indecidível EMITIDO como `evidence_kind='undecidable'` (nível 0 marcador, span nulo, motivo descritivo) em vez de omitido (F2); `level>0` sem span e proposta indecidível com span → divergência formal/abstinência (F4); reason da abstinência cita `RubricCriterion.description` (A2 GLM); ramo morto "nenhum critério decidível" removido;
+  - `eduagent/services/assessment.py` — erro crítico julgado POR CRITÉRIO (`_critical_error` sem gate pelo `correctness` global; marcador `undecidable` não conta — F1); decidibilidade/elegibilidade POR TÓPICO (`_topic_results`/`_topic_undecidable`/`_topic_correctness`; tópico com critério essencial indecidível não compõe/interrompe nem atualiza `last_attempt_at`/ids; tópicos decididos do mesmo assessment continuam — F2); `last_attempt_at` populado a partir das tentativas sem avaliação aceita, `insufficient` mantido (F6); retry idempotente de `check` por `operation_id` consultado ANTES das validações com reconstrução do resultado anterior (`_replay_check`) e de `record_attempt` por `operation_id` (`_replay_attempt`) ou `attempt_id` repetido (`_existing_attempt` + digest; payload diferente → `SCHEMA_INVALID`) — F3; validação de `critical_criterion_ids` contra a rubrica PUBLICADA do item (`_published_critical_ids`: resolve `items.rubric_ref` → evento `item_published` → `RubricCriterion`; exige igualdade com o conjunto `critical` publicado — recusa tipada, sem commit — A2 luna); consistência formal atualizada (qualquer `undecidable` por critério exige `correctness='undecidable'`);
+  - `eduagent/storage/repository.py` — `DomainStore.receipt_by_digest` para recuperar o recibo da operação committed pelo digest do payload (§11);
+  - `tests/test_task009_monitor_reducer.py` — tabela ampliada de 36 para 48 casos (M1–M16, R1–R11 incluindo R3a–R3m, S1–S4); fixture `World` publica itens com rubrica resolvível em evento `item_published` (como no sink da 008) e `assess` emite marcadores `undecidable`/abstinência fiéis ao Monitor;
+  - `tests/test_task003_contracts.py` — `test_assessment_undecidable_evidence_invariants` (C3).
+- Evidências de Corretude (comandos e resultados):
+  - `python -m pytest tests/test_task009_monitor_reducer.py -q` → 48 passed;
+  - `python -m pytest tests/ -q -p no:cacheprovider` → 310 passed (suíte integral; 297 da 009 + 13 novos: 12 na tabela da task + 1 de contrato);
+  - suíte em cópia isolada (`/tmp/opencode/009a-check` via `git archive HEAD` + `eduagent/`/`schemas/`/`tests/` da árvore de trabalho) → 309 passed, 1 skipped (smoke BGE-M3 sem pesos na cópia — declarado);
+  - `python -m eduagent.contracts --check` e `schemas_are_current('schemas')` → True;
+  - `git status` pós-entrega limpo; `fase2/documentos/04_mapa_completo_do_sistema.md` sem diff e submodule `docs/playground-llmagenticsystem` em `3504c4b` (intocados);
+  - `estimate=None` mantido em todos os `TopicState` emitidos (MVP §8, sem BKT — nada de priors); nenhum default apresentado como resultado medido.
+- Mapeamento achado → regressão: F1→R3m (+R3i verde); F2→R3j/R3k/R3l (+M9/M14, R3h); F4→M13 (+invariante de contrato); A2 luna→S4; F3→S3; F5→caso duplicado no `parametrize` de M8 + M15; F6→R4 (atualizado)/R11/projeção pura; A2 GLM→M16.
+- Pendências/bloqueios: nenhum bloqueio. Escolha documentada (F2): alinhamento do contrato com `evidence_kind='undecidable'` por critério — §15.2 (linha 255) cita `undecidable` no mesmo rol de `evidence_kind` ("`undecidable` não atualiza competência") e prevalece como regra mais precisa; span nulo para `undecidable` justificado pelo princípio de §15.2 "não inventar span para silêncio" (o marcador não assevera evidência; a regra de §4 "span existe salvo missing" governa evidência julgada — exceção não inferencial fechada no docstring do contrato, com nível 0 obrigatório para impedir veredito sem evidência). Validação de A2 exige IGUALDADE entre `critical_criterion_ids` e o conjunto `critical` da rubrica publicada (IDs pertencem à rubrica E criticidade é propriedade da rubrica — subconjunto permitiria subdetecção silenciosa de erro crítico).
 
 ## Notas
 
@@ -48,7 +63,7 @@ Restrições: fonte normativa `fase2/documentos/04_mapa_completo_do_sistema.md` 
 6/10 — A passagem de decidibilidade global para por tópico toca o contrato, o monitor e o redutor ao mesmo tempo; o risco está em manter as regressões R1–R10 verdes enquanto a semântica muda, e em não inventar valores fora dos enums de §4/§15.2.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+7/10 — O F2 exigiu mudança simultânea de contrato (novo valor de enum), Monitor (emissão do marcador) e redutor (decidibilidade/elegibilidade por tópico), com interação sutil entre F1 e F2 (erro crítico detectado em tentativa topicamente indecidível deve contar para `last_critical` sem atualizar ids/idade — resolvido separando `entries` (detecção) de `decided` (composição/estado)). O F3 exigiu desenhar a reconstrução do resultado de retry (`_replay_check`/`_existing_attempt` por digest) sem quebrar a unicidade lógica, e o A2 (luna) dependeu de descobrir que a rubrica publicada só existe no payload do evento `item_published` (ref `items.rubric_ref`), o que forçou atualização da fixture de teste. Nenhuma dificuldade ficou sem resolução.
 
 ### Revisão
 - Orquestrador: —
