@@ -1,6 +1,6 @@
 # Task 006: Validar especificação da camada transversal II — persistência, observabilidade e empacotamento — C16, C17 e C20
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 005
 Origem: nenhuma
 
@@ -23,18 +23,24 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não defi
 - `AGENTS.md` (raiz) — convenções do repositório.
 
 ## Corretude
-- [ ] C1 — Características e critérios de C16, C17 e C20 correspondem item a item ao documento-fonte; conferência registrada em Evidências.
-- [ ] C2 — IDs permanentes/estáveis; nenhum valor de orçamento (chamadas, tempo, reparos) ou outro parâmetro inventado para C17; a ausência de definições registrada como questão aberta.
-- [ ] C3 — Nenhum requisito, número ou métrica além do fonte; C16/C17/C20 caracterizados como sustentação do núcleo desde o início.
-- [ ] C4 — Documento-fonte intocado (`git diff` vazio para ele em relação à base); correções limitadas ao arquivo desta task em dif mínimo.
-- [ ] C5 — Commit de registro com evidências separado de qualquer commit de entrega; sem commits vazios, amend ou force-push.
+- [x] C1 — Características e critérios de C16, C17 e C20 correspondem item a item ao documento-fonte; conferência registrada em Evidências.
+- [x] C2 — IDs permanentes/estáveis; nenhum valor de orçamento (chamadas, tempo, reparos) ou outro parâmetro inventado para C17; a ausência de definições registrada como questão aberta.
+- [x] C3 — Nenhum requisito, número ou métrica além do fonte; C16/C17/C20 caracterizados como sustentação do núcleo desde o início.
+- [x] C4 — Documento-fonte intocado (`git diff` vazio para ele em relação à base); correções limitadas ao arquivo desta task em dif mínimo.
+- [x] C5 — Commit de registro com evidências separado de qualquer commit de entrega; sem commits vazios, amend ou force-push.
 
 ## Execução
-- Modelo: —
-- Base: —
-- Entrega: —
-- Arquivos da entrega: —
-- Evidências: —
+- Modelo: GLM-5.3-Flash (via ~/sd2-llm.sh; provider sd2, model GLM-5.3-Flash)
+- Base: `2b757cd49ae83ecbad8f05c1f3c670a3707f9d57` (árvore limpa)
+- Entrega: `c94cbd64e0e44ee6dec2c0c326f869a67d47a55a` (commit de entrega; commit de registro separado, sem SHA próprio neste arquivo)
+- Arquivos da entrega: `.agents/tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md` (3 linhas, remoção do ponto final acrescido nas células C16, C17 e C20 — no C17, entre a célula e a nota de questão aberta; nenhum outro arquivo alterado)
+- Evidências:
+  - **C1 (fidelidade item a item, células C16/C17/C20 da tabela do fonte)** — Conferência textual automatizada (script isolado em `/tmp/opencode/check_006.py`, extração por regex das células da tabela do fonte e dos bullets da especificação da task, comparação após normalização NFC/aspas/travessões/espaços/minúsculas) das células C16 (linha 22), C17 (linha 23) e C20 (linha 26) de `fase2/documentos/02_componentes_e_requisitos.md`: resultado `C16 FIEL`, `C17 FIEL`, `C20 FIEL` após a correção descrita abaixo. Antes da correção, o único desvio era tipográfico: ponto final acrescido ao final de cada célula copiada — no C17, entre a célula e a nota de questão aberta (o fonte não pontua as células), mesmo desvio corrigido nas tasks 001–005; nenhum termo, critério ou cláusula divergia e a cobertura termo a termo era completa já antes. Item a item: C16 = transações ✓, outbox ✓, controle otimista de versão ✓, migrações ✓, backup ✓, retomada ✓, deduplicação ✓, "teste de crash antes/depois de efeitos" ✓; C17 = trace por turno ✓, tokens ✓, tempo ✓, RSS/VRAM ✓, hashes de modelo/prompt ✓, solver status ✓, "orçamento de chamadas, tempo e reparos" ✓, "cancelamento e resposta controlada" ✓; C20 = manifesto/lock de versões e hashes ✓, configuração documentada ✓, instalação offline possível ✓, smoke test e CLI ✓, hardware real registrado ✓, "extensões não obrigatórias para fechar o núcleo" ✓. Diferenças legítimas mantidas: inicial minúscula em "transações", "trace" e "manifesto" na task (posição na frase, como "allowlist" na task 005); capitalização de "RSS/VRAM", "solver status", "CLI" e "smoke test" preservada.
+  - **C2 (IDs permanentes/estáveis; nenhum orçamento/parâmetro inventado; questão aberta registrada)** — O fonte declara na abertura (linha 3): "Os IDs abaixo são permanentes e ligam pesquisa, arquitetura e testes"; a task referencia os componentes apenas pelos IDs C16/C17/C20 com seus nomes canônicos do fonte ("Persistência e recuperação", "Observabilidade e limites", "Empacotamento e execução"), sem nome alternativo. Sobre C17: a nota "*(Questão aberta do plano: as definições dos orçamentos de C17 não constam do documento-fonte e não devem ser inventadas nesta etapa.)*" registra a questão aberta 4 do plano (linha 35: "Definições de orçamentos (chamadas, tempo, reparos — C17) e demais parâmetros não constam do documento e não devem ser inventados aqui."); o corpo da célula C17 na task contém exatamente os mesmos termos do fonte — "orçamento de chamadas, tempo e reparos" — sem nenhum valor numérico, limite ou parâmetro acrescido (varredura de dígitos no corpo: nenhuma ocorrência, idêntica ao fonte).
+  - **C3 (nada acrescido; sustentação do núcleo desde o início; nada medido)** — Varredura de números na especificação C16/C17/C20: zero dígitos no corpo das três células, tanto na task quanto no fonte (saída do script: `numeros C16/C17/C20 task=[] fonte=[]`); nenhum requisito, métrica ou critério além do fonte. A caracterização no Prompt da task ("C16/C17/C20 estão registrados como camada que sustenta o núcleo desde o início") coincide com a seção "Dependências e prioridades" do fonte (linha 30: "sustentado desde o início por C13–C17/C20"), que cobre C16, C17 e C20 (script confirma a presença da caracterização). Nenhuma frase da task afirma ter medido, executado ou validado qualquer comportamento de persistência, observabilidade ou empacotamento; a especificação é apresentada como requisito de implementação/avaliação futura.
+  - **C4 (fonte intocado; correção mínima)** — `git diff 2b757cd -- fase2/documentos/02_componentes_e_requisitos.md`: vazio (0 linhas); `git diff --stat` pós-correção: somente o arquivo desta task, 3 inserções/3 remoções (os três pontos finais). Nenhum documento novo criado; `docs/playground-llmagenticsystem` (submódulo) não tocado.
+  - **Verificador do repositório (apoio)** — `python3 fase2/scripts/verificar_documentos.py` a partir da raiz: `status: "passed"`, `components: 20`, `missing_citations: []`, `local_links_checked: 39`, `delivery_pending: []` — confirma a integridade documental da fase 2 (incluindo a tabela C01–C20 do fonte) na base trabalhada. Limitação anotada: o verificador é checagem documental (stdlib only) e não valida experimentalmente nada; não constitui resultado medido. Referência auxiliar consultada sem importar conteúdo: `fase2/documentos/04_mapa_completo_do_sistema.md` (alinhamento de terminologia de persistência/observabilidade/empacotamento, sem acrescentar requisitos).
+- Pendências/bloqueios: nenhum. A questão aberta 4 do plano (definições dos orçamentos de C17) permanece pendente, sem resolução proposta nesta etapa; as seis ambiguidades do fonte seguem pendentes no plano.
 
 ## Notas
 
@@ -42,7 +48,7 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não defi
 2/10 — Conferência textual de três linhas de tabela; risco baixo, com atenção para não inventar orçamentos de C17.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+2/10 — Conferência textual de três células de tabela com script de comparação normalizada; a caracterização de sustentação do núcleo exigiu confronto com a seção "Dependências e prioridades" do fonte, mas o desvio encontrado foi apenas o mesmo ponto final tipográfico já corrigido nas tasks 001–005 (aqui em três pontos, incluindo o C17 antes da nota de questão aberta).
 
 ### Revisão
 - Orquestrador: —
