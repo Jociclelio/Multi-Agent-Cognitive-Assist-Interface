@@ -41,8 +41,8 @@ Consolidar, em plano acionável, a implementação da primeira versão do EduAge
 ## Tasks
 | Ordem | Task | Componentes | Depende de | Estado |
 |---|---|---|---|---|
-| 1 | [001-validar-decisao-inferencia-local-c01-c20.md](../../tasks/03-metodologias-de-implementacao/001-validar-decisao-inferencia-local-c01-c20.md) | C01, C20 | nenhuma | pendente |
-| 2 | [002-validar-decisao-ingestao-ontologia-c02-c03.md](../../tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md) | C02, C03 | 001 | pendente |
+| 1 | [001-validar-decisao-inferencia-local-c01-c20.md](../../tasks/03-metodologias-de-implementacao/001-validar-decisao-inferencia-local-c01-c20.md) | C01, C20 | nenhuma | fechada |
+| 2 | [002-validar-decisao-ingestao-ontologia-c02-c03.md](../../tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md) | C02, C03 | 001 | liberada |
 | 3 | [003-validar-decisoes-recuperacao-curadoria-c04-c05.md](../../tasks/03-metodologias-de-implementacao/003-validar-decisoes-recuperacao-curadoria-c04-c05.md) | C04, C05 | 002 | pendente |
 | 4 | [004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md](../../tasks/03-metodologias-de-implementacao/004-validar-decisoes-pedagogia-avaliacao-c06-c07-c08.md) | C06, C07, C08 | 003 | pendente |
 | 5 | [005-validar-decisoes-memoria-planejamento-c09-c10-c11.md](../../tasks/03-metodologias-de-implementacao/005-validar-decisoes-memoria-planejamento-c09-c10-c11.md) | C09, C10, C11 | 004 | pendente |

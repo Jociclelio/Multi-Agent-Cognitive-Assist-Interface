@@ -1,6 +1,6 @@
 # Task 001: Validar decisão de método — inferência local (C01/C20)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: nenhuma
 Origem: nenhuma
 
@@ -48,13 +48,15 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual de um único bullet contra uma linha de tabela, com checagem automatizada por script isolado; a decisão de julgamento foi classificar a inicial minúscula em "identidade" como adaptação tipográfica de prosa (não-desvio) e resistir à tentação de resolver a escolha entre PTQ1_0/PQ2_0 ou do artefato Bonsai 2, que permanecem abertos no fonte.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: task-master sd2/GLM-5.3-Flash (sessão `ses_ea37db6d9ffeWFJ6dWTx6x1N0T`); rodada de revisão em modo **paralelo** (revisão documental de leitura e checagens Git/verificador em modo somente leitura — sem disputa de recursos compartilhados do sistema).
+- Alvo: base `a2590b54372a2cc4058643ccca99e4f3f1feb8bd`; entrega: não se aplica — sem artefatos (conferência não encontrou desvio de fidelidade); registro `564845e922c9e2b2ce4f615cbb2c4709e583e61c` (HEAD, árvore limpa, somente o arquivo da task); fonte e submódulo intocados — alvo confirmado pelos três revisores.
+- Avaliações: (1) sd2/GLM-5.3-Flash — 9/10, aprovada (sessão `ses_ea19e4442ffenR6mRrxK8H2J0m`); (2) openai/gpt-6-luna — 10/10, aprovada (sessão `ses_ea19e440effe7HZBWf65lMX7Nv`); (3) opencode/mimo-v2.6-flash-free — 9/10, aprovada (sessão `ses_ea19e43ddffeRssjjl9bRcA9Ks`). Quórum de três modelos distintos cumprido; nenhum revisor falhou, nenhuma substituição.
+- Parecer: convergência dos três em C1–C3 atendidos com verificação independente própria (comparação campo a campo do bullet com a linha 16 do fonte, presença das quatro chaves no `references_arquitetura.bib`, nada acrescido — PTQ1_0/ensaio inicial e PQ2_0/alternativa sem seleção, artefato Bonsai 2 sem fixação, nada como resultado medido —, commit único isolado com pai = base, fonte e submódulo intocados). Entrega sem commit foi considerada legítima pelos três ("se houver" correção). Observações baixas, sem exigência de correção: inicial minúscula em "identidade" (tipográfica, posição na frase); rótulo "Inferência local" do bullet é pré-existente no prompt da task na base (não é acréscimo do executor) e reproduz o título do relatório 03a; identidade do executor é autodeclarada (limitação estrutural do fluxo).
+- Nota final: 9,5/10 — conferência íntegra, reproduzida de forma independente pelos três revisores, com pendências corretamente preservadas como pendências; desconto apenas pela limitação estrutural de verificabilidade da identidade do executor e dos scripts em `/tmp/opencode`.
+- Decisão: fechar — todos os critérios obrigatórios C1–C3 comprovados.
+- Reversão: não se aplica — sem artefatos a reverter.
+- Próximo passo: task 002 (validar decisão de ingestão e ontologia — C02/C03) liberada; família passa à raiz 002.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","family":".agents/tasks/03-metodologias-de-implementacao/002-validar-decisao-ingestao-ontologia-c02-c03.md","plan":".agents/plans/03-metodologias-de-implementacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/03-metodologias-de-implementacao/plan.md)
