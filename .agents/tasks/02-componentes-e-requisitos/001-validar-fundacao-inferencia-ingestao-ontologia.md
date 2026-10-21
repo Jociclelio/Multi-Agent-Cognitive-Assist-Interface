@@ -1,6 +1,6 @@
 # Task 001: Validar especificação dos componentes fundação — C01, C02 e C03
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: nenhuma
 Origem: nenhuma
 

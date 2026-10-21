@@ -1,6 +1,6 @@
 # Task 003: Validar especificação de tutor, monitor formativo e estado de aprendizagem — C06, C07 e C08
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 002
 Origem: nenhuma
 
@@ -53,13 +53,19 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 2/10 — Conferência textual direta de três células contra a tabela do próprio documento-fonte, com checagem automatizada por script isolado; a única decisão de julgamento foi classificar o ponto final acrescido como desvio tipográfico de fidelidade (corrigido em dif mínimo, seguindo o precedente das tasks 001 e 002) e não como reescrita legítima, além de manter a nota da ambiguidade 2 estritamente como decisão pendente, sem sugerir operacionalização para os estados "evidência insuficiente" e "avaliável".
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime; sessão master do ciclo task-cycle
+- Modo da rodada: **paralelo** — a revisão é somente leitura (fontes, diffs git e verificador documental stdlib), sem disputa de recursos compartilhados do sistema; os três revisores rodaram em sessões novas, com o mesmo pedido e sem acesso aos pareceres entre si. Observação: a primeira tentativa da rodada foi interrompida por reinício do servidor, sem pareceres retornados; a rodada foi relançada do zero sobre o mesmo alvo imutável (base/entrega/registro conferidos antes do relançamento).
+- Alvo: task 003; base `27aed9e71816a2095d4d9d33e6b0d35ac4b2851b`; entrega `e41aa1ae2b3d8ca38c1480db17e0815e58cf8c51`; registro `fbfe325012bba08be658563db7e4cb3512015946` (HEAD, árvore limpa). Identidade e alvo confirmados pelos três revisores.
+- Avaliações:
+  - GLM-5.3-Flash (`sd2`) — **10/10** — aprovada; C1–C5 verificados independentemente (leitura direta das células, `git show`/`git log --format='%H %P'`, verificador `passed`). Sessão `ses_ea3a35d14ffeWcyXCmBKr6IYHQ`.
+  - GPT-6 Luna (`openai/gpt-6-luna`) — **9/10** — aprovada; C1–C5 verificados por conferência própria, sem falha concreta encontrada. Sessão `ses_ea3a35cdeffeeIGoFqgDLNLg7e`.
+  - MiMo 2.6 Flash (`opencode/mimo-v2.6-flash-free`) — **9/10** — aprovada; C1–C5 verificados com script de fidelidade independente reproduzido e reflog linear sem amend/reset. Sessão `ses_ea3a35cacffe06PO8RxWIxY1rI`.
+- Síntese: consenso unânime de aprovação, sem achado bloqueante. Achados menores (impacto baixo, sem correção necessária): (i) nota da ambiguidade usa aspas retas onde o fonte usa curvas — diferença tipográfica já normalizada como legítima na própria evidência (apontado pelo revisor GLM); (ii) evidência C4 cita a base por SHA abreviado, cuja forma completa confere com o alvo (apontado pelo revisor GLM); (iii) evidência C3 relata "nenhum número" na especificação, imprecisão literal pois os IDs C06–C08 e o índice da ambiguidade 2 contêm dígitos originários do próprio fonte — nenhum número/métrica/parâmetro *novo* foi acrescido (apontado pelo revisor MiMo). O revisor GLM registrou ainda, como observação de processo, que sua identidade coincide com a do executor; o quórum se sustenta: são três modelos distintos entre si, conforme contrato. Divergência essencial: nenhuma; limitações declaradas (verificador documental ≠ resultado experimental; impossibilidade local de provar ausência de force-push remoto) não afetam os critérios.
+- Nota final: **9,5/10** — fidelidade item a item confirmada por três modelos independentes com procedimentos próprios; entrega mínima (dif de 3 linhas) e registro completo. Dedução pela imprecisão literal do relato C3 e detalhes tipográficos menores, sem efeito sobre fidelidade, isolamento ou contratos.
+- Decisão: **fechar** — todos os critérios obrigatórios (C1–C5) comprovados; libera a sucessora 004.
+- Reversão: não se aplica — entrega aprovada.
+- Próximo passo: task `.agents/tasks/02-componentes-e-requisitos/004-validar-planejamento-solver-e-agenda.md` (executor sd2/GLM-5.3-Flash; alternativo não configurado).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/02-componentes-e-requisitos/004-validar-planejamento-solver-e-agenda.md","family":".agents/tasks/02-componentes-e-requisitos/001-validar-fundacao-inferencia-ingestao-ontologia.md","plan":".agents/plans/02-componentes-e-requisitos/plan.md"} -->
 
 Plano: [plan.md](../../plans/02-componentes-e-requisitos/plan.md)
