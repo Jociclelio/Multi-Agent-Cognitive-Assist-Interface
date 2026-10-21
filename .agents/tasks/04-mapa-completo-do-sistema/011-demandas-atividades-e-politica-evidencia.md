@@ -1,6 +1,6 @@
 # Task 011: Demandas, atividades e política evidência→demanda v1 (mapa §15.3, §15.4)
 
-Estado: aguardando revisão
+Estado: fechada (9/10, decisão `fechar`; residuais A1 e F1–F3 de severidade baixa/média documentados para correção futura pontual)
 Depende de: 010
 Origem: nenhuma
 
@@ -39,13 +39,19 @@ Implementar a geração de demandas e o ciclo de atividades (mapa §15.3 e §15.
 6/10 — A política em si é determinística, mas três pontos exigiram cuidado além do esperado para 5/10: (1) idempotência real do §11 — o retry da mesma operação quebrava porque `demand_id` e digest dependiam de aleatoriedade/estado, exigindo IDs determinísticos por chave de unicidade (uuid5), digest de payload idempotente (merge estável) e digest de intenção nas transições de atividade com recibo devolvido ANTES da validação de transição; (2) mistura data×datetime no prazo pedagógico — comparar due (data) com início de prova (datetime) sem promover datetime duro nem criar comparação inválida, com o caso-limite em que não existe dia entre ocorrência e prova; (3) colapso de candidatos de recuperação distintos para a mesma chave após o limite "antes do dia da prova", que produziria duas INSERTs da mesma chave única — resolvido com dedup intra-geração. Risco do prompt ("converter sugestão em obrigação") foi contido pelos validadores existentes do contrato §4 e pelos testes D2/D3.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (master, sessão dedicada; provider `sd2`)
+- Alvo: base `dccaf64fb9c0078056cafbcd1ff08a1ac3b02c01`; entrega `2dded12cdf18f044f3ce5b1d39d870571053bd25`; registro `f45a29a`; versão do registro = `f45a29a`. Árvore conferida inalterada durante a rodada; mapa e submódulo sem diff.
+- Modo da rodada: **sequencial** (um revisor por vez, sessões novas) — a revisão reproduz a suíte pytest no `.venv` compartilhado (caches, temporários e estado do ambiente são recursos concorrentes).
+- Avaliações (quórum: três modelos distintos):
+  - `sd2/GLM-5.3-Flash` — 8/10, aprovada. C1–C4 verificados com evidência própria, suíte 372 passed reproduzida (18,6s). Achados: A1 (médio) — `_payload_json`/`confirm_duration` reescrevem `payload_json` descartando chaves de política pré-existentes (`splittable_declaration`, `before_exam_day`); a sequência `declare_splittable → confirm_duration → split_demand` perde a declaração e `split_demand` recusa com erro tipado (fail-safe, sem corrupção); recomenda mesclar payload existente ao reescrever. A2 (baixo) — `refresh_review_due` escreve em `topic_states` fora do caminho de commit idempotente (determinístico e idempotente; aceitável como projeção, registrar decisão). A3 (documentado) — caso-limite sem dia entre ocorrência e prova mantém due no dia da prova com `clamped=False`.
+  - `openai/gpt-6-luna` — 9/10, aprovada, sem achados concretos. Suíte 372 passed reproduzida. Limites declarados: sem análise de concorrência real nem integração com o solver (fora do escopo da entrega).
+  - `opencode/beam-free` — 9/10, aprovada. Suíte 372 passed reproduzida (27 novos). Achados: F1 (baixo) — `dependency_state` no ramo sem bloco só trata prazo dia-puro; datetime além do horizonte não marca `blocked_outside_horizon`; F2 (baixo) — em `started` com `end_conflict`, `fixed_occupation` grava intervalo invertido `[actual_start, planned_end]`; recomenda ocupar o intervalo aprovado; F3 (baixo) — `link_assessment_topics` não verifica ownership do tópico via curso/dono, permitindo aresta para tópico de outro usuário em cenário adversarial.
+- Síntese: convergência dos três revisores em C1–C4 comprovados (política determinística por serviço, durações sem conversão de domínio, transições §15.4 com fail-safe, isolamento de commits com mapa/submódulo intocados) e suíte integral 372 passed reproduzida por três modelos. Divergência apenas na detecção de residuais: luna não achou nada; GLM e Beam acharam defeitos independentes de baixa severidade, sem sobreposição, todos sem quebrar critério de aceite desta task. O A1 (médio) falha de forma segura com recusa tipada — não aprova split sem declaração nem corrompe estado do usuário. Nenhuma citação fictícia; defaults tratados como escolhas de ensaio.
+- Nota final: 9/10 — todos os critérios obrigatórios comprovados por quórum com evidência própria e suíte reproduzida; desconto residual pelos achados A1 (médio, fail-safe) e F1–F3 (baixos), que merecem correção pontual futura sem reabrir a família. Não é média aritmética: 8/10 do GLM reflete os achados próprios, mas os critérios de aceite desta task não os exigem.
+- Decisão: fechar
+- Reversão: não se aplica — entrega aprovada
+- Próximo passo: liberar a task 012 (solver CP-SAT lexicográfico e verificador), dependendo de 011
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/012-solver-cpsat-lexicografico-e-verificador.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
