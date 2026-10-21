@@ -1,6 +1,6 @@
 # Plano: Componentes faltantes e requisitos (Etapa 2)
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: concluído — todas as tasks (001–009) fechadas ou resolvidas por subtasks; cobertura C01–C20 comprovada (evidência 20/20 na task 009); ordem de implementação registrada conforme a seção de dependências (tasks 003, 004, 007 e 008); as seis ambiguidades permanecem decisões pendentes, nenhuma resolvida
 
 ## Objetivo
 Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no sentido técnico do documento-fonte (não especificados na proposta, não ausência comprovada em implementação), com IDs permanentes (C01–C20) que ligam pesquisa, arquitetura e testes, suas características exigidas, critérios verificáveis, dependências/prioridades e as ambiguidades que exigem decisão antes da implementação.
@@ -44,7 +44,7 @@ Registrar e organizar os 20 componentes do EduAgent-OS que estão "faltantes" no
 | 5 | [005-validar-orquestracao-contratos-e-politica-de-ferramentas.md](../../tasks/02-componentes-e-requisitos/005-validar-orquestracao-contratos-e-politica-de-ferramentas.md) | C13, C14, C15 | 004 | fechada |
 | 6 | [006-validar-persistencia-observabilidade-e-empacotamento.md](../../tasks/02-componentes-e-requisitos/006-validar-persistencia-observabilidade-e-empacotamento.md) | C16, C17, C20 | 005 | fechada |
 | 7 | [007-validar-dados-e-avaliacao-experimental.md](../../tasks/02-componentes-e-requisitos/007-validar-dados-e-avaliacao-experimental.md) | C18, C19 | 006 | fechada |
-| 8 | [008-validar-opcionais-e-consolidar-cobertura-c01-c20.md](../../tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md) | C05, sinc. remota de C12 + consolidação | 007 | aguardando subtasks (revisão: corrigir — lacuna C10) |
-| 9 | [009-completar-cobertura-c10-e-ajustar-evidencias-da-consolidacao.md](../../tasks/02-componentes-e-requisitos/009-completar-cobertura-c10-e-ajustar-evidencias-da-consolidacao.md) | C10 | 008 | liberada |
+| 8 | [008-validar-opcionais-e-consolidar-cobertura-c01-c20.md](../../tasks/02-componentes-e-requisitos/008-validar-opcionais-e-consolidar-cobertura-c01-c20.md) | C05, sinc. remota de C12 + consolidação | 007 | resolvida por subtasks (correção 009 fechada) |
+| 9 | [009-completar-cobertura-c10-e-ajustar-evidencias-da-consolidacao.md](../../tasks/02-componentes-e-requisitos/009-completar-cobertura-c10-e-ajustar-evidencias-da-consolidacao.md) | C10 | 008 | fechada |
 
 Cobertura da cadeia do fonte: núcleo C01 → C02/C03 → C04/C09 → C06/C07/C08 → C11 (tasks 001–004), sustentado por C13–C17/C20 (tasks 005–006), C18/C19 antes da otimização (task 007), opcionais C05 e sincronização remota de C12 (task 008), C10 — Gestão do contexto (task 009; o fonte não o posiciona na cadeia do núcleo — pendência de posicionamento registrada na task 009). Todas as especificações são extraídas fielmente de `fase2/documentos/02_componentes_e_requisitos.md`, que permanece intocado como fonte normativo; as seis ambiguidades permanecem decisões pendentes.

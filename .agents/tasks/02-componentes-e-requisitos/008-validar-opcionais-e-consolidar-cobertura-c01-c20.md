@@ -1,6 +1,6 @@
 # Task 008: Validar opcionais (C05 e sincronização remota de C12) e consolidar cobertura C01–C20
 
-Estado: aguardando subtasks (correção: cobertura de C10)
+Estado: resolvida por subtasks (correção 009 fechada — nota e decisão originais preservadas)
 Depende de: 007
 Origem: nenhuma
 
@@ -25,7 +25,7 @@ Restrições: não alterar o documento-fonte nem criar documento novo; não reso
 
 ## Corretude
 - [x] C1 — Características e critérios de C05 e do aspecto opcional de C12 correspondem item a item ao documento-fonte; ICS local permanece obrigatório no núcleo, sem reclassificação.
-- [ ] C2 — Cobertura completa comprovada: cada componente C01–C20 mapeado à task onde está especificado (lista explícita em Evidências); nenhum componente órfão. **(NÃO comprovado integralmente: C10 — Gestão do contexto não é mencionado em nenhuma task da família nem no plano; impedimento registrado em Evidências e Notas — 19/20 componentes mapeados.)**
+- [x] C2 — Cobertura completa comprovada: cada componente C01–C20 mapeado à task onde está especificado (lista explícita em Evidências); nenhum componente órfão. **(Comprovado integralmente pela subtask 009: C10 — Gestão do contexto especificado na task 009, cobertura 20/20; o impedimento 19/20 registrado acima foi fechado — ver Revisão desta task e Evidências da 009.)**
 - [x] C3 — Cadeia do núcleo, camada transversal desde o início, C18/C19 antes da otimização e opcionais separados registrados conforme a seção de dependências do fonte.
 - [x] C4 — As seis ambiguidades estão listadas como decisões pendentes e nenhuma foi resolvida nesta etapa.
 - [x] C5 — Documento-fonte intocado (`git diff` vazio para ele em relação à base); correções limitadas ao arquivo desta task em dif mínimo; commit de registro com evidências separado de qualquer commit de entrega; sem commits vazios, amend ou force-push.
