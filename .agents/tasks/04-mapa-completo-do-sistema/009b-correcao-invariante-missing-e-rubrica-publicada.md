@@ -1,6 +1,6 @@
 # Task 009b: Correção — invariante `level==0` para `evidence_kind='missing'` e conferência do kind da rubrica publicada (mapa §8, §15.2, §4)
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 009a
 Origem: 009a — correção
 
@@ -59,13 +59,20 @@ Restrições: fonte normativa `fase2/documentos/04_mapa_completo_do_sistema.md` 
 2/10 — Correção cirúrgica conforme previsto: a invariante coube no ramo já existente de `_span_invariants` (mantendo as âncoras de mensagem dos testes antigos), a recusa no `check()` é um laço curto na consistência formal e a conferência de `kind` é uma checagem única após a resolução do evento. Nenhuma regressão existente emitia `missing` com nível>0, então a suíte passou de primeira; o único cuidado foi simular o contorno externo no teste de serviço via `model_construct` (a construção normal já recusa) e manter o replay idempotente como primeira operação, verificado tanto em S5 quanto pela regressão S3.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`), master do ciclo opt-in.
+- Alvo: entrega `33d60f6e775d0fe015e37727b34cf03ce2d952c7` sobre base `4253b2d` (registro `243a207d15ffd6927f72d1a161665dded7841750`); entrega da 009a (`563acd6`) confirmada ancestral, preservada sem reversão. Árvore limpa durante toda a rodada.
+- Modo da rodada: sequencial — revisores podem rodar a suíte pytest no mesmo repositório (recursos compartilhados: temporários/banco do projeto), risco de interferência concorrente; revisores explícitos do ciclo (GLM-5.3-Flash, GPT-6 Luna, MiMo v2.6 Flash).
+- Avaliações:
+  - GLM-5.3-Flash (sd2) — 10/10, aprovada: C1–C5 todos provados com sondas próprias (construção recusada; `check()` via `model_construct` recusado com `SCHEMA_INVALID`, zero novos assessments/eventos, replay com `was_retry=True`; evento homônimo kind `attempt_recorded` recusado; export regenerado idêntico byte a byte); suíte integral 313 passed; diff confinado aos 5 arquivos.
+  - GPT-6 Luna (openai) — 7/10 provisória, "requer correções": C1 verificado por sonda própria (`ValidationError`); C2–C4 NÃO verificados e suíte integral não executada por limitação de ambiente declarada pelo próprio revisor (`ModuleNotFoundError: rank_bm25`, sem instalar dependências). Achado "alto" A-01 era pendência de verificação (posição da recusa no bloco de consistência formal), não defeito.
+  - MiMo v2.6 Flash (opencode) — 9,5/10, aprovada: em cópia isolada (`git archive` em `/tmp/opencode/reviewer-mimo-009b`), refutou diretamente a pendência do Luna — sonda `model_construct` com `missing` nível 2 → `SCHEMA_INVALID`, contagem 1/1 inalterada, replay do recibo original `was_retry=True`; C4 provado com recusa tipada e forma canônica resolvendo; suíte 312 passed + 1 skipped (smoke BGE-M3 da task 007, alheio à entrega, modelo não rastreado ausente na cópia); história linear sem amend/vazios; mapa/submodule intocados.
+- Síntese: quórum de três modelos distintos cumprido. A divergência de veredito (Luna vs. GLM/MiMo) é ambiental, não técnica: o único achado "alto" do Luna solicitava exatamente a prova que GLM e MiMo produziram de forma independente (recusa de assessment externo sem efeitos e replay precedente), e o achado "baixo" (A-02) foi verificado por diff e provado por sonda pelo MiMo. Nenhum achado bloqueante, alto ou médio contra a entrega; observação menor do GLM (posição da recusa no fim do bloco de consistência formal) é irrelevante para o contrato — qualquer recusa tipada pré-commit atende, com replay como primeira operação confirmado por dois revisores.
+- Nota final: 9,5/10 — correção cirúrgica e integralmente provada por dois revisores independentes com sondas de construção, serviço e persistência; suíte integral verde (313; 312+1 skip de ambiente em cópia isolada); regressões da 009a intactas; a nota não é média automática: os 0,5 descontam apenas o rigor de verificação não executada pelo terceiro revisor por limitação de ambiente, sem qualquer evidência contrária à entrega.
+- Parecer: A-01 fechado nos dois eixos (construção + `check()` para assessment deserializado/externo, replay F3 precedente intacto) e A-02 fechado (conferência de `kind`); C1–C5 todos comprovados; divergência textual §4↔`undecidable` permanece documentada e intocada.
+- Decisão: fechar — todos os critérios obrigatórios comprovados; família 009 (009 → 009a → 009b) resolvida por subtasks, liberando a task 010.
+- Reversão: não se aplica — entrega aprovada.
+- Próximo passo: task 010-memoria-temporal-e-contexto.md (§7, §13.6).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/010-memoria-temporal-e-contexto.md","family":".agents/tasks/04-mapa-completo-do-sistema/001-scaffold-e-configuracao.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
