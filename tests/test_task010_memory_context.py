@@ -34,6 +34,15 @@ Tabela de testes (código → caso):
 | D4 | backup pendente até expiração (~30 dias) em escopo parcial; escopo all → sem backup pendente |
 | D5 | preview → confirm: deleção sem confirmação é recusa tipada; preview lista refs |
 | P1 | permissão da ferramenta: memory.query proposto por papel não-Bibliotecário → TOOL_DENIED |
+| R1 | (010a) verificação exata de números: substring não verifica ("12" ≠ "120"); presente e decimal verificam |
+| R2 | (010a) verificação exata de datas: data divergente falha; mesma data em formato distinto verifica |
+| R3 | (010a) polaridade/ajuda/estado: fonte contraditória (inversão/negação) falha fechado; pares coerentes preservados |
+| R4 | (010a) corte de fontes sem pressuposto de prefixo: "grande, pequena" — mantida não reaparece no resto |
+| R5 | (010a) correção substitui candidato por consulta antes/depois (refs alinhadas: artifact_ref/old_fact_ref) |
+| R6 | (010a) dedupe: original não reemitido quando sua correção já está na seleção |
+| R7 | (010a) segunda correção de fato com sucessor ativo → recusa tipada, estado preservado |
+| R8 | (010a) preview/delete com ID inexistente → SOURCE_UNRESOLVED tipado (não TypeError, não no-op) |
+| R9 | (010a) reconstituição de projeções dentro do commit idempotente da deleção; escopo facts documentado |
 """
 
 from __future__ import annotations
@@ -952,3 +961,322 @@ def test_p1_permissao_da_ferramenta(env):
     assert excinfo2.value.code is ErrorCode.TOOL_DENIED
     result = librarian.memory_query(UID, "consulta")
     assert result.pack.snapshot_version == store.domain_revision(UID)
+
+
+# ---------------------------------------------------------------------------
+# C1–C4 — R1..R9: regressões da correção 010a (verificação exata, corte de
+# fontes, correção sucessiva e menores)
+# ---------------------------------------------------------------------------
+
+
+def test_r1_verificacao_exata_de_numeros():
+    # Sonda do revisor (010): substring NÃO é suporte — "12" não verifica
+    # "120" (§7: checar exatamente números).
+    assert not verify_claim_against_sources(
+        "resultado 12", ["a nota foi 120 pontos"]
+    )
+    # Número genuinamente presente continua verificando.
+    assert verify_claim_against_sources(
+        "resultado 12", ["a nota foi 12 pontos"]
+    )
+    # Decimais: igualdade numérica — "7" e "7,0" são o mesmo valor; valores
+    # distintos não verificam.
+    assert verify_claim_against_sources("nota 7", ["a nota foi 7,0 pontos"])
+    assert not verify_claim_against_sources("nota 7", ["a nota foi 12 pontos"])
+    # Ajuda: nível exato — "2" não verifica "23".
+    assert not verify_claim_against_sources(
+        "ajuda nível 2", ["ajuda nível 23"]
+    )
+    assert verify_claim_against_sources("ajuda nível 2", ["ajuda nível 2"])
+
+
+def test_r2_verificacao_exata_de_datas():
+    sources = ["entrega em 21/10/2026 registrada"]
+    # Data divergente falha (§7).
+    assert not verify_claim_against_sources(
+        "entrega em 2026-10-22 registrada", sources
+    )
+    # Mesma data verifica — inclusive em formato distinto (conferência por
+    # valor normalizado, sem falso negativo para data presente).
+    assert verify_claim_against_sources(
+        "entrega em 21/10/2026 registrada", sources
+    )
+    assert verify_claim_against_sources(
+        "entrega em 2026-10-21 registrada", sources
+    )
+
+
+def test_r3_polaridade_ajuda_estado_com_negacao_falha_fechada():
+    # Fonte contradiz o claim por inversão/oposto: falha fechada (§12) —
+    # presença literal do token não prova claims opostos.
+    assert not verify_claim_against_sources(
+        "resultado correct", ["resultado incorrect"]
+    )
+    assert not verify_claim_against_sources(
+        "resultado correct", ["resultado correct e incorrect no registro"]
+    )
+    # Fonte contradiz por negação.
+    assert not verify_claim_against_sources(
+        "resultado correct", ["o resultado não foi correct"]
+    )
+    assert not verify_claim_against_sources(
+        "estado favorable", ["estado not favorable"]
+    )
+    assert not verify_claim_against_sources(
+        "ajuda nível 2", ["não houve ajuda nível 2"]
+    )
+    # Originais preservados: pares coerentes continuam verificando.
+    assert verify_claim_against_sources(
+        "resultado correct", ["resultado correct"]
+    )
+    assert verify_claim_against_sources(
+        "resultado incorrect", ["resultado incorrect"]
+    )
+    assert verify_claim_against_sources(
+        "estado favorable", ["estado favorable"]
+    )
+    assert verify_claim_against_sources("ajuda nível 2", ["ajuda nível 2"])
+
+
+def test_r4_corte_de_fontes_sem_pressuposto_de_prefixo(monkeypatch):
+    import eduagent.context as context_module
+
+    monkeypatch.setattr(context_module, "INPUT_BUDGET_TOKENS", 10)
+    builder = ContextBuilder(WordCounter())
+    grande = "alpha beta gamma delta epsilon zeta eta theta iota kappa"
+    data = ContextInput(
+        sources=(
+            SourceItem(source_id="s1", text=grande, rank=1),
+            SourceItem(source_id="s2", text="pequena", rank=2),
+        )
+    )
+    assembly = builder.assemble("pergunta", data)
+    assert assembly.total_tokens <= 10
+    # Sequência "grande, pequena" sob orçamento limitado: a guloseima pula a
+    # fonte grande e mantém a pequena — o resto é calculado explicitamente e
+    # a fonte mantida NÃO reaparece segmentada/sintetizada em duplicidade.
+    assert assembly.text.count("pequena") == 1
+    # O resto é a fonte grande: entra por segmentação (corte em fronteira).
+    assert "[…]" in assembly.text and "alpha" in assembly.text
+    assert "pequena […]" not in assembly.text
+    assert any("fonte segmentada" in action for action in assembly.actions)
+
+
+def test_r5_correcao_substitui_candidato_antes_depois(env):
+    memory, store, _ = env
+    entity = _uid(70)
+    fact = _assert_fact(memory, "prazo é 30/11", entity, "30/11")
+    memory.record_event(
+        user_id=UID,
+        session_id=SESSION,
+        kind=MemoryPack.EventKind.READING,
+        payload={"text": "li o prazo no material"},
+        occurred_at=T0,
+        origin=MemoryPack.Origin.OBSERVED,
+    )
+    candidate = memory.retrieve(UID, "prazo").selected_events[0]
+    store.add_artifact_dependency(
+        UID,
+        child_ref=candidate.ref,
+        parent_ref=fact.ref,
+        relation="derived_from",
+    )
+    # ANTES da correção: o candidato original está na seleção.
+    before = memory.retrieve(UID, "prazo").selected_events
+    assert any(e.event_id == candidate.event_id for e in before)
+    memory.correct_fact(
+        user_id=UID,
+        fact_id=str(fact.fact_id),
+        corrected_value="prazo é 05/12",
+        reason="usuário corrigiu o prazo",
+    )
+    # DEPOIS: o original sai e a correção que o aponta entra no lugar — as
+    # referências consumidas são as emitidas (artifact_invalidated traz
+    # artifact_ref; fact_corrected traz old_fact_ref).
+    after = memory.retrieve(UID, "prazo").selected_events
+    assert not any(e.event_id == candidate.event_id for e in after)
+    replacements = [
+        e
+        for e in after
+        if e.kind == "artifact_invalidated"
+        and (e.payload or {}).get("artifact_ref") == candidate.ref
+    ]
+    assert replacements, "evento de invalidação entra no lugar do candidato"
+
+
+def test_r6_original_nao_reemitido_com_correcao_na_selecao(env):
+    memory, _, _ = env
+    memory.record_event(
+        user_id=UID,
+        session_id=SESSION,
+        kind=MemoryPack.EventKind.SELF_REPORT,
+        payload={"text": "autorrelato com erro 4242"},
+        occurred_at=T0,
+        origin=MemoryPack.Origin.ASSERTED,
+    )
+    candidate = memory.retrieve(UID, "autorrelato").selected_events[0]
+    correction = EventRow(
+        event_id=_uid(778),
+        kind="artifact_invalidated",
+        payload={
+            "artifact_ref": candidate.ref,
+            "trigger_ref": candidate.ref,
+            "reason": "autorrelato corrigido",
+        },
+        occurred_at=T0 + timedelta(minutes=5),
+        recorded_at=T0 + timedelta(minutes=5),
+        session_id=SESSION,
+    )
+    # Original e correção coexistem na seleção (qualquer ordem): a correção
+    # aparece exatamente uma vez e o original não é reemitido (Beam A2).
+    for order in ([candidate, correction], [correction, candidate]):
+        result = memory._apply_corrections(
+            list(order), [candidate, correction]
+        )
+        assert [str(e.event_id) for e in result] == [str(_uid(778))]
+
+
+def test_r7_segunda_correcao_com_sucessor_ativo_recusada(env):
+    memory, _, _ = env
+    entity = _uid(80)
+    fact = _assert_fact(memory, "valor 80", entity, "80")
+    memory.correct_fact(
+        user_id=UID,
+        fact_id=str(fact.fact_id),
+        corrected_value="valor 81",
+        reason="primeira correção",
+    )
+    # Segunda correção do fato já substituído: recusa tipada — deixaria dois
+    # fatos ativos como contradição pendente (§7); escolha registrada: recusar
+    # em vez de fechar a validade do sucessor intermediário silenciosamente.
+    with pytest.raises(EduAgentError) as excinfo:
+        memory.correct_fact(
+            user_id=UID,
+            fact_id=str(fact.fact_id),
+            corrected_value="valor 82",
+            reason="segunda correção",
+        )
+    assert excinfo.value.code is ErrorCode.SCHEMA_INVALID
+    # A recusa preserva o estado: exatamente um fato ativo na entidade.
+    current = [
+        f for f in memory.current_facts(UID) if f.entity_id == entity
+    ]
+    assert [f.normalized_value for f in current] == ["valor 81"]
+
+
+def test_r8_id_inexistente_recusa_tipada(env):
+    memory, store, _ = env
+    entity = _uid(90)
+    fact = _assert_fact(memory, "valor 90", entity, "90")
+    fantasma = str(_uid(999))
+    with pytest.raises(EduAgentError) as excinfo:
+        memory.preview_delete(UID, "facts", ids=[fantasma])
+    assert excinfo.value.code is ErrorCode.SOURCE_UNRESOLVED
+    with pytest.raises(EduAgentError) as excinfo2:
+        memory.delete_data(
+            user_id=UID,
+            scope="facts",
+            confirmed=True,
+            reason="exclusão",
+            ids=[fantasma],
+        )
+    assert excinfo2.value.code is ErrorCode.SOURCE_UNRESOLVED
+    # Nada foi aplicado no fluxo recusado; fato válido continua deletável.
+    assert store.fetch_user_rows(
+        "SELECT id FROM facts WHERE user_id = ?", (UID,)
+    )
+    memory.delete_data(
+        user_id=UID,
+        scope="facts",
+        confirmed=True,
+        reason="pedido do usuário",
+        ids=[str(fact.fact_id)],
+    )
+    assert (
+        store.fetch_user_rows("SELECT id FROM facts WHERE user_id = ?", (UID,))
+        == []
+    )
+
+
+def test_r9_reconstituicao_no_commit_idempotente_da_delecao(env, monkeypatch):
+    memory, store, _ = env
+    entity = _uid(95)
+    fact = _assert_fact(memory, "valor 95", entity, "95")
+    memory.record_event(
+        user_id=UID,
+        session_id=SESSION,
+        kind=MemoryPack.EventKind.READING,
+        payload={"text": "registro a excluir"},
+        occurred_at=T0,
+        origin=MemoryPack.Origin.OBSERVED,
+    )
+    event = memory.retrieve(UID, "registro").selected_events[0]
+    revision_before = store.domain_revision(UID)
+
+    # A reconstituição faz parte da PROJEÇÃO do commit idempotente (§11/
+    # §15.1): falha nela reverte a deleção inteira — nada fica pela metade
+    # (antes da correção 010a a reconstituição era escrita separada pós-
+    # commit; um crash entre elas deixava projeção obsoleta sem retry).
+    broken = [("INSERT INTO tabela_inexistente_do_commit VALUES (1)", ())]
+    monkeypatch.setattr(
+        memory, "_topic_state_statements", lambda user_id: broken
+    )
+    import sqlite3
+
+    with pytest.raises(sqlite3.OperationalError):
+        memory.delete_data(
+            user_id=UID,
+            scope="events",
+            confirmed=True,
+            reason="exclusão",
+            ids=[str(event.event_id)],
+        )
+    monkeypatch.undo()
+    assert store.domain_revision(UID) == revision_before  # rollback total
+    row = store.fetch_user_rows(
+        "SELECT payload_json FROM events WHERE id = ?", (str(event.event_id),)
+    )
+    assert row[0]["payload_json"] is not None  # purge não aplicou
+    assert (
+        store.fetch_user_rows(
+            "SELECT artifact_ref FROM tombstones WHERE user_id = ?", (UID,)
+        )
+        == []
+    )
+
+    # Reconstituição no MESMO commit: um único incremento de revisão para a
+    # operação inteira (sem escrita separada pós-commit).
+    upsert = [
+        (
+            "INSERT INTO topic_states(user_id, topic_id, revision, "
+            "payload_json) VALUES (?,?,?,?) ON CONFLICT(user_id, topic_id) "
+            "DO UPDATE SET revision = excluded.revision, payload_json = "
+            "excluded.payload_json",
+            (UID, TOPIC_A, 1, json.dumps({"topic_id": TOPIC_A})),
+        )
+    ]
+    monkeypatch.setattr(
+        memory, "_topic_state_statements", lambda user_id: upsert
+    )
+    revision_mid = store.domain_revision(UID)
+    result = memory.delete_data(
+        user_id=UID,
+        scope="events",
+        confirmed=True,
+        reason="exclusão",
+        ids=[str(event.event_id)],
+    )
+    monkeypatch.undo()
+    assert result.projections_reconstituted is True
+    assert store.domain_revision(UID) == revision_mid + 1
+
+    # Escopo facts não reconstitui (documentado, Beam A3): topic_states
+    # deriva de attempts/assessments, não da tabela facts (fatos acadêmicos).
+    result_facts = memory.delete_data(
+        user_id=UID,
+        scope="facts",
+        confirmed=True,
+        reason="pedido do usuário",
+        ids=[str(fact.fact_id)],
+    )
+    assert result_facts.projections_reconstituted is False

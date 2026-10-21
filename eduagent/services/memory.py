@@ -45,9 +45,15 @@ Contratos implementados:
 - **Correção e deleção (§7/§10/§15.1)**: ``correct_fact`` cria fato novo com
   ``supersedes`` apontando para o anterior, fecha a validade do antigo
   (``valid_to``), registra aresta ``supersedes`` em ``artifact_dependencies``
-  e **percorre os dependentes** (BFS pelos dois sentidos do grafo),
+  e **percorre os dependentes** (BFS transitivo no sentido pai→filho do
+  grafo de dependências; o sentido filho→pai não é percorrido),
   invalidando versões publicadas (evento ``artifact_invalidated`` +
-  ``verification='failed'`` em resumos dependentes). ``delete_data`` exige
+  ``verification='failed'`` em resumos dependentes). Corrigir um fato que
+  já possui sucessor ativo é recusa tipada — uma segunda correção do fato
+  substituído deixaria dois fatos ativos como contradição pendente; a
+  escolha registrada é recusar (e não fechar a validade do sucessor
+  intermediário), pois corrigir o sucessor vigente é o caminho explícito.
+  ``delete_data`` exige
   confirmação explícita (rota §10: preview → confirm), aplica tombstone
   **sem payload** (catálogo ``tombstones`` — migração 0005), purge de
   payloads de eventos sem **nenhum hash reversível** do texto excluído
@@ -55,7 +61,13 @@ Contratos implementados:
   o backup como **pendente até expiração** (retenção proposta de 30 dias —
   default de ensaio, §5/§15.1; deleção que remove todos os dados de memória
   do usuário registra backup já removido na solicitação) e **reconstitui
-  projeções** (``topic_states`` recalculados desde os registros restantes).
+  projeções** (``topic_states`` recalculados desde os registros restantes)
+  **dentro do mesmo commit idempotente** da deleção (§11/§15.1) — crash
+  entre deleção e reconstituição não deixa projeção obsoleta sem retry: o
+  replay da operação reaplica o conjunto. Escopos ``facts``/``summaries``
+  não reconstituem (documentado): ``topic_states`` deriva de
+  attempts/assessments, não da tabela ``facts`` (fatos acadêmicos) nem de
+  ``summaries``.
   Checkpoints (task 014) e traces (task 015) ainda não existem no MVP: a
   propagação a eles é registrada pelos tombstones e eventos de invalidação,
   que o replay dessas camadas consume quando existirem — nada é alegado
@@ -628,9 +640,17 @@ class MemoryService:
     ) -> CorrectionResult:
         """Correção de fato (§15.1): fato novo com ``supersedes``, validade
         do antigo fechada, aresta registrada e **dependentes invalidados**
-        por percurso das ``artifact_dependencies`` (BFS nos dois sentidos),
-        com reconstituição da projeção de fatos (derivada em leitura — a
-        correção é imediatamente visível na projeção vigente).
+        por percurso das ``artifact_dependencies`` (BFS transitivo no
+        sentido pai→filho), com reconstituição da projeção de fatos
+        (derivada em leitura — a correção é imediatamente visível na
+        projeção vigente).
+
+        Fato que **já possui sucessor ativo** não é corrigido de novo:
+        recusa tipada (``SCHEMA_INVALID``) — uma segunda correção do fato
+        substituído deixaria dois fatos ativos como contradição pendente
+        (§7). Escolha registrada (revisão da 010): recusar em vez de fechar
+        a validade do sucessor intermediário silenciosamente; corrigir o
+        sucessor vigente é o caminho explícito.
 
         Checkpoints (014) e traces (015) não existem no MVP: a propagação a
         eles fica registrada nos eventos de invalidação e nos tombstones.
@@ -640,6 +660,21 @@ class MemoryService:
             raise EduAgentError(
                 ErrorCode.SOURCE_UNRESOLVED,
                 f"fato {fact_id} não resolve para o usuário",
+                diagnostic=_DIAGNOSTIC,
+            )
+        active_successors = self._store.fetch_user_rows(
+            "SELECT id FROM facts WHERE user_id = ? AND supersedes = ? "
+            "AND valid_to IS NULL AND status != 'rejected'",
+            (user_id, fact_id),
+        )
+        if active_successors:
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID,
+                f"fato {fact_id} já possui sucessor ativo "
+                f"({', '.join(sorted(str(r['id']) for r in active_successors))})"
+                " — corrija o sucessor vigente; nova correção do fato "
+                "substituído deixaria dois fatos ativos como contradição "
+                "pendente (mapa §7)",
                 diagnostic=_DIAGNOSTIC,
             )
         now = self._clock()
@@ -746,7 +781,9 @@ class MemoryService:
         """Invalida dependentes do ``trigger_ref`` (§15.1): evento
         ``artifact_invalidated`` por dependente; resumo dependente tem
         ``verification='failed'`` (artefato derivado de fonte corrigida não
-        permanece verificado). BFS transitivo pelos dois sentidos."""
+        permanece verificado). BFS transitivo pelos **dependentes** (arestas
+        pai→filho de ``artifact_dependencies``; o sentido filho→pai não é
+        percorrido)."""
         invalidated: list[str] = []
         frontier = [trigger_ref]
         while frontier:
@@ -857,6 +894,18 @@ class MemoryService:
             summaries = [
                 str(r["id"]) for r in rows if not wanted or str(r["id"]) in wanted
             ]
+        if wanted:
+            resolved = set(events) | set(facts) | set(summaries)
+            missing = sorted(i for i in wanted if i not in resolved)
+            if missing:
+                # ID pedido que não resolve para o usuário é recusa tipada —
+                # nunca no-op silencioso nem TypeError (revisão da 010).
+                raise EduAgentError(
+                    ErrorCode.SOURCE_UNRESOLVED,
+                    f"IDs não resolvem para o usuário no escopo {scope!r}: "
+                    f"{', '.join(missing)}",
+                    diagnostic=_DIAGNOSTIC,
+                )
         return events, facts, summaries
 
     def delete_data(
@@ -964,6 +1013,16 @@ class MemoryService:
         digest = _digest(
             {"scope": scope, "ids": sorted(want for want in ids), "reason": reason}
         )
+        # Reconstituição das projeções DENTRO do commit idempotente (§11/
+        # §15.1): um crash entre a deleção e a reconstituição não deixa
+        # projeção obsoleta sem retry — o replay da operação reaplica o
+        # conjunto atômico. Escopos facts/summaries não reconstituem
+        # (documentado): ``topic_states`` deriva de attempts/assessments,
+        # não da tabela ``facts`` (fatos acadêmicos) nem de ``summaries`` —
+        # deleção nesses escopos não altera a projeção de competência.
+        reconstituted = scope in ("events", "all")
+        if reconstituted:
+            statements.extend(self._topic_state_statements(user_id))
         receipt = self._effects.commit(
             CommitRequest(
                 operation_id=operation_id or str(_uuid.uuid4()),
@@ -987,12 +1046,6 @@ class MemoryService:
                 projection=tuple(statements),
             )
         )
-        # Reconstitui projeções (§15.1): topic_states recalculados desde os
-        # registros restantes (projeções são reconstruíveis, §5).
-        reconstituted = self.reconstitute_topic_states(user_id) if scope in (
-            "events",
-            "all",
-        ) else False
         return DeleteResult(
             receipt=receipt,
             tombstoned_refs=tuple(tombstoned),
@@ -1026,10 +1079,14 @@ class MemoryService:
             ),
         )
 
-    def reconstitute_topic_states(self, user_id: str) -> bool:
-        """Reconstitui ``topic_states`` desde os registros restantes (§15.1:
-        "reconstitui projeções"; §5: projeções são reconstruíveis). Import
-        local evita ciclo de importação (assessment não depende daqui)."""
+    def _topic_state_statements(
+        self, user_id: str
+    ) -> list[tuple[str, tuple[Any, ...]]]:
+        """Statements de reconstituição de ``topic_states`` desde os
+        registros restantes (§15.1: "reconstitui projeções"; §5: projeções
+        são reconstruíveis) — construídos fora de transação para poderem
+        entrar na projeção de um commit idempotente (§11). Import local
+        evita ciclo de importação (assessment não depende daqui)."""
         from eduagent.services.assessment import (
             AssessmentService,
             compute_topic_states,
@@ -1048,7 +1105,7 @@ class MemoryService:
         states = compute_topic_states(
             attempts_facts, assessments_facts, revision_by_topic=revisions
         )
-        statements: list[tuple[str, tuple[Any, ...]]] = [
+        return [
             (
                 "INSERT INTO topic_states(user_id, topic_id, revision, "
                 "payload_json) VALUES (?,?,?,?) ON CONFLICT(user_id, topic_id) "
@@ -1063,6 +1120,13 @@ class MemoryService:
             )
             for topic_id, state in states.items()
         ]
+
+    def reconstitute_topic_states(self, user_id: str) -> bool:
+        """Reconstitui ``topic_states`` desde os registros restantes (§15.1)
+        numa escrita própria. ``delete_data`` não usa este caminho: lá a
+        reconstituição entra na projeção do commit idempotente da deleção
+        (crash-safe por replay, §11)."""
+        statements = self._topic_state_statements(user_id)
         if statements:
             self._store.execute_write(user_id, statements)
         # Executou (mesmo sem estados a projetar — sem tentativas, a
@@ -1283,31 +1347,43 @@ class MemoryService:
     ) -> list[EventRow]:
         """Correções relevantes substituem candidatos (§7): evento de
         correção/invalidação posterior que referencie o evento selecionado
-        (``trigger_ref``/``corrects_event_ref`` no payload) entra no lugar
-        dele — o candidato corrigido não é exibido sem a correção."""
+        entra no lugar dele — o candidato corrigido não é exibido sem a
+        correção. As referências consumidas são exatamente as emitidas
+        (revisão da 010): ``artifact_invalidated`` traz ``trigger_ref``
+        (causa) e ``artifact_ref`` (artefato invalidado — pode ser o próprio
+        evento candidato); ``fact_corrected`` traz ``old_fact_ref``.
+
+        Deduplicação por ``event_id`` (revisão da 010, Beam A2): quando o
+        original e sua correção coexistem na seleção, a correção é emitida
+        uma única vez e o original **não** é reemitido."""
         corrections: dict[str, EventRow] = {}
         for event in events:
-            payload = event.payload or {}
-            trigger = payload.get("trigger_ref") or payload.get(
-                "corrects_event_ref"
-            )
-            if trigger and event.kind in (
+            if event.kind not in (
                 EVENT_ARTIFACT_INVALIDATED,
                 EVENT_FACT_CORRECTED,
             ):
-                corrections.setdefault(trigger, event)
+                continue
+            payload = event.payload or {}
+            refs = [payload.get("trigger_ref"), payload.get("artifact_ref")]
+            if event.kind == EVENT_FACT_CORRECTED:
+                refs.append(payload.get("old_fact_ref"))
+            for ref in refs:
+                if ref:
+                    corrections.setdefault(str(ref), event)
         replaced: list[EventRow] = []
         used: set[str] = set()
         for event in selected:
             correction = corrections.get(event.ref)
             if correction is not None:
                 if str(correction.event_id) in used:
-                    continue  # correção já presente — não duplicar
+                    continue  # correção já emitida — não reemitir o original
                 replaced.append(correction)
                 used.add(str(correction.event_id))
-            else:
-                replaced.append(event)
-                used.add(str(event.event_id))
+                continue
+            if str(event.event_id) in used:
+                continue  # já presente (a própria correção é candidata)
+            replaced.append(event)
+            used.add(str(event.event_id))
         return replaced
 
     # -- pacote de memória (contrato MemoryPack, §4/§7) ---------------------------

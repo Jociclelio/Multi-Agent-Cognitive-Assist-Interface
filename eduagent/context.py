@@ -15,8 +15,10 @@ Contratos implementados:
   periféricas** (rank menor primeiro), depois **segmenta-se** (corte em
   fronteira de token); só depois se resume — e o resumo é **síntese
   verificada**: nasce dos originais, com verificação exata de datas,
-  números, polaridade, ajuda e estado (``verify_claim_against_sources``).
-  Falha de verificação **mantém os originais** ou pede divisão
+  números, polaridade, ajuda e estado (``verify_claim_against_sources`` —
+  números por igualdade numérica sem substring, datas por valor
+  normalizado, polaridade/estado com falha fechado ante negação/inversão
+  na fonte). Falha de verificação **mantém os originais** ou pede divisão
   (``RESOURCE_LIMIT``) — nunca substitui por síntese não verificada, nunca
   remove a **rubrica necessária** e continua avaliando (se instrução/item/
   rubrica/fatos obrigatórios não cabem, o erro é tipado antes de qualquer
@@ -403,8 +405,13 @@ class ContextBuilder:
             actions.append(f"fontes periféricas reduzidas={dropped}")
 
         # (b) segmentação: se há fonte fora e sobrou espaço, tenta o primeiro
-        # segmento que couber (corte em fronteira de token).
-        rest = ordered[len(kept):]
+        #     segmento que couber (corte em fronteira de token). O resto é
+        #     calculado EXPLICITAMENTE, sem pressuposto de prefixo: o laço
+        #     guloso pode pular uma fonte grande e aceitar uma menor
+        #     posterior — fonte já mantida não reaparece no resto
+        #     (revisão da 010).
+        kept_ids = {id(item) for item in kept}
+        rest = [item for item in ordered if id(item) not in kept_ids]
         if rest:
             segment = self._segment(
                 rest[0], input_text, base_data, tuple(kept), budget
@@ -543,9 +550,14 @@ def _number_value(token: str) -> float:
 
 
 def _has_number(sources: str, token: str) -> bool:
-    if token in sources:
-        return True
-    value = _number_value(token)
+    """Igualdade numérica exata (§7) contra os tokens extraídos por
+    ``_NUMBER_RE`` dos originais — **sem** pré-checagem por substring:
+    ``"12"`` não verifica ``"120"``; ``"7"`` verifica ``"7,0"`` (mesmo
+    valor numérico). Número genuinamente presente continua verificando."""
+    try:
+        value = _number_value(token)
+    except ValueError:
+        return False
     for match in _NUMBER_RE.finditer(sources):
         try:
             if _number_value(match.group()) == value:
@@ -555,24 +567,82 @@ def _has_number(sources: str, token: str) -> bool:
     return False
 
 
+def _date_tokens(text: str) -> set[str]:
+    """Datas de ``text`` normalizadas para ISO (``dd/mm/aaaa`` →
+    ``aaaa-mm-dd``): a conferência é pelo **valor** da data, não por
+    substring — a mesma data em formatos distintos verifica; datas
+    distintas não (§7: checar exatamente datas)."""
+    tokens = {match.group() for match in _DATE_ISO_RE.finditer(text)}
+    for match in _DATE_BR_RE.finditer(text):
+        day, month, year = match.group().split("/")
+        tokens.add(f"{year}-{month}-{day}")
+    return tokens
+
+
+#: Opostos canônicos de polaridade: fonte que traz o oposto do token do
+#: claim contradiz o claim — presença literal do token não prova claims
+#: opostos (revisão da 010; falha fechada, §12).
+_POLARITY_OPPOSITES = {"correct": "incorrect", "incorrect": "correct"}
+
+#: Marcadores de negação: ocorrência do token precedida por negação na fonte
+#: contradiz o claim — checagem conservadora (falha fechada mantendo os
+#: originais).
+_NEGATION_WORDS = frozenset(
+    {"não", "nao", "not", "nunca", "never", "sem", "without"}
+)
+_NEGATION_WINDOW_WORDS = 2
+_NEGATION_WINDOW_CHARS = 32
+
+_WORD_RE = re.compile(r"[a-záâãàéêíóôõúüç]+")
+
+
+def _negated_before(sources: str, start: int) -> bool:
+    """True se a ocorrência que começa em ``start`` é precedida, dentro da
+    janela de palavras, por marcador de negação — a fonte nega o token e não
+    o suporta (falha fechada)."""
+    window = sources[max(0, start - _NEGATION_WINDOW_CHARS) : start]
+    words = _WORD_RE.findall(window)
+    return any(
+        word in _NEGATION_WORDS
+        for word in words[-_NEGATION_WINDOW_WORDS :]
+    )
+
+
+def _token_supported(sources: str, token: str) -> bool:
+    """Suporte do token de polaridade/estado na fonte (§7/§12): presença
+    literal **não basta** — a fonte que traz o token oposto ou o traz sob
+    negação contradiz o claim; falha fechada preserva os originais."""
+    if not re.search(rf"\b{token}\b", sources):
+        return False
+    opposite = _POLARITY_OPPOSITES.get(token)
+    if opposite and re.search(rf"\b{opposite}\b", sources):
+        return False
+    return not any(
+        _negated_before(sources, match.start())
+        for match in re.finditer(rf"\b{token}\b", sources)
+    )
+
+
 def verify_claim_against_sources(
     claim: str, source_texts: Sequence[str]
 ) -> bool:
     """Verificação exata de UM claim contra os originais (§7): toda data,
     número, polaridade, nível de ajuda e estado presente no claim deve ter
-    suporte literal nos originais. Claim sem **nenhum** elemento verificável
-    é não verificável → falha (mantém originais; nunca aprovar parcial
-    silenciosamente, §12)."""
+    suporte exato nos originais — números por igualdade numérica contra os
+    tokens extraídos (sem substring: ``"12"`` não verifica ``"120"``), datas
+    por valor normalizado, polaridade/ajuda/estado sem contradição (fonte
+    que traz o oposto ou nega o token falha fechado). Claim sem **nenhum**
+    elemento verificável é não verificável → falha (mantém originais; nunca
+    aprovar parcial silenciosamente, §12)."""
     normalized_claim = _norm(claim)
     sources = "\n".join(_norm(text) for text in source_texts)
     checked = False
 
-    dates = _DATE_ISO_RE.findall(normalized_claim) + _DATE_BR_RE.findall(
-        normalized_claim
-    )
-    for date in dates:
+    claim_dates = _date_tokens(normalized_claim)
+    source_dates = _date_tokens(sources)
+    for date in sorted(claim_dates):
         checked = True
-        if date not in sources:
+        if date not in source_dates:
             return False
 
     numbers = _NUMBER_RE.findall(normalized_claim)
@@ -586,19 +656,27 @@ def verify_claim_against_sources(
     for token in POLARITY_TOKENS:
         if re.search(rf"\b{token}\b", normalized_claim):
             checked = True
-            if not re.search(rf"\b{token}\b", sources):
+            if not _token_supported(sources, token):
                 return False
 
     for token in STATE_TOKENS:
         if re.search(rf"\b{token}\b", normalized_claim):
             checked = True
-            if not re.search(rf"\b{token}\b", sources):
+            if not _token_supported(sources, token):
                 return False
 
     for match in _HELP_RE.finditer(normalized_claim):
         checked = True
         if not _has_number(sources, match.group(1)):
             return False
+        # Negação da ajuda na fonte também contradiz o claim (falha
+        # fechada): "não houve ajuda nível 2" não suporta "ajuda nível 2".
+        claim_level = _number_value(match.group(1))
+        for source_match in _HELP_RE.finditer(sources):
+            if _number_value(source_match.group(1)) == claim_level and (
+                _negated_before(sources, source_match.start())
+            ):
+                return False
 
     return checked
 
