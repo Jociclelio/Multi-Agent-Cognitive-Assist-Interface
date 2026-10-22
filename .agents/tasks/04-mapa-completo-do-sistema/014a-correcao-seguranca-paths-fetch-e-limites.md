@@ -1,6 +1,6 @@
 # Task 014a: Correção da 014 — segurança de paths/fetch e limites sob fan-out
 
-Estado: aguardando revisão
+Estado: fechada (9/10, decisão `fechar`)
 Depende de: 014
 Origem: 014 (correção — decisão `corrigir` da revisão, nota 7/10)
 
@@ -25,10 +25,10 @@ Restrições vigentes do ciclo: mapa (`fase2/documentos/04_mapa_completo_do_sist
 - `tests/test_task014_graph.py` — suíte existente (36 testes) onde as regressões novas entram.
 
 ## Corretude
-- [ ] C1 — Sondas da revisão reproduzidas ANTES da correção e recusadas/devidas DEPOIS: `resolve_owned_path` com `.`/`""` recusado por código; redirect protocol-relative `//host` bloqueado contra IP privado/loopback (teste).
-- [ ] C2 — `TurnLimits` com contagem exata sob consumos concorrentes (teste com threads); `checkpointer.list()` sob lock; precedência cancelamento → deadline → limite de passos provada no caso simultâneo (terminal `TIMEOUT`).
-- [ ] C3 — Débito de orçamento LLM somente com geração real/enqueue aceito (fila cheia preserva orçamento — teste); revalidação do destino final de fetch sempre aplicada.
-- [ ] C4 — Suíte integral reexecutada sem regressões (482 + regressões novas); mapa/config/submódulo intocados; commits de entrega e registro separados.
+- [x] C1 — Sondas da revisão reproduzidas ANTES da correção e recusadas/devidas DEPOIS: `resolve_owned_path` com `.`/`""` recusado por código; redirect protocol-relative `//host` bloqueado contra IP privado/loopback (teste).
+- [x] C2 — `TurnLimits` com contagem exata sob consumos concorrentes (teste com threads); `checkpointer.list()` sob lock; precedência cancelamento → deadline → limite de passos provada no caso simultâneo (terminal `TIMEOUT`).
+- [x] C3 — Débito de orçamento LLM somente com geração real/enqueue aceito (fila cheia preserva orçamento — teste); revalidação do destino final de fetch sempre aplicada.
+- [x] C4 — Suíte integral reexecutada sem regressões (482 + regressões novas); mapa/config/submódulo intocados; commits de entrega e registro separados.
 
 ## Execução
 - Modelo: sd2/GLM-5.3-Flash (executor do ciclo; correção pontual, sem exigência de troca de modelo — decisão foi `corrigir`, não `reiniciar`)
@@ -51,13 +51,21 @@ Restrições vigentes do ciclo: mapa (`fase2/documentos/04_mapa_completo_do_sist
 3/10 — Correções pontuais e delimitadas conforme previsto, com sondas descritas pela revisão. As duas sutilezas foram: (1) a corrida de contadores (A3) não se manifesta de forma confiável sem instrumentar o escalonamento — a prova determinística exigiu subclassificação com pontos de preempção documentados no teste, preservando a semântica de produção; (2) "revalidar sempre o destino final" (A4) só é distinguível da validação anterior simulando DNS rebinding (substituição de `getaddrinfo`), já que com URL final idêntica não há sinal observável sem controlar a resolução. Precedência em `begin_step` e reembolso de orçamento foram diretos; nenhuma regressão na suíte existente.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: sd2/GLM-5.3-Flash (master do ciclo, sessão `014a | master`)
+- Alvo: entrega `3b7bce8916d5fd81767c3ead0f326f238140a4c2` sobre base `8985b45de8e7b493a2098827048c54d245607fd5`; registro `b8fb4bb146c24aaa48b3b8a314cb5d6561cd0dc8` (commit `b8fb4bb`, somente o task.md, filho da entrega); árvore limpa e inalterada durante a rodada. Diff confinado aos 4 arquivos declarados; mapa, config e submódulo intocados.
+- Modo da rodada: **sequencial** — a revisão executa a suíte pytest no `.venv` compartilhado do projeto (recurso comum que interfere sob concorrência), mesmo critério das rodadas anteriores da família; cada revisor usou cópias isoladas via `git archive` em `/tmp/opencode`.
+- Avaliações (quórum de três modelos distintos):
+  1. `sd2/GLM-5.3-Flash` — **9/10, aprovada** (sessão `ses_e9e91b594ffe1vca0w0nblU8LD`): reproduziu as 5 sondas antes/depois em árvores isoladas, os 8 testes novos falham na base e passam na entrega (discriminantes reais), suíte integral 490 passed; achados baixos não bloqueantes (débito sem reembolso no `TIMEOUT` pós-`consume_llm`; higiene da sonda S-5 sem saída "antes" preservada e `EduAgentError` não importado — reprodução independente compensou).
+  2. `sorgan-qwen/qwen3-27b` — **9/10, aprovada** (subagente `task-reviewer-qwen`, sessão `ses_e9e89c581ffeCXF4xV4M035hvU`): sondas próprias antes/depois, prova de sensibilidade dos testes por mutação controlada (remoção do RLock e do lock de `list()` faz os testes falharem), suíte 489 passed + 1 skipped (skip ambiental pré-existente de BGE-M3); achados informativos/baixos fora do escopo (mesmo residual de reembolso em `TIMEOUT`; `integrity_check` sem lock, pré-existente).
+  3. `openai/gpt-6-luna` — **8/10, requer correções** (subagente `task-reviewer-luna`, sessão `ses_e9e81bc2bffeS8XlyTrcJQxg4t`): C1/C2 verificados por inspeção; achou o débito `consume_llm` não reembolsado quando `check_deadline()` falha após o débito e antes do enqueue, recomendando `corrigir`; C3/C4 marcados incompletos por limitação do ambiente dela (`rank_bm25` ausente na cópia isolada — coleta da suíte falhou), pendência coberta pelas reproduções independentes e completas dos revisores 1 e 2.
+- Divergência e resolução: os três pareceres convergem no mesmo fato residual (débito LLM sem reembolso no caminho `check_deadline` pós-débito, pré-enqueue). Revisores 1 e 2 o classificam baixo e fora do escopo do item 7 do prompt (que exigia reembolso na recusa `RESOURCE_LIMIT` da fila cheia — implementado e testado) e notam que o turno é terminal em `TIMEOUT` (orçamento do turno sem efeito posterior). Luna adota leitura estrita do invariante "débito somente com enqueue aceito". Não há contradição factual; a maioria (2/3) recomenda `fechar`. **Residual registrado como dívida documentada**: reembolsar no `TIMEOUT` ou checar o deadline antes do débito — candidato a micro-correção junto à 016 (conector real, que consome `_node_web_fetch`).
+- Falhas de revisor e substituições (registradas por exigência de quórum): via `task_review` com `reviewer_model` explícito do ciclo, cinco tentativas de modelos distintos (`openai/gpt-6-luna` ×2, `opencode/beam-free`, `sorgan-qwen/qwen3-27b`, `opencode/big-pickle`) foram todas lançadas com identidade real `sd2/GLM-5.3-Flash` (falha sistemática de seleção de modelo do plugin neste turno; em rodadas anteriores da família a seleção funcionou). Mitigação registrada: `task_cycle config reviewers=""` (volta ao pool por arquivo do `~/.config/opencode/task-reviewer-pool.md`) e rodada completada pela `task` nativa com os subagentes `task-reviewer-qwen` (qwen3-27b confirmado) e `task-reviewer-luna` (gpt-6-luna confirmada), sequencialmente. O parecer GLM da primeira chamada `task_review` foi mantido como membro 1 do quórum (identidade confirmada = alvo correto). Nenhum parecer simulado.
+- Nota final: **9/10** — todos os 7 itens do prompt implementados e provados por sondas antes/depois independentes (2 revisores), testes de regressão novos e discriminantes (sensibilidade provada por mutação), suíte integral sem regressões (490 na árvore do executor; 489+1 skip ambiental nas cópias isoladas — aritmética consistente: 482 base = 481+1 skip, +8 novos), restrições do ciclo respeitadas. Dedução pelo residual baixo de reembolso em `TIMEOUT` (registrado como dívida) e pelo ruído de relato da contagem. O residual não esconde pendência essencial: é caminho terminal do turno, fora do escopo estrito do item 7, com 2/3 dos revisores recomendando fechamento.
+- Parecer: correção pontual fiel aos achados da revisão da 014; design aprovado preservado; A1 e A2 (altos) corrigidos com recusa por código e regressões; A3 provado com contagem exata sob preempção instrumentada; A4 revalida destino final e hops com pré-condição contratual registrada para a 016; A5 sob lock; precedência alinhada e testada no caso simultâneo; L-A1 reembolso na fila cheia com teste.
+- Decisão: **fechar** — família 014 (014 + 014a) resolvida; critérios obrigatórios comprovados; residuais baixos documentados como dívida.
+- Reversão: não se aplica — entrega aprovada, sem reversão.
+- Próximo passo: liberar a task 015 (`015-cli-e-api-loopback.md`), dependência 014 resolvida por 014a.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/015-cli-e-api-loopback.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
