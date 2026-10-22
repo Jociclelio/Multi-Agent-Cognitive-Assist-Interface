@@ -729,6 +729,43 @@ CREATE INDEX idx_logical_blocks_demand ON logical_blocks(user_id, source_demand_
 """
 
 
+def _migration_0007() -> str:
+    """Exportação ICS, confirmação e outbox (§9/§15.1/§15.5 — task 013).
+
+    - ``logical_blocks``: campos de evento do ICS (§9/§15.5) —
+      ``created_at`` alimenta CREATED; ``modified_at`` (última revisão
+      persistida) alimenta DTSTAMP/LAST-MODIFIED; ``summary`` alimenta
+      SUMMARY; ``value_type`` distingue all-day (``DATE``, fim exclusivo no
+      dia seguinte) de DATE-TIME (UTC Z). ``event_sequence`` (migração 0006)
+      alimenta SEQUENCE — começa em 0 e incrementa apenas se campos de
+      evento mudam; retries/reexportações da mesma revisão não alteram
+      timestamps (§9/§15.5).
+    - ``confirmations``: conjunto/hash das dependências da aprovação
+      (§15.1: "Confirmação guarda ``base_revision``, ``approval_revision``
+      pós-commit e conjunto/hash das dependências") — a alteração posterior
+      de dependência invalida a aprovação ainda não aplicada.
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- logical_blocks: campos de evento do ICS (§9/§15.5)
+-- ---------------------------------------------------------------------------
+ALTER TABLE logical_blocks ADD COLUMN created_at TEXT;
+ALTER TABLE logical_blocks ADD COLUMN modified_at TEXT;
+ALTER TABLE logical_blocks ADD COLUMN summary TEXT;
+ALTER TABLE logical_blocks ADD COLUMN value_type TEXT NOT NULL
+    DEFAULT 'DATE-TIME' CHECK (value_type IN ('DATE','DATE-TIME'));
+
+-- ---------------------------------------------------------------------------
+-- confirmations: dependências da aprovação (§15.1)
+-- ---------------------------------------------------------------------------
+ALTER TABLE confirmations ADD COLUMN dependencies_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE confirmations ADD COLUMN dependencies_hash TEXT
+    CHECK (dependencies_hash IS NULL OR length(dependencies_hash) = 64);
+CREATE INDEX idx_confirmations_artifact
+    ON confirmations(user_id, artifact_id, artifact_revision);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -777,6 +814,16 @@ def _load_builtin() -> None:
             "chave de unicidade de demandas pendentes e campos de atividade "
             "em logical_blocks — §15.3/§15.4, task 011",
             _migration_0006(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            7,
+            "exportação ICS e confirmação: campos de evento do ICS em "
+            "logical_blocks (created_at/modified_at/summary/value_type — "
+            "§9/§15.5) e conjunto/hash das dependências da confirmação em "
+            "confirmations (§15.1) — task 013",
+            _migration_0007(),
         )
     )
 
