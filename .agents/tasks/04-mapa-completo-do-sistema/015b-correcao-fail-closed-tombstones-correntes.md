@@ -56,13 +56,17 @@ Restrições: preservar o design e a entrega da 015/015a; tocar apenas `eduagent
 2/10 — Correção local e unificada num único ponto de falha, com o comportamento ANTES inequívoco (leitura de código convergente entre os três revisores) e o caminho legítimo já coberto por testes existentes. Registrada pelo executor na seção Execução.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`, model id `GLM-5.3-Flash`, via `~/sd2-llm.sh`) — task-master do ciclo.
+- Alvo: entrega `a9fb8aa349063cefce656555adf0c1b8ce71af6c` sobre base `23eb88fe61471c25503ef3e044caa749d647ed62`; registro `8955787`. Confirmado por Git: diff base→entrega toca apenas `eduagent/services/backup.py` e `tests/test_task015b_correcoes.py` (novo); mapa, `config/`, `docs/`, submódulo e `uv.lock` intocados; commits de entrega e registro separados; árvore limpa.
+- Modo da rodada: **sequencial** — a revisão exige rodar a suíte pytest no venv compartilhado (`.venv`) e sondas locais, recursos concorrentes que se interferem; rodada paralela invalidaria as medições e poderia corromper estados compartilhados. Pool do projeto (`.opencode/task-reviewer-pool.md`): três primeiros, modelos distintos.
+- Avaliações: **GLM-5.3-Flash 9/10** (aprovada) — C1–C3 providos: suíte integral **535 passed** reproduzida (28,4 s), TOM-3/TOM-4 executados, sonda própria independente com dois modos de falha extras além dos exigidos (sqlite válido sem tabela `tombstones` → recusa; `domain.sqlite` presente como diretório → recusa), ambos com `INTERNAL_FAILURE` e diretório descartado; confirmou mecanismo estrutural do descarte (chamada única dentro do `try` de `restore_backup` com `except BaseException: rmtree`); achados residuais baixos: TOCTOU entre `exists()` e `connect` (desfecho fail-closed, seguro) e teórico mascaramento por `close()` no `finally`. **qwen3-27b 10/10** (aprovada) — sonda independente antes/depois reproduzida (ANTES: restore liberado com payload excluído vivo; DEPOIS: recusa tipada `INTERNAL_FAILURE` com diretório descartado), suíte integral **535 passed** (28,66 s) e 14 passed nos testes 015b+015a; confirma `INTERNAL_FAILURE` no conjunto fechado do §4; observações informativas baixas: acoplamento do teste à palavra "ilegível" e o mesmo TOCTOU conservador. **gpt-6-luna 9/10** (aprovada) — C1 e C3 verificados por inspeção de diff; C2 parcial (relatos da suíte 535 não reproduzidos por ela, por política de não escrever na árvore compartilhada) — provido e tornado independente por GLM e qwen, que rodaram a suíte; nenhum achado.
+- Divergências: nenhuma factual — convergência total dos três na leitura do comportamento ANTES (fail-open em `backup.py:544-551`) e do DEPOIS (fail-closed por existência do arquivo). Divergência apenas de profundidade de verificação (luna sem execução de testes), coberta pelo quórum. Observações residuais (TOCTOU, `close()`, acoplamento a redação) são baixas, convergentes na direção fail-closed e não justificam novo ciclo.
+- Nota final: **9/10** — correção mínima e pontual exatamente no item obrigatório (achado alto luna-A1 da 015a), com a garantia do §15.1 restaurada e provada por sondas independentes antes/depois (incluindo modos de falha não exigidos), suíte integral verde reproduzida por dois revisores (535 passed, sem quebrar os 521 anteriores), escopo e restrições integralmente respeitados. Não é 10 pelas observações residuais de robustez registradas (baixas, documentadas aqui como dívida opcional de robustez, sem impacto de segurança).
+- Parecer: todos os critérios obrigatórios (C1–C3) comprovados com evidência independente; família 015→015a→015b resolvida — a garantia "nenhum ref tombstonado resolva vivo no conjunto liberado" (§15.1) passa a valer também quando o banco corrente está presente porém ilegível.
+- Decisão: **fechar**
+- Reversão: não se aplica — entrega aprovada, preservada sem reversão.
+- Próximo passo: próxima task principal da sequência do plano: `016-conectores-opcionais-web-e-sync.md` (pendências registradas para 016: micro-correção futura do reembolso de débito LLM no caminho `TIMEOUT` pós-`consume_llm`, dívida da 014a; conector de busca é questão aberta — sem ele `CONNECTOR_DISABLED`).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/016-conectores-opcionais-web-e-sync.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
