@@ -77,4 +77,6 @@ Implementar e admitir individualmente os conectores opcionais (mapa §6 curadori
 - Reversão: não se aplica — entrega preservada.
 - Próximo passo: criar subtask 016a (correção de limites de transporte web/CalDAV, redirect malicioso do CalDAV, wiring do conector no runtime, clamp de `max_results` e endurecimento do parse XML), pendente de criação; questão aberta do conector de busca permanece aberta.
 
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/016a-correcao-limites-transporte-e-redirect-caldav.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
