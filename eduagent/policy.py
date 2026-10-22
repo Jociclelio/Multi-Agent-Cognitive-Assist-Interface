@@ -352,10 +352,22 @@ class GenerationGate:
         )
         return result
 
-    def _notify(self, event: dict[str, Any] | None, error: Any) -> None:
-        """Publica o evento de geração ao observador do trace (§12); falha do
-        observador não pode quebrar o turno — erro interno é isolado."""
-        if self._observer is None or event is None:
+    def _notify(self, event: dict[str, Any] | None, error: Any = None) -> None:
+        """Publica o evento de geração ao observador do trace (§12); falha de
+        geração TAMBÉM é publicada (evento com ``error``, como na recusa de
+        fila) — o observador do trace não fica sem evento no caminho de erro.
+        Falha do observador não pode quebrar o turno — erro interno é
+        isolado."""
+        if self._observer is None:
+            return
+        if event is None and error is not None:
+            event = {
+                "queue_s": None,
+                "active_s": None,
+                "result": None,
+                "error": error,
+            }
+        if event is None:
             return
         try:
             self._observer(event)

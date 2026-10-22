@@ -152,10 +152,17 @@ def _error(
 
 
 def _require_service(service: Any, name: str, route: str) -> Any:
+    """Recurso configurado ausente → classe 3 do §12 (recurso/conector
+    indisponível): a ausência de serviço/embedder configurado NÃO é falha
+    interna — é indisponibilidade do recurso declarada por código
+    (``SOURCE_UNRESOLVED``, mapeada para exit 3 na CLI e 404/503-family na
+    API). Escolha local de mapeamento §12 documentada."""
     if service is None:
         raise _error(
-            ErrorCode.INTERNAL_FAILURE,
-            f"serviço {name!r} não configurado no grafo (rota {route!r})",
+            ErrorCode.SOURCE_UNRESOLVED,
+            f"recurso configurado ausente: serviço {name!r} indisponível "
+            f"na rota {route!r} (§12 classe 3: recurso/conector "
+            "indisponível)",
         )
     return service
 
@@ -909,6 +916,37 @@ class EduAgentGraph:
             clock=self._clock,
         )
 
+    def _session_owner(self, session_id: str) -> str | None:
+        """Dono registrado da sessão (thread do checkpoint, §10/§12): o
+        estado do grafo guarda o ``user_id`` do turno que abriu a sessão.
+        Sessão sem checkpoint (nova) não tem dono ainda."""
+        config = {"configurable": {"thread_id": str(session_id)}}
+        snapshot = self._graph.get_state(config)
+        owner = (snapshot.values or {}).get("user_id")
+        return str(owner) if owner else None
+
+    def _require_session_owner(
+        self, session_id: str, user_id: str | None
+    ) -> None:
+        """Ownership usuário↔sessão (§12): efeitos de retomada, cancelamento
+        e aprovação exigem que a sessão pertença ao usuário autenticado.
+        Sessão de outro usuário é recusada por código ANTES de qualquer
+        efeito (``TOOL_DENIED`` — ação proibida é negada por código, §4/§10;
+        mesmo precedente de ownership da 014a)."""
+        if user_id is None:
+            return
+        owner = self._session_owner(session_id)
+        if owner is None or owner == str(user_id):
+            return
+        raise _error(
+            ErrorCode.TOOL_DENIED,
+            "sessão de outro usuário: a sessão "
+            f"{session_id} pertence ao usuário {owner}; o usuário "
+            f"autenticado {user_id} não pode retomar, cancelar ou aprovar "
+            "efeitos dela (§12: escrita exige o contexto autenticado da "
+            "própria sessão)",
+        )
+
     def run_turn(
         self,
         *,
@@ -923,6 +961,9 @@ class EduAgentGraph:
         """Um turno (mapa §10/§12): nova entrada no ``thread_id`` da sessão;
         espera por aluno e gates de confirmação terminam a invocação."""
         config = {"configurable": {"thread_id": str(session_id)}}
+        # Ownership ANTES da escrita no thread (§12): turno em sessão de
+        # outro usuário é recusado sem aplicar efeito (inclui cancel).
+        self._require_session_owner(str(session_id), str(user_id))
         self._limits = self._new_limits()
         payload = dict(payload or {})
         if intent is not None:
@@ -986,10 +1027,15 @@ class EduAgentGraph:
         *,
         session_id: str,
         resume: Mapping[str, Any] | Any,
+        user_id: str | None = None,
     ) -> TurnResult:
         """Retoma um nó interrompido desde o início com o valor de retomada
-        (§10: interrupt retoma o nó; preparação pura, efeitos idempotentes)."""
+        (§10: interrupt retoma o nó; preparação pura, efeitos idempotentes).
+        Com ``user_id`` informado (CLI/API com contexto autenticado), a
+        sessão de outro usuário é recusada por código antes de qualquer
+        efeito (§12: ownership usuário↔sessão)."""
         config = {"configurable": {"thread_id": str(session_id)}}
+        self._require_session_owner(str(session_id), user_id)
         self._limits = self._new_limits()
         value = dict(resume) if isinstance(resume, Mapping) else resume
         trace = self._start_trace(session_id=str(session_id), message=None)
@@ -1369,9 +1415,12 @@ class EduAgentGraph:
     def _node_curator_retrieve(self, state: dict) -> dict:
         retrieval = _require_service(self._retrieval, "retrieval", "ask")
         if self._embedder is None:
+            # Recurso configurado ausente → classe 3 do §12 (não é falha
+            # interna): a rota ask/practice exige embedder (RAG denso, §6.5).
             raise _error(
-                ErrorCode.INTERNAL_FAILURE,
-                "rota ask/practice exige embedder configurado (RAG denso, §6.5)",
+                ErrorCode.SOURCE_UNRESOLVED,
+                "recurso configurado ausente: embedder indisponível na rota "
+                "ask/practice (RAG denso, §6.5; §12 classe 3)",
             )
         require_tool(
             ToolName.DOCUMENT_SEARCH,

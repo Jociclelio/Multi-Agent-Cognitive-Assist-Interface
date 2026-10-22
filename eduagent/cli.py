@@ -26,8 +26,6 @@ ensaio do mapa (§1/§3).
 
 from __future__ import annotations
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys
@@ -57,6 +55,10 @@ EXIT_INTERNAL = 4
 #: (0 sucesso/espera legítima — cancelamento atendido é sucesso da
 #: solicitação; 2 entrada ambígua/inválida; 3 recurso/conector indisponível;
 #: 4 falha interna.) Escolha local documentada — o mapa fixa as classes.
+#: Recurso configurado ausente (serviço/embedder/modelo não configurado) é
+#: classe 3 por ``SOURCE_UNRESOLVED`` (§12: recurso/conector indisponível;
+#: escolha local de mapeamento da 015a — ausência de recurso declarada não
+#: é falha interna).
 EXIT_CODE_BY_ERROR: dict[ErrorCode, int] = {
     ErrorCode.AMBIGUOUS_INPUT: EXIT_INVALID_INPUT,
     ErrorCode.SCHEMA_INVALID: EXIT_INVALID_INPUT,
@@ -470,7 +472,7 @@ def _cmd_resume(runtime: RuntimeContext, args: argparse.Namespace) -> dict[str, 
                 diagnostic=DIAGNOSTIC,
             ) from exc
         result = runtime.graph.resume_turn(
-            session_id=args.session, resume=value
+            session_id=args.session, resume=value, user_id=user_id
         )
     else:
         raise EduAgentError(
@@ -581,7 +583,8 @@ def _cmd_delete(runtime: RuntimeContext, args: argparse.Namespace) -> dict[str, 
             )
             return response
         result = runtime.graph.resume_turn(
-            session_id=str(session), resume={"confirmed": True}
+            session_id=str(session), resume={"confirmed": True},
+            user_id=user_id,
         )
         response = _turn_payload(result)
     # Exclusão ativa imediata nos backups (§15.1): backup só-do-usuário é
@@ -709,9 +712,11 @@ def _cmd_plan(runtime: RuntimeContext, args: argparse.Namespace) -> dict[str, An
 
 
 def _cmd_approve(runtime: RuntimeContext, args: argparse.Namespace) -> dict[str, Any]:
-    _require_user(runtime, args.user)
+    user_id = _require_user(runtime, args.user)
+    # Ownership (§12): aprovação aplica efeito de sessão — sessão de outro
+    # usuário é recusada por código antes da retomada.
     result = runtime.graph.resume_turn(
-        session_id=args.session, resume={"approved": True}
+        session_id=args.session, resume={"approved": True}, user_id=user_id
     )
     return _turn_payload(result)
 

@@ -12,7 +12,7 @@ Tabela de testes (código → caso):
 |---|---|
 | CLI-1 | todos os 14 comandos existem no parser (§12) |
 | CLI-2 | ingest: exit 0, JSON com status completed, versão indexada |
-| CLI-3 | ask sem embedder: exit 4? não — INTERNAL_FAILURE tipado → JSON failed e exit 4 (§12) |
+| CLI-3 | ask sem embedder/tutor configurados: recurso ausente é classe 3 do §12 → SOURCE_UNRESOLVIDO tipado, JSON failed e exit 3 (escolha local de mapeamento §12 da 015a) |
 | CLI-4 | ask com stack completa: waiting_student é espera legítima → exit 0 |
 | CLI-5 | submit: exit 0 com feedback do assessment |
 | CLI-6 | plan: exit 0 waiting (gate de confirmação/aprovação); approve: exit 0 |
@@ -477,10 +477,11 @@ class TestComandosGrafo:
         assert payload["status"] == "failed"
         assert payload["error"]["code"] == "INTERNAL_FAILURE"
 
-    def test_ask_sem_modelo_admitido_exit4(self, stack):
-        # Sem backend/modelo admitido, a tutoria é bloqueada com erro tipado
-        # (mapa §3.1: MODEL_NOT_ADMITTED bloqueia tutoria; rota exige o
-        # serviço) → exit 4 com JSON contendo status (§12).
+    def test_ask_sem_modelo_admitido_exit3(self, stack):
+        # Sem backend/modelo admitido, a tutoria é bloqueada com erro tipado:
+        # recurso configurado AUSENTE é a classe 3 do §12 (recurso/conector
+        # indisponível) — escolha local de mapeamento §12 da 015a
+        # (SOURCE_UNRESOLVED → exit 3; ausência declarada não é falha interna).
         tmp_path = stack["tmp_path"]
 
         def builder() -> RuntimeContext:
@@ -491,9 +492,10 @@ class TestComandosGrafo:
             base_args(tmp_path) + ["ask", "o que é dedup?", "--course", COURSE, "--session", SESSION],
             make_factory(stack),
         )
-        assert code == 4, payload
+        assert code == 3, payload
         assert payload["status"] == "failed"
-        assert payload["errors"][0]["code"] == "INTERNAL_FAILURE"
+        assert payload["errors"][0]["code"] == "SOURCE_UNRESOLVED"
+        assert "recurso configurado ausente" in payload["errors"][0]["message"]
 
     def test_ask_com_stack_waiting_exit0(self, stack):
         tmp_path = stack["tmp_path"]

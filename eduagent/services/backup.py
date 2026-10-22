@@ -34,7 +34,7 @@ import sqlite3
 import uuid as _uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 from eduagent.contracts import ErrorCode, EduAgentError
@@ -63,6 +63,41 @@ def _sha256(path: Path) -> str:
 
 def _error(code: ErrorCode, message: str) -> EduAgentError:
     return EduAgentError(code, message, diagnostic=DIAGNOSTIC)
+
+
+def _validate_manifest_relative(relative: Any) -> str:
+    """Confinamento de caminhos do manifesto (§10): todo caminho ``relative``
+    do manifesto deve ser RELATIVO e confinado ao diretório do backup e à
+    raiz de restore — caminho absoluto, componente ``..`` e separador de
+    Windows são recusados por código (traversal é negado, nunca interpretado;
+    precede a verificação de hash e a cópia)."""
+    candidate = str(relative or "")
+    if not candidate or not candidate.strip():
+        raise _error(
+            ErrorCode.SCHEMA_INVALID,
+            f"caminho vazio no manifesto do backup: {relative!r}",
+        )
+    if "\\" in candidate:
+        raise _error(
+            ErrorCode.SCHEMA_INVALID,
+            "manifesto com separador de caminho não-POSIX recusado (§10): "
+            f"{relative!r}",
+        )
+    path = Path(candidate)
+    pure = PurePosixPath(candidate)
+    if path.is_absolute() or pure.is_absolute() or candidate.startswith("/"):
+        raise _error(
+            ErrorCode.SCHEMA_INVALID,
+            "manifesto com caminho ABSOLUTO recusado (§10: traversal "
+            f"negado): {relative!r}",
+        )
+    if ".." in path.parts or ".." in pure.parts:
+        raise _error(
+            ErrorCode.SCHEMA_INVALID,
+            "manifesto com componente '..' recusado (§10: traversal "
+            f"negado): {relative!r}",
+        )
+    return candidate
 
 
 @dataclass
@@ -350,6 +385,9 @@ class BackupService:
         manifest = self._manifest_of(directory)
         problems: list[str] = []
         for relative, expected in (manifest.get("files") or {}).items():
+            # Confinamento ANTES de tocar o disco (§10): manifesto com
+            # caminho absoluto ou traversal é recusado por código.
+            _validate_manifest_relative(relative)
             candidate = directory / relative
             if not candidate.exists():
                 problems.append(f"arquivo ausente: {relative}")
@@ -385,8 +423,12 @@ class BackupService:
     ) -> dict[str, Any]:
         """Restore em DIRETÓRIO NOVO (§5) com verificador de integridade e
         replay; tombstones registrados valem ANTES de liberar o restore
-        (§15.1): refs tombstonados NÃO podem resolver no conjunto restaurado.
-        Qualquer falha descarta o diretório novo (nada parcial é liberado)."""
+        (§15.1): refs tombstonados NÃO podem resolver no conjunto restaurado
+        — nem pelos tombstones do próprio manifesto, nem pelos tombstones do
+        domínio CORRENTE (backup anterior à deleção é recusado). Caminhos do
+        manifesto são validados como relativos e confinados antes da cópia
+        (§10). Qualquer falha descarta o diretório novo (nada parcial é
+        liberado)."""
         directory = Path(directory)
         target_root = Path(target_root)
         verification = self.verify_backup(directory)
@@ -404,6 +446,9 @@ class BackupService:
         target_root.mkdir(parents=True, exist_ok=True)
         try:
             for relative in self._manifest_of(directory).get("files") or {}:
+                # Defesa em profundidade: o verificador já recusou caminhos
+                # não confinados; a cópia revalida antes de montar destino.
+                _validate_manifest_relative(relative)
                 source = directory / relative
                 if not source.exists():
                     continue
@@ -448,11 +493,21 @@ class BackupService:
             # Replay idempotente das migrações (§5: verificador de replay).
             apply_migrations(conn)
             # Tombstone ANTES de liberar restore (§15.1): nenhum ref
-            # tombstonado pode resolver no conjunto restaurado.
+            # tombstonado pode resolver no conjunto restaurado. O confronto
+            # vale para (a) os tombstones registrados no PRÓPRIO manifesto e
+            # (b) os tombstones do DOMÍNIO CORRENTE — backup que ANTECEDE a
+            # deleção não ressuscita payload tombstonado (§15.1).
             for tombstone in manifest.get("tombstones") or []:
                 ref = str(tombstone.get("ref") or "")
                 if self._ref_resolves(conn, ref):
                     problems.append(f"tombstone violado no restore: {ref}")
+            current_tombstones = self._current_domain_tombstones()
+            for ref in current_tombstones:
+                if self._ref_resolves(conn, ref):
+                    problems.append(
+                        "tombstone do domínio corrente violado no restore: "
+                        f"{ref} (backup anterior à deleção não é restaurável)"
+                    )
             users = [
                 str(r[0]) for r in conn.execute("SELECT id FROM users").fetchall()
             ]
@@ -468,12 +523,34 @@ class BackupService:
             "integrity": "ok",
             "migrations_replay": "ok",
             "tombstones_checked": len(manifest.get("tombstones") or []),
+            "current_domain_tombstones_checked": len(current_tombstones),
             "users": users,
         }
+
+    def _current_domain_tombstones(self) -> list[str]:
+        """Tombstones do domínio CORRENTE (§15.1): o restore é confrontado
+        com o estado vivo da deleção — backup pré-deleção que traga payload
+        tombstonado é recusado com o diretório descartado. Sem banco de
+        domínio corrente (restore em raiz nova isolada), não há tombstones a
+        confrontar."""
+        domain_path = self._data_root / "domain.sqlite"
+        if not domain_path.exists():
+            return []
+        conn = sqlite3.connect(f"file:{domain_path}?mode=ro", uri=True)
+        try:
+            rows = conn.execute(
+                "SELECT artifact_ref FROM tombstones ORDER BY rowid"
+            ).fetchall()
+        except sqlite3.Error:
+            return []
+        finally:
+            conn.close()
+        return [str(row[0]) for row in rows]
 
     @staticmethod
     def _relative_domain_name(manifest: dict[str, Any]) -> str:
         for relative in manifest.get("files") or {}:
+            _validate_manifest_relative(relative)
             if relative.endswith("domain.sqlite"):
                 return relative
         raise _error(

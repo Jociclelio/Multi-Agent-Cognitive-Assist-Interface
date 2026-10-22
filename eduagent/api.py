@@ -7,7 +7,11 @@ Contratos:
 
 - **Escrita exige contexto de usuário autenticado localmente** (§12): toda
   requisição que lê/escreve dados exige o cabeçalho ``X-EduAgent-User`` com
-  UUID registrado no domínio local. Sem o contexto: 401 JSON com ``status``.
+  UUID registrado no domínio local. Sem o contexto: 400 JSON com ``status``
+  (recusa por código ``SCHEMA_INVALID``; o mapa §4 não define status HTTP).
+  Efeitos de sessão (resume/cancel) exigem que a sessão pertença ao usuário
+  autenticado — sessão de outro usuário é recusada por código antes de
+  qualquer efeito (§12: ownership usuário↔sessão).
   O MVP local é single-threaded (mapa §1): o servidor HTTP é serial — sem
   multiusuário concorrente em rede.
 - **JSON sempre contém ``status``** (§12): todas as respostas são JSON com
@@ -144,6 +148,21 @@ class _Handler(BaseHTTPRequestHandler):
 
     # -- rotas ---------------------------------------------------------------
 
+    def _internal_failure_payload(self, exc: Exception) -> dict[str, Any]:
+        """Falha fora do contrato (§12): JSON com ``status`` e código
+        ``INTERNAL_FAILURE`` — a conexão nunca é encerrada sem corpo."""
+        return {
+            "status": "failed",
+            "error": {
+                "code": ErrorCode.INTERNAL_FAILURE.value,
+                "message": (
+                    f"falha interna da API: {type(exc).__name__}: {exc}"
+                ),
+                "retryable": False,
+                "diagnostic": DIAGNOSTIC,
+            },
+        }
+
     def do_GET(self) -> None:  # noqa: N802 — http.server
         path = urlsplit(self.path).path
         try:
@@ -169,6 +188,11 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(
                 self._error_payload(exc),
                 http_status=HTTP_STATUS_BY_ERROR.get(exc.code, 500),
+            )
+        except Exception as exc:  # noqa: BLE001 — JSON com status sempre (§12)
+            self._json(
+                self._internal_failure_payload(exc),
+                http_status=500,
             )
 
     def do_POST(self) -> None:  # noqa: N802 — http.server
@@ -199,6 +223,11 @@ class _Handler(BaseHTTPRequestHandler):
                 self._error_payload(exc),
                 http_status=HTTP_STATUS_BY_ERROR.get(exc.code, 500),
             )
+        except Exception as exc:  # noqa: BLE001 — JSON com status sempre (§12)
+            self._json(
+                self._internal_failure_payload(exc),
+                http_status=500,
+            )
 
     # -- handlers ------------------------------------------------------------
 
@@ -221,7 +250,7 @@ class _Handler(BaseHTTPRequestHandler):
         return self._turn_payload(result, session_id)
 
     def _post_resume(self, session_id: str) -> dict[str, Any]:
-        self._authenticated_user()
+        user_id = self._authenticated_user()
         if not session_id:
             raise EduAgentError(
                 ErrorCode.SCHEMA_INVALID,
@@ -230,8 +259,10 @@ class _Handler(BaseHTTPRequestHandler):
             )
         body = self._body()
         resume = body.get("resume", body)
+        # Ownership (§12): sessão de outro usuário é recusada por código
+        # antes de qualquer efeito (precedente A1 da 014a).
         result = self.runtime.graph.resume_turn(
-            session_id=session_id, resume=resume
+            session_id=session_id, resume=resume, user_id=user_id
         )
         return self._turn_payload(result, session_id)
 

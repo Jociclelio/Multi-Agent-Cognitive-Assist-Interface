@@ -76,7 +76,8 @@ class SpanRecord:
 
 #: Spans do §12 (mapa: "spans de fila/LLM/retrieval/context/solver/commit/
 #: tools"). A fila (``queue``) não é um nó: é medida pelo servidor loopback
-#: entre o enqueue e o início da execução (observador do ``GenerationGate``).
+#: entre o enqueue e o início da execução (observador do ``GenerationGate``);
+#: ``observe_llm`` publica um span de fila por evento de geração.
 SPAN_KINDS = (
     "queue",
     "llm",
@@ -297,6 +298,29 @@ class TurnTraceRecorder:
                 }
             )
         self.llm_events.append(entry)
+        # Span de fila por evento de geração (§12: "spans de fila/LLM/..."):
+        # a espera é medida pelo servidor loopback (enqueue→execução); o
+        # span registra a duração medida — os instantes absolutos da janela
+        # de fila não são conhecidos neste ponto (atributo com a razão).
+        queue_value = event.get("queue_s")
+        queue_known = isinstance(queue_value, (int, float))
+        self.spans.append(
+            SpanRecord(
+                kind="queue",
+                node=None,
+                started_at=entry["started_at"],
+                ended_at=_utc_now_iso(),
+                active_s=float(queue_value) if queue_known else None,
+                attributes={
+                    "note": (
+                        "espera de fila medida pelo servidor loopback "
+                        "(enqueue→execução); instantes absolutos da fila "
+                        "não registrados neste ponto"
+                    ),
+                    "queue_known": queue_known,
+                },
+            )
+        )
 
     def set_budgets(self, budgets: Mapping[str, Any] | None) -> None:
         self.budgets = dict(budgets) if budgets else None
