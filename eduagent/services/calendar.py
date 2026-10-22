@@ -1591,8 +1591,9 @@ class CalendarService:
         falhada) → CONFLICT e novo preview. Resultado reconciliado como
         ``NOT_APPLIED`` (total ou parcial) propaga no status agregado
         (correção 013a/L-A2). Sem conector admitido, declara
-        ``CONNECTOR_DISABLED`` e mantém ICS/preview (§9). A conexão real é
-        admitida na task 016 — aqui o contrato e os estados são o entregável.
+        ``CONNECTOR_DISABLED`` e mantém ICS/preview (§9). A conexão real
+        (CalDAV) é admitida na task 016
+        (``eduagent/services/sync_connectors.py``).
         """
         validate_tool_request(ToolName.CALENDAR_APPLY, sender_role)
         plan_key = _uuid.UUID(str(plan_id))

@@ -138,6 +138,11 @@ _DEFAULT_WINDOWS: tuple[tuple[int, int], ...] = (
 #: default de ensaio).
 _MAX_FETCHES = 3
 
+#: Candidatos por turno de curadoria (mapa §6: "Até 5 candidatos/3 fetches";
+#: default de ensaio). O conector também limita; o corte aqui é defesa em
+#: profundidade — payload não amplia o limite normativo.
+_MAX_CANDIDATES = 5
+
 
 def _error(
     code: ErrorCode,
@@ -451,6 +456,7 @@ class EduAgentGraph:
         ingestion: Any | None = None,
         dispatcher: OutboxDispatcher | None = None,
         web_connector: Any | None = None,
+        calendar_connector: Any | None = None,
         data_root: Path | str | None = None,
         telemetry_dir: Path | str | None = None,
         build_problem: Callable[
@@ -498,6 +504,10 @@ class EduAgentGraph:
         self._ingestion = ingestion
         self._dispatcher = dispatcher
         self._web_connector = web_connector
+        # Conector de sync de calendário admitido (task 016, §9): ``None``
+        # (default) → ``calendar.apply`` reporta ``CONNECTOR_DISABLED``
+        # mantendo ICS/preview — sem credenciais o núcleo segue funcional.
+        self._calendar_connector = calendar_connector
         self._data_root = Path(data_root) if data_root else None
         # Trace local por turno (mapa §12, task 015): quando um diretório é
         # configurado, cada invocação grava um trace JSON (spans, contagens,
@@ -2411,13 +2421,14 @@ class EduAgentGraph:
         if payload.get("sync"):
             # [→ confirmed_outbox] (§10) é opcional e usa calendar.apply
             # (dispatcher determinístico, §11); sem conector admitido,
-            # CONNECTOR_DISABLED mantendo ICS/preview (§9). Conexão real é
-            # admitida na task 016.
+            # CONNECTOR_DISABLED mantendo ICS/preview (§9). O conector
+            # CalDAV admitido na task 016 entra por ``calendar_connector``
+            # quando configurado (task 016, §9).
             calendar = _require_service(self._calendar, "calendar", "export")
             report = calendar.apply_plan(
                 str(state["user_id"]),
                 state["export_plan_id"],
-                connector=None,
+                connector=self._calendar_connector,
                 sender_role=SenderRole.SYSTEM,
             )
             result["calendar"]["sync"] = {
@@ -2653,9 +2664,11 @@ class EduAgentGraph:
         candidates = self._web_connector.search(
             query,
             language=payload.get("language", "pt"),
-            max_results=int(payload.get("max_results", 5)),
+            max_results=int(payload.get("max_results", _MAX_CANDIDATES)),
         )
-        for candidate in candidates:
+        # §6: até 5 candidatos — payload não amplia o limite normativo
+        # (o conector também limita; corte defensivo em segunda camada).
+        for candidate in list(candidates)[:_MAX_CANDIDATES]:
             # §10: destino validado por código; redirect revalidado abaixo.
             assert_public_url(str(candidate.get("url")))
         return {"web_candidates": list(candidates)}

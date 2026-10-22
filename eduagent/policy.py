@@ -297,7 +297,14 @@ class GenerationGate:
         devolve o ``GenerationResult`` do adaptador (erro tipado propagado;
         recusa do enqueue reembolsa o débito — nenhuma geração ocorreu)."""
         limits.consume_llm()
-        limits.check_deadline()
+        try:
+            limits.check_deadline()
+        except EduAgentError as exc:
+            # Dívida da 014a: TIMEOUT pós-consume_llm e pré-enqueue não
+            # gerou nada — débito reembolsado (§12: recusa tipada sem
+            # geração não consome o orçamento do turno).
+            limits.refund_llm()
+            raise exc
         if deadline is not None and deadline.tzinfo is None:
             limits.refund_llm()
             raise _error(
