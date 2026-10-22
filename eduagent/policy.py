@@ -274,10 +274,14 @@ class GenerationGate:
         queue_size: int = 4,
         llm_timeout_s: float = 90,
         clock: Any = None,
+        observer: Any | None = None,
     ) -> None:
         self._server = LoopbackGenerationServer(backend, queue_size=queue_size)
         self._llm_timeout_s = float(llm_timeout_s)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        # Observador do trace local (mapa §12, task 015): recebe queue_s/
+        # active_s/resultado OU erro de cada geração que passa pela fila.
+        self._observer = observer
 
     def generate(
         self,
@@ -311,6 +315,7 @@ class GenerationGate:
             # Recusa do enqueue (fila cheia RESOURCE_LIMIT, servidor
             # encerrado): nada foi gerado — orçamento reembolsado.
             limits.refund_llm()
+            self._notify_queue_refusal(exc)
             raise EduAgentError(
                 exc.code,
                 exc.message,
@@ -321,8 +326,9 @@ class GenerationGate:
         if deadline is not None:
             remaining = max(0.0, (deadline - self._clock()).total_seconds())
         try:
-            result, _ = future.result(timeout=remaining)
+            result, timing = future.result(timeout=remaining)
         except ModelAdapterError as exc:
+            self._notify(None, exc)
             raise EduAgentError(
                 exc.code,
                 exc.message,
@@ -330,11 +336,43 @@ class GenerationGate:
                 diagnostic=exc.diagnostic,
             ) from exc
         except TimeoutError as exc:
-            raise _error(
+            error = _error(
                 ErrorCode.TIMEOUT,
                 "geração excedeu o deadline do turno (mapa §12)",
-            ) from exc
+            )
+            self._notify(None, error)
+            raise error from exc
+        self._notify(
+            {
+                "queue_s": timing.get("queue_s"),
+                "active_s": timing.get("active_s"),
+                "result": result,
+            },
+            None,
+        )
         return result
+
+    def _notify(self, event: dict[str, Any] | None, error: Any) -> None:
+        """Publica o evento de geração ao observador do trace (§12); falha do
+        observador não pode quebrar o turno — erro interno é isolado."""
+        if self._observer is None or event is None:
+            return
+        try:
+            self._observer(event)
+        except Exception:  # noqa: BLE001 — telemetria nunca derruba o turno
+            return
+
+    def _notify_queue_refusal(self, error: Any) -> None:
+        """Recusa de enqueue (fila cheia) é span de fila com erro (§12)."""
+        if self._observer is None:
+            return
+        try:
+            self._observer(
+                {"queue_s": None, "active_s": None, "result": None,
+                 "error": error},
+            )
+        except Exception:  # noqa: BLE001
+            return
 
     def close(self) -> None:
         self._server.close()

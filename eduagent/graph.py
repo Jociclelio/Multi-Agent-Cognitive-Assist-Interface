@@ -50,7 +50,7 @@ from __future__ import annotations
 import json
 import re
 import uuid as _uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence, TypedDict
@@ -117,6 +117,7 @@ from eduagent.services.scheduling import (
 )
 from eduagent.storage.checkpoints import SQLiteCheckpointer
 from eduagent.storage.repository import DomainStore
+from eduagent.telemetry import SPAN_KIND_BY_NODE, TurnTraceRecorder
 
 DIAGNOSTIC = "eduagent/graph.py"
 
@@ -401,6 +402,9 @@ class TurnResult:
     #: True quando a invocação terminou em interrupt aguardando o usuário.
     waiting_interrupt: bool
     interrupt_payload: Any = None
+    #: Trace local do turno (mapa §12); None quando sem diretório de
+    #: telemetria configurado. Metadado operacional, fora do contrato §4.
+    trace: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +445,7 @@ class EduAgentGraph:
         dispatcher: OutboxDispatcher | None = None,
         web_connector: Any | None = None,
         data_root: Path | str | None = None,
+        telemetry_dir: Path | str | None = None,
         build_problem: Callable[
             [str, Sequence[Mapping[str, Any]], int | None],
             SchedulingProblem,
@@ -455,8 +460,16 @@ class EduAgentGraph:
         self._network_enabled = bool(self._config.get("network_enabled", False))
         self._checkpointer = checkpointer
         self._backend = backend
+        # Observador do trace local (mapa §12): a fila de geração publica
+        # queue/LLM ao recorder do turno corrente.
+        self._gate_observer = self._observe_llm if backend is not None else None
         self._gate = (
-            GenerationGate(backend, queue_size=queue_size, clock=self._clock)
+            GenerationGate(
+                backend,
+                queue_size=queue_size,
+                clock=self._clock,
+                observer=self._gate_observer,
+            )
             if backend is not None
             else None
         )
@@ -479,6 +492,11 @@ class EduAgentGraph:
         self._dispatcher = dispatcher
         self._web_connector = web_connector
         self._data_root = Path(data_root) if data_root else None
+        # Trace local por turno (mapa §12, task 015): quando um diretório é
+        # configurado, cada invocação grava um trace JSON (spans, contagens,
+        # recursos) — metadado operacional fora do estado do grafo (§4).
+        self._telemetry_dir = Path(telemetry_dir) if telemetry_dir else None
+        self._trace: TurnTraceRecorder | None = None
         self._build_problem = build_problem
         self._solver_settings = solver_settings or load_solver_settings()
         # Turno corrente (MVP single-threaded, §1): limites conferidos antes
@@ -498,7 +516,8 @@ class EduAgentGraph:
         falha viram pass-through: a execução segue até o terminal ``finish``
         sem novos efeitos. Nós da própria rota ``cancel`` não são bloqueados
         pela guarda de cancelamento — o trabalho deles É processar o
-        cancelamento (§10)."""
+        cancelamento (§10). Cada nó executa dentro do span do trace local
+        (mapa §12: spans de fila/LLM/retrieval/context/solver/commit/tools)."""
 
         def node(state: dict) -> dict:
             name = getattr(fn, "__name__", str(fn))
@@ -512,6 +531,14 @@ class EduAgentGraph:
                     else False,
                     step=name,
                 )
+                trace = self._trace
+                if trace is not None:
+                    span_name = name.removeprefix("_node_")
+                    with trace.span(
+                        SPAN_KIND_BY_NODE.get(span_name, "tools"),
+                        node=span_name,
+                    ):
+                        return fn(state)
                 return fn(state)
             except EduAgentError as exc:
                 return self._failure(state, exc)
@@ -768,6 +795,99 @@ class EduAgentGraph:
         return g.compile(checkpointer=self._checkpointer)
 
     # ------------------------------------------------------------------
+    # Trace local por turno (mapa §12)
+    # ------------------------------------------------------------------
+
+    def _start_trace(
+        self,
+        *,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        message: str | None = None,
+        seed: int | None = None,
+    ) -> TurnTraceRecorder | None:
+        """Abre o trace do turno (mapa §12) quando há diretório configurado;
+        sem diretório, nenhum trace é produzido (MVP: observabilidade local
+        opcional)."""
+        if self._telemetry_dir is None:
+            self._trace = None
+            return None
+        recorder = TurnTraceRecorder(
+            trace_id=str(_uuid.uuid4()),
+            user_id=user_id,
+            session_id=session_id,
+            turn_id=turn_id,
+            message=message,
+            seed=seed,
+            sampler=asdict(NON_THINKING_SAMPLER),
+            model_id=getattr(self._backend, "model_id", None),
+            clock=self._clock,
+        )
+        self._trace = recorder
+        return recorder
+
+    def _observe_llm(self, event: Mapping[str, Any]) -> None:
+        """Observador do ``GenerationGate``: evento de fila/LLM do turno
+        corrente vai ao trace (mapa §12); falha de telemetria é isolada."""
+        trace = self._trace
+        if trace is None:
+            return
+        try:
+            trace.observe_llm(event)
+        except Exception:  # noqa: BLE001 — telemetria nunca derruba o turno
+            return
+
+    def _finish_trace(
+        self,
+        trace: TurnTraceRecorder | None,
+        *,
+        status: str,
+        final: Mapping[str, Any] | None = None,
+        error: BaseException | None = None,
+    ) -> dict[str, Any] | None:
+        """Fecha o trace, grava no diretório configurado e devolve o dict
+        (TurnResult.trace). Erros do §4 vão ao trace com o estado final."""
+        if trace is None:
+            return None
+        final = final or {}
+        if error is not None:
+            if isinstance(error, EduAgentError):
+                typed = [typed_error_of(error).model_dump(mode="json")]
+            else:
+                typed = [
+                    typed_error_of(
+                        _error(
+                            ErrorCode.INTERNAL_FAILURE,
+                            f"exceção fora do contrato do turno: {error}",
+                        )
+                    ).model_dump(mode="json")
+                ]
+        else:
+            typed = list(final.get("errors") or [])
+        data = trace.finish(
+            status=status,
+            errors=typed,
+            user_id=(
+                str(final.get("user_id")) if final.get("user_id") else None
+            ),
+            session_id=(
+                str(final.get("session_id"))
+                if final.get("session_id")
+                else None
+            ),
+            turn_id=(
+                str(final.get("turn_id")) if final.get("turn_id") else None
+            ),
+        )
+        try:
+            trace.save(self._telemetry_dir)  # type: ignore[arg-type]
+        except OSError:  # pragma: no cover — disco cheio/permissão: turno vale
+            pass
+        self._trace = None
+        return data
+
+    # ------------------------------------------------------------------
     # Invocação
     # ------------------------------------------------------------------
 
@@ -831,7 +951,17 @@ class EduAgentGraph:
             incoming["intent"] = Intent.CANCEL.value
         # deadline do turno é efêmero: NÃO entra no estado persistido —
         # §10 ("sem timeout ativo durante espera").
-        out = self._graph.invoke(incoming, config=config)
+        trace = self._start_trace(
+            user_id=str(user_id),
+            session_id=str(session_id),
+            message=str(message or ""),
+            seed=seed_value,
+        )
+        try:
+            out = self._graph.invoke(incoming, config=config)
+        except BaseException as exc:
+            self._finish_trace(trace, status="failed", error=exc)
+            raise
         interrupted = "__interrupt__" in (out or {})
         final = self._final_state(config)
         interrupt_payload = None
@@ -841,12 +971,14 @@ class EduAgentGraph:
         else:
             status = final.get("status", _STATUS_COMPLETED)
         graph_state = self._contract_state(final, status)
+        trace_data = self._finish_trace(trace, status=status, final=final)
         return TurnResult(
             status=status,
             state=graph_state,
             output=final.get("result") or {},
             waiting_interrupt=interrupted,
             interrupt_payload=interrupt_payload,
+            trace=trace_data,
         )
 
     def resume_turn(
@@ -860,7 +992,12 @@ class EduAgentGraph:
         config = {"configurable": {"thread_id": str(session_id)}}
         self._limits = self._new_limits()
         value = dict(resume) if isinstance(resume, Mapping) else resume
-        out = self._graph.invoke(Command(resume=value), config=config)
+        trace = self._start_trace(session_id=str(session_id), message=None)
+        try:
+            out = self._graph.invoke(Command(resume=value), config=config)
+        except BaseException as exc:
+            self._finish_trace(trace, status="failed", error=exc)
+            raise
         interrupted = "__interrupt__" in (out or {})
         final = self._final_state(config)
         status = (
@@ -873,12 +1010,14 @@ class EduAgentGraph:
             if interrupted
             else None
         )
+        trace_data = self._finish_trace(trace, status=status, final=final)
         return TurnResult(
             status=status,
             state=self._contract_state(final, status),
             output=final.get("result") or {},
             waiting_interrupt=interrupted,
             interrupt_payload=interrupt_payload,
+            trace=trace_data,
         )
 
     def _final_state(self, config: dict) -> dict:

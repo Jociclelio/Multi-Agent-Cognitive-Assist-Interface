@@ -275,10 +275,19 @@ class DomainStore:
         conn.execute("PRAGMA foreign_keys=ON")
         if apply_schema:
             apply_migrations(conn)
-        return cls(conn)
+        store = cls(conn)
+        # Caminho do arquivo exposto para backup/restore (task 015, mapa §5).
+        store.path = Path(path)
+        return store
 
     def close(self) -> None:
         self._conn.close()
+
+    def checkpoint_wal(self) -> None:
+        """Consolida o WAL no arquivo principal (``TRUNCATE``) — pré-condição
+        da cópia consistente do backup (mapa §5, task 015)."""
+        with self._lock:
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
     # ------------------------------------------------------------------
     # Transações curtas — escritor serializado (§5, §11)

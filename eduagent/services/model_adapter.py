@@ -350,7 +350,11 @@ class LoopbackGenerationServer:
         self._adapter = adapter
         self._queue_size = queue_size
         self._cv = threading.Condition()
-        self._queue: deque[tuple[Future[tuple[GenerationResult, str]], dict[str, Any]]] = deque()
+        # Cada item carrega o instante de enqueue (monotônico) para medir a
+        # espera de fila do span ``queue`` do trace local (mapa §12, task 015).
+        self._queue: deque[
+            tuple[Future[tuple[GenerationResult, dict[str, Any]]], dict[str, Any], float]
+        ] = deque()
         self._busy = False
         self._closed = False
         self._worker = threading.Thread(
@@ -383,7 +387,7 @@ class LoopbackGenerationServer:
                     "pedidos em fila); mapa §3.1.",
                     retryable=True,
                 )
-            future: Future[tuple[GenerationResult, str]] = Future()
+            future: Future[tuple[GenerationResult, dict[str, Any]]] = Future()
             self._queue.append(
                 (
                     future,
@@ -394,6 +398,7 @@ class LoopbackGenerationServer:
                         "deadline": deadline,
                         "seed": seed,
                     },
+                    time.monotonic(),
                 )
             )
             self._cv.notify_all()
@@ -411,11 +416,22 @@ class LoopbackGenerationServer:
                     self._cv.wait()
                 if self._closed and not self._queue:
                     return
-                future, request = self._queue.popleft()
+                future, request, enqueued_at = self._queue.popleft()
+                started = time.monotonic()
                 self._busy = True
             try:
                 result = self._adapter.generate(**request)
-                future.set_result((result, "ok"))
+                # Metadados de tempo do span fila/LLM (mapa §12): espera na
+                # fila (enqueue → início da execução) e tempo ativo do slot.
+                future.set_result(
+                    (
+                        result,
+                        {
+                            "queue_s": max(0.0, started - enqueued_at),
+                            "active_s": max(0.0, time.monotonic() - started),
+                        },
+                    )
+                )
             except BaseException as exc:  # propaga erro tipado ao chamador
                 future.set_exception(exc)
             finally:

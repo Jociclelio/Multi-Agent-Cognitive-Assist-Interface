@@ -96,6 +96,8 @@ class SQLiteCheckpointer(BaseCheckpointSaver):
     ) -> None:
         super().__init__(serde=serde or JsonPlusSerializer())
         self._path = Path(path)
+        #: Caminho do arquivo exposto para backup/restore (task 015, §5).
+        self.path = self._path
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(
@@ -379,6 +381,12 @@ class SQLiteCheckpointer(BaseCheckpointSaver):
     def integrity_check(self) -> str:
         row = self._conn.execute("PRAGMA integrity_check").fetchone()
         return str(row[0])
+
+    def checkpoint_wal(self) -> None:
+        """Consolida o WAL no arquivo principal (``TRUNCATE``) — pré-condição
+        da cópia consistente do backup (mapa §5, task 015)."""
+        with self._lock:
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
     def close(self) -> None:
         with self._lock:
