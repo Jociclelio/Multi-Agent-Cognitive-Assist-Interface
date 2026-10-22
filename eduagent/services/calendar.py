@@ -48,6 +48,17 @@ Implementação da task 013. Contratos cobertos:
 
 Nada aqui apresenta resultados medidos; decisões de codificação do MVP
 estão documentadas junto de cada contrato.
+
+Correção 013a (sem reabrir decisões da 013): a representação de
+DTSTAMP/CREATED/LAST-MODIFIED e as comparações de renderização/verificação/
+sync usam o instante **truncado para segundos** (precisão RFC5545/§9) — os
+``created_at``/``modified_at`` persistidos conservam a precisão original e
+seguem sendo a fonte da revisão (§15.5); a fronteira all-day no sync é
+aplicada uma única vez (``_all_day_bounds``/``build_calendar``);
+``apply_plan`` revalida a confirmação imediatamente antes de cada efeito
+remoto (§15.1); status agregado propaga ``NOT_APPLIED`` reconciliado;
+parser de ``dependencies_json`` tolerante ao default ``'[]'`` da migração
+0007; igualdade de UPDATE remoto inclui DTSTART/DTEND.
 """
 
 from __future__ import annotations
@@ -127,6 +138,17 @@ def _digest(payload: Mapping[str, Any]) -> str:
 
 def _utc(moment: datetime) -> datetime:
     return moment.astimezone(timezone.utc)
+
+
+def _ics_moment(moment: datetime) -> datetime:
+    """Instante na representação usada pelo ICS: RFC5545 tem precisão de
+    segundos (§9), então DTSTAMP/CREATED/LAST-MODIFIED e as comparações de
+    renderização/verificação/sync usam o instante truncado para segundos
+    (correção 013a, achado A-01). Os ``created_at``/``modified_at``
+    persistidos conservam a precisão original e seguem sendo a fonte da
+    revisão (§15.5: timestamps derivados da revisão persistida,
+    reexportação byte-idêntica — truncar é função pura do estado)."""
+    return _utc(moment).replace(microsecond=0)
 
 
 def _aware(moment: datetime, name: str) -> datetime:
@@ -233,10 +255,11 @@ def build_calendar(
         event = IcsEvent()
         event.add("UID", str(block.uid))
         # DTSTAMP/LAST-MODIFIED da última revisão persistida; CREATED da
-        # criação (§9). Nenhum "agora" entra aqui.
-        event.add("DTSTAMP", _utc(block.modified_at))
-        event.add("CREATED", _utc(block.created_at))
-        event.add("LAST-MODIFIED", _utc(block.modified_at))
+        # criação (§9). Nenhum "agora" entra aqui. Truncados para segundos
+        # (precisão RFC5545; correção 013a/A-01).
+        event.add("DTSTAMP", _ics_moment(block.modified_at))
+        event.add("CREATED", _ics_moment(block.created_at))
+        event.add("LAST-MODIFIED", _ics_moment(block.modified_at))
         event.add("SEQUENCE", int(block.event_sequence))
         event.add("SUMMARY", block.summary)
         if block.value_type == VALUE_TYPE_DATE:
@@ -529,9 +552,9 @@ def verify_calendar(
             issues.append(f"SUMMARY divergente para {uid}")
         if event.sequence != block.event_sequence:
             issues.append(f"SEQUENCE divergente para {uid}")
-        if event.created != _utc(block.created_at):
+        if event.created != _ics_moment(block.created_at):
             issues.append(f"CREATED divergente para {uid}")
-        stamp = _utc(block.modified_at)
+        stamp = _ics_moment(block.modified_at)
         if event.dtstamp != stamp or event.last_modified != stamp:
             issues.append(f"DTSTAMP/LAST-MODIFIED divergentes para {uid}")
         if block.value_type == VALUE_TYPE_DATE:
@@ -1206,10 +1229,25 @@ class CalendarService:
         return confirmation
 
     def _confirmation_from_row(self, row: Any) -> ConfirmationRecord:
-        raw = json.loads(row["dependencies_json"])
-        dependencies = tuple(
-            (str(key), revision) for key, revision in raw.items()
-        )
+        # Tolerante ao default da migração 0007 (correção 013a/G-A1):
+        # ``dependencies_json`` pode chegar como ``'[]'`` (lista vazia) em
+        # linha legada — conjunto vazio de dependências, nunca AttributeError.
+        raw = json.loads(row["dependencies_json"] or "[]")
+        if isinstance(raw, dict):
+            dependencies = tuple(
+                (str(key), revision) for key, revision in raw.items()
+            )
+        elif isinstance(raw, list) and not raw:
+            # Default da migração 0007: confirmação sem conjunto de
+            # dependências registrado — conjunto vazio (§15.1).
+            dependencies = ()
+        else:
+            raise EduAgentError(
+                ErrorCode.INTERNAL_FAILURE,
+                "dependencies_json malformado em confirmação persistida "
+                "(defeito)",
+                diagnostic=_DIAGNOSTIC,
+            )
         return ConfirmationRecord(
             confirmation_id=_uuid.UUID(str(row["id"])),
             plan_id=_uuid.UUID(str(row["artifact_id"])),
@@ -1228,7 +1266,9 @@ class CalendarService:
     ) -> None:
         """Confirmação atual (§15.1): domínio igual à ``approval_revision`` e
         dependências com as mesmas revisões. Alteração posterior invalida a
-        confirmação ainda não aplicada → ``VERSION_CONFLICT`` (novo preview)."""
+        confirmação ainda não aplicada → ``VERSION_CONFLICT`` (novo preview).
+        Linha legada sem hash de dependências (default da migração 0007,
+        correção 013a/G-A1) valida apenas a revisão de domínio."""
         current = self._store.domain_revision(user_id)
         if current != confirmation.approval_revision:
             raise EduAgentError(
@@ -1238,6 +1278,11 @@ class CalendarService:
                 f"domínio={current}); gerar novo preview (§15.1)",
                 diagnostic=_DIAGNOSTIC,
             )
+        if not confirmation.dependencies_hash:
+            # Sem conjunto de dependências registrado (linha legada da
+            # migração 0007): a revisão de domínio acima continua a barrar
+            # escrita posterior; nada a comparar por dependência.
+            return
         dependencies = dict(confirmation.dependencies)
         _, current_hash = self._dependencies_hash(dependencies)
         if current_hash != confirmation.dependencies_hash:
@@ -1445,28 +1490,11 @@ class CalendarService:
         confirmada, §9/§15.5)."""
         remote = connector.read_all(target)
         remote_by_uid = {event.uid: event for event in remote}
-        desired: list[ExportBlock] = []
-        for block in self.export_blocks(user_id):
-            if block.value_type == VALUE_TYPE_DATE:
-                start_day, end_day = _all_day_bounds(
-                    block, self._local_timezone
-                )
-                start = datetime.combine(start_day, _dt_time(0, 0), tzinfo=timezone.utc)
-                end = datetime.combine(end_day, _dt_time(0, 0), tzinfo=timezone.utc)
-                block = ExportBlock(
-                    block_id=block.block_id,
-                    uid=block.uid,
-                    summary=block.summary,
-                    value_type=block.value_type,
-                    start_utc=start,
-                    end_utc=end,
-                    created_at=block.created_at,
-                    modified_at=block.modified_at,
-                    event_sequence=block.event_sequence,
-                    source_demand_id=block.source_demand_id,
-                    status=block.status,
-                )
-            desired.append(block)
+        # A fronteira all-day é aplicada uma única vez, por
+        # ``_all_day_bounds``/``build_calendar`` com o fuso do serviço
+        # (correção 013a/A-02: sem pré-conversão para meia-noite UTC, que
+        # causava dupla conversão de fuso com ``local_timezone`` ≠ UTC).
+        desired = self.export_blocks(user_id)
         desired_by_uid = {str(b.uid): b for b in desired}
         ops: list[RemoteOp] = []
         for block in sorted(desired, key=lambda b: (b.start_utc, str(b.uid))):
@@ -1490,11 +1518,26 @@ class CalendarService:
                 continue
             parsed = parse_ics(current.event_ics) if current.event_ics else None
             event = parsed.events[0] if parsed and parsed.events else None
+            # Igualdade de UPDATE remoto (correção 013a/G-A2): SUMMARY,
+            # SEQUENCE, DTSTAMP **e DTSTART/DTEND** — remoto mutante com
+            # SEQUENCE/DTSTAMP intactos é detectado. DTSTAMP compara na
+            # representação truncada para segundos (A-01).
+            if block.value_type == VALUE_TYPE_DATE:
+                start_day, end_day = _all_day_bounds(
+                    block, self._local_timezone
+                )
+                expected_start: date | datetime = start_day
+                expected_end: date | datetime = end_day
+            else:
+                expected_start = _utc(block.start_utc)
+                expected_end = _utc(block.end_utc)
             matches = (
                 event is not None
                 and event.summary == block.summary
                 and event.sequence == block.event_sequence
-                and event.dtstamp == _utc(block.modified_at)
+                and event.dtstamp == _ics_moment(block.modified_at)
+                and event.dtstart == expected_start
+                and event.dtend == expected_end
             )
             if matches:
                 continue  # estado remoto já igual: nenhum efeito
@@ -1537,11 +1580,17 @@ class CalendarService:
         """``calendar.apply`` (mapa §10): dispatcher determinístico; exige
         confirmação atual (§10/§15.1) — sem confirmação, ou com confirmação
         invalidada por alteração posterior, é recusado com erro tipado.
+        A confirmação é revalidada imediatamente antes de cada efeito remoto
+        (§15.1): confirmação obsoleta no meio do lote interrompe o despacho
+        com recusa tipada, sem aplicar os efeitos restantes; efeitos já
+        enviados entram em reconciliação por leitura (§11), sem retry cego.
 
         Com conector admitido, executa as operações com precondições fora de
         transação (§11): timeout → ``UNKNOWN_EFFECT`` → read/reconcile por
         identidade, **sem retry cego**; alteração externa (precondição
-        falhada) → CONFLICT e novo preview. Sem conector admitido, declara
+        falhada) → CONFLICT e novo preview. Resultado reconciliado como
+        ``NOT_APPLIED`` (total ou parcial) propaga no status agregado
+        (correção 013a/L-A2). Sem conector admitido, declara
         ``CONNECTOR_DISABLED`` e mantém ICS/preview (§9). A conexão real é
         admitida na task 016 — aqui o contrato e os estados são o entregável.
         """
@@ -1566,7 +1615,17 @@ class CalendarService:
         results: list[OpResult] = []
         final_status = SyncOutcome.APPLIED
         detail = ""
+        applied_any = False
+        not_applied = False
         for op in ops:
+            # §15.1: "antes de envio, valida que nenhuma restrição/atividade
+            # dependente mudou" — revalidação imediatamente antes de CADA
+            # efeito remoto (correção 013a/L-A1). Confirmação obsoleta
+            # (domínio/dependência alterados entre a checagem inicial e o
+            # envio) interrompe o lote com recusa tipada, sem aplicar os
+            # efeitos restantes; efeitos já enviados entram em reconciliação
+            # por leitura (§11) — sem retry cego.
+            self.check_confirmation_current(user_id, confirmation)
             result = self._run_remote_op(connector, target, op)
             results.append(result)
             if result.outcome is SyncOutcome.CONFLICT:
@@ -1583,6 +1642,24 @@ class CalendarService:
                     "retry automático (§9/§11)"
                 )
                 break
+            if result.outcome is SyncOutcome.APPLIED:
+                applied_any = True
+            elif result.outcome is SyncOutcome.NOT_APPLIED:
+                not_applied = True
+        if not_applied and final_status is SyncOutcome.APPLIED:
+            # Correção 013a/L-A2: o status agregado propaga o resultado não
+            # aplicado (ou parcial) reconciliado por leitura, coerente com
+            # os detalhes individuais (§11).
+            final_status = SyncOutcome.NOT_APPLIED
+            detail = detail or (
+                "efeito remoto reconciliado como NOT_APPLIED"
+                + (
+                    " — execução parcial: parte dos efeitos foi aplicada"
+                    if applied_any
+                    else ""
+                )
+                + "; novo diff e confirmação antes de reenviar (§11)"
+            )
         return ApplyReport(
             plan_id=plan_key,
             confirmation_digest=confirmation.digest,
@@ -1709,6 +1786,11 @@ class CalendarService:
             and event.sequence == desired.sequence
             and event.dtstamp == desired.dtstamp
             and event.summary == desired.summary
+            # Mesma igualdade do diff de UPDATE (correção 013a/G-A2):
+            # instantes divergentes com SEQUENCE/DTSTAMP intactos não são
+            # reconciliados como "corpo igual".
+            and event.dtstart == desired.dtstart
+            and event.dtend == desired.dtend
         ):
             return OpResult(
                 uid=op.uid,

@@ -37,6 +37,13 @@ Tabela de testes (código → caso):
 | S5 | alteração externa (precondição falhada) → CONFLICT e novo preview exigido (§9) |
 | S6 | sem conector admitido → CONNECTOR_DISABLED: manter ICS/preview (§9) |
 | M1 | migração 0007: colunas de evento em logical_blocks e dependências em confirmations |
+| R1 | 013a/A-01: relógio com microssegundos ≠ 0 — render_plan publica ICS válido e estável, verify não diverge, timestamps truncados para segundos |
+| R2 | 013a/A-01: build_sync_ops não marca bloco atual (DTSTAMP truncado) como desatualizado |
+| R3 | 013a/A-02: all-day em build_sync_ops com local_timezone ≠ UTC — fronteira de dia única, sem dupla conversão |
+| R4 | 013a/L-A1: mutação de domínio/dependência entre checagem e envio interrompe o lote com recusa tipada, sem aplicar efeitos restantes e sem retry cego |
+| R5 | 013a/L-A2: timeout reconciliado NOT_APPLIED propaga no status agregado (total e parcial) |
+| R6 | 013a/G-A1: parser de dependencies_json tolerante ao default '[]' da migração 0007 |
+| R7 | 013a/G-A2: igualdade de UPDATE remoto inclui DTSTART/DTEND (remoto mutante é detectado) |
 """
 
 from __future__ import annotations
@@ -936,3 +943,370 @@ class TestMigracao:
             "SELECT value_type FROM logical_blocks LIMIT 1"
         )
         assert row == []
+
+
+# ---------------------------------------------------------------------------
+# Correções 013a (A-01, A-02, L-A1, L-A2, G-A1, G-A2)
+# ---------------------------------------------------------------------------
+
+
+class MicroClock:
+    """Relógio com microssegundos ≠ 0 (regressão A-01: relógio real)."""
+
+    def __init__(self) -> None:
+        self._moment = datetime(2026, 10, 20, 12, 0, 0, 123456, tzinfo=UTC)
+
+    def __call__(self) -> datetime:
+        self._moment += timedelta(minutes=1, microseconds=111)
+        return self._moment
+
+
+def _micro_env(tmp_path: Path, *, local_timezone=None):
+    """Ambiente com relógio de microssegundos (e fuso opcional não-UTC)."""
+    store = DomainStore.open(tmp_path / "domain.sqlite")
+    store.ensure_user(UID)
+    effects = EffectsService(store)
+    clock = MicroClock()
+    service = CalendarService(
+        store, effects, clock=clock, local_timezone=local_timezone
+    )
+    return store, effects, service, clock
+
+
+class DomainMutatingConnector(FakeConnector):
+    """Duplo que muta o domínio (callback) imediatamente após o primeiro
+    efeito aplicado — exercita a revalidação da confirmação antes de cada
+    efeito remoto (§15.1, correção 013a/L-A1)."""
+
+    def __init__(self, *args, mutate, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._mutate = mutate
+
+    def create(
+        self,
+        target: str,
+        uid: str,
+        event_ics: bytes,
+        *,
+        if_none_match_star: bool = True,
+    ) -> SyncOutcome:
+        outcome = super().create(
+            target, uid, event_ics, if_none_match_star=if_none_match_star
+        )
+        if outcome is SyncOutcome.APPLIED:
+            self._mutate()
+        return outcome
+
+
+class TimeoutLostConnector(FakeConnector):
+    """Duplo em que o update sofre timeout e o efeito não ocorreu: o evento
+    remoto some — a reconciliação por leitura devolve NOT_APPLIED (§11)."""
+
+    def update(
+        self,
+        target: str,
+        uid: str,
+        href: str,
+        event_ics: bytes,
+        *,
+        if_match_etag: str | None,
+    ) -> SyncOutcome:
+        self.calls.append(("update", uid, href, if_match_etag))
+        self.events.pop(uid, None)
+        raise ConnectorTimeout()
+
+
+class TestCorrecoes013a:
+    def test_r1_render_com_microssegundos_estavel_e_verify_limpo(
+        self, tmp_path: Path
+    ) -> None:
+        store, _effects, service, _clock = _micro_env(tmp_path)
+        block = _block(1, _utc(D0, 9 * 60), _utc(D0, 10 * 60))
+        _insert_demand(store, block.demand_id)
+        result = service.approve_plan(UID, _proposal([block]))
+        first = service.render_plan(
+            UID, result.confirmation.plan_id, sender_role=SenderRole.PLANNER
+        )
+        second = service.render_plan(
+            UID, result.confirmation.plan_id, sender_role=SenderRole.PLANNER
+        )
+        assert first.ics == second.ics  # mesma revisão → bytes idênticos
+        # Precisão RFC5545: nenhuma casa fracionária nos timestamps do ICS.
+        for line in first.ics.decode("utf-8").split("\r\n"):
+            if line.startswith(("DTSTAMP:", "CREATED:", "LAST-MODIFIED:")):
+                assert line.endswith("Z") and "." not in line
+        event = parse_ics(first.ics).events[0]
+        exported = first.blocks[0]
+        assert event.dtstamp == exported.modified_at.replace(microsecond=0)
+        assert event.created == exported.created_at.replace(microsecond=0)
+        assert event.last_modified == exported.modified_at.replace(
+            microsecond=0
+        )
+        # Parser independente sem divergência contra persistido com micros.
+        assert verify_calendar(first.ics, first.blocks) == []
+
+    def test_r2_sync_nao_marca_bloco_atual_como_desatualizado(
+        self, tmp_path: Path
+    ) -> None:
+        store, _effects, service, _clock = _micro_env(tmp_path)
+        block = _block(1, _utc(D0, 9 * 60), _utc(D0, 10 * 60))
+        _insert_demand(store, block.demand_id)
+        result = service.approve_plan(UID, _proposal([block]))
+        remote = FakeConnector()
+        report = service.apply_plan(
+            UID, result.confirmation.plan_id, connector=remote
+        )
+        assert report.status is SyncOutcome.APPLIED
+        # Estado remoto já igual (DTSTAMP truncado para segundos): nenhum op —
+        # antes da correção, todo bloco era considerado desatualizado com
+        # relógio real (microssegundos ≠ 0).
+        ops = service.build_sync_ops(UID, result.confirmation, remote)
+        assert ops == []
+
+    def test_r3_all_day_fuso_nao_utc_fronteira_unica(
+        self, tmp_path: Path
+    ) -> None:
+        # Offset fixo de ensaio — o fuso America/Sao_Paulo só após confirmação
+        # explícita (questão aberta do plano); a fronteira correta é local.
+        zone = timezone(timedelta(hours=-3))
+        store, _effects, service, _clock = _micro_env(
+            tmp_path, local_timezone=zone
+        )
+        # Dia local 2026-10-21 (00:00–24:00 em −3) = 03:00Z–03:00Z seguinte.
+        block = _block(
+            1,
+            datetime(2026, 10, 21, 3, 0, tzinfo=UTC),
+            datetime(2026, 10, 22, 3, 0, tzinfo=UTC),
+        )
+        _insert_demand(store, block.demand_id)
+        result = service.approve_plan(
+            UID, _proposal([block]), all_day_demand_ids=[block.demand_id]
+        )
+        remote = FakeConnector()
+        ops = service.build_sync_ops(UID, result.confirmation, remote)
+        assert len(ops) == 1
+        assert ops[0].kind is RemoteOpKind.CREATE
+        event = parse_ics(ops[0].event_ics).events[0]
+        assert event.all_day
+        assert event.dtstart == date(2026, 10, 21)  # dia local correto
+        assert event.dtend == date(2026, 10, 22)  # fim exclusivo, uma conversão
+        # Mesma fronteira única da renderização publicada (§9).
+        rendered = service.render_plan(
+            UID, result.confirmation.plan_id, sender_role=SenderRole.PLANNER
+        )
+        assert parse_ics(rendered.ics).events[0].dtstart == event.dtstart
+        assert parse_ics(rendered.ics).events[0].dtend == event.dtend
+
+    def test_r4_revalidacao_antes_de_cada_efeito_remoto(self, env) -> None:
+        store, _effects, service, _clock = env
+        block_a = _block(1, _utc(D0, 9 * 60), _utc(D0, 10 * 60), demand=1)
+        block_b = _block(2, _utc(D0, 10 * 60), _utc(D0, 11 * 60), demand=2)
+        _insert_demand(store, block_a.demand_id)
+        _insert_demand(store, block_b.demand_id)
+        result = service.approve_plan(UID, _proposal([block_a, block_b]))
+        # (a) Mutação de domínio entre a checagem inicial e o segundo envio:
+        # interrompe o lote com recusa tipada (§15.1).
+        remote = DomainMutatingConnector(mutate=lambda: _insert_demand(store, _uid(99)))
+        with pytest.raises(EduAgentError) as exc:
+            service.apply_plan(
+                UID, result.confirmation.plan_id, connector=remote
+            )
+        assert exc.value.code is ErrorCode.VERSION_CONFLICT
+        # Primeiro efeito enviado; restante não aplicado; sem retry cego.
+        assert str(_uid(9001)) in remote.events
+        assert str(_uid(9002)) not in remote.events
+        assert len([c for c in remote.calls if c[0] == "create"]) == 1
+        # (b) Mutação só de dependência (revisão de demanda, domínio congelado):
+        # invalidação específica por dependência, mesmo comportamento de lote.
+        result2 = service.approve_plan(
+            UID,
+            _proposal(
+                [block_a, block_b], revision=2, snapshot=2, added=[], moved=[]
+            ),
+        )
+        dep_remote = DomainMutatingConnector(
+            mutate=lambda: store.execute_write(
+                UID,
+                [
+                    (
+                        "UPDATE demands SET revision = revision + 1 WHERE "
+                        "user_id = ? AND id = ?",
+                        (UID, str(block_a.demand_id)),
+                    )
+                ],
+                bump_domain_revision=False,
+            )
+        )
+        with pytest.raises(EduAgentError) as exc:
+            service.apply_plan(
+                UID, result2.confirmation.plan_id, connector=dep_remote
+            )
+        assert exc.value.code is ErrorCode.VERSION_CONFLICT
+        assert "dependência" in exc.value.message
+        assert str(_uid(9001)) in dep_remote.events
+        assert str(_uid(9002)) not in dep_remote.events
+        assert len([c for c in dep_remote.calls if c[0] == "create"]) == 1
+
+    def test_r5_status_agregado_propaga_not_applied_reconciliado(
+        self, env
+    ) -> None:
+        store, _effects, service, _clock = env
+        block_a = _block(1, _utc(D0, 9 * 60), _utc(D0, 10 * 60), demand=1)
+        block_b = _block(2, _utc(D0, 10 * 60), _utc(D0, 11 * 60), demand=2)
+        _insert_demand(store, block_a.demand_id)
+        _insert_demand(store, block_b.demand_id)
+        result = service.approve_plan(UID, _proposal([block_a, block_b]))
+        # (a) Execução parcial: create aplicado; update com timeout sem efeito
+        # reconciliado como NOT_APPLIED (evento remoto ausente).
+        partial = TimeoutLostConnector(
+            initial={
+                str(_uid(9002)): RemoteEvent(
+                    uid=str(_uid(9002)),
+                    href="/cal/b.ics",
+                    etag="old",
+                    event_ics=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n",
+                )
+            }
+        )
+        report = service.apply_plan(
+            UID, result.confirmation.plan_id, connector=partial
+        )
+        assert report.ops[0].outcome is SyncOutcome.APPLIED  # create
+        assert report.ops[1].outcome is SyncOutcome.NOT_APPLIED  # reconciliado
+        # Status agregado coerente com os detalhes (antes: APPLIED).
+        assert report.status is SyncOutcome.NOT_APPLIED
+        assert "parcial" in report.detail
+        # Sem retry cego: uma única tentativa de update (§11).
+        assert len([c for c in partial.calls if c[0] == "update"]) == 1
+        # (b) Total: todos os efeitos reconciliados NOT_APPLIED → status
+        # NOT_APPLIED sem indicar parcial.
+        total = TimeoutLostConnector(
+            initial={
+                str(_uid(9001)): RemoteEvent(
+                    uid=str(_uid(9001)),
+                    href="/cal/a.ics",
+                    etag="old",
+                    event_ics=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n",
+                ),
+                str(_uid(9002)): RemoteEvent(
+                    uid=str(_uid(9002)),
+                    href="/cal/b.ics",
+                    etag="old2",
+                    event_ics=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n",
+                ),
+            }
+        )
+        report2 = service.apply_plan(
+            UID, result.confirmation.plan_id, connector=total
+        )
+        assert all(
+            op.outcome is SyncOutcome.NOT_APPLIED for op in report2.ops
+        )
+        assert report2.status is SyncOutcome.NOT_APPLIED
+        assert "parcial" not in report2.detail
+
+    def test_r6_parser_tolerante_ao_default_dependencies_json(
+        self, env
+    ) -> None:
+        store, _effects, service, _clock = env
+        current = store.domain_revision(UID)
+        # Linha legada gravada SEM as colunas da 0007: default '[]' e hash NULL.
+        store.execute_write(
+            UID,
+            [
+                (
+                    "INSERT INTO confirmations(id, user_id, artifact_id, "
+                    "artifact_revision, digest, occurred_at, base_revision, "
+                    "approval_revision) VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        str(_uid(601)),
+                        UID,
+                        str(_uid(1)),
+                        1,
+                        "a" * 64,
+                        T0.isoformat(),
+                        current,
+                        current,
+                    ),
+                )
+            ],
+            bump_domain_revision=False,
+        )
+        confirmation = service.latest_confirmation(UID, _uid(1))
+        assert confirmation is not None
+        # Default '[]' da migração 0007 → conjunto vazio, sem AttributeError.
+        assert confirmation.dependencies == ()
+        assert confirmation.dependencies_hash == ""
+        # Linha legada não levanta defeito de hash na validação (§15.1); a
+        # revisão de domínio continua barrando escrita posterior.
+        service.check_confirmation_current(UID, confirmation)
+
+    def test_r7_igualdade_update_inclui_dtstart_dtend(self, env) -> None:
+        store, _effects, service, _clock = env
+        block = _block(1, _utc(D0, 9 * 60), _utc(D0, 10 * 60))
+        _insert_demand(store, block.demand_id)
+        result = service.approve_plan(UID, _proposal([block]))
+        exported = service.export_blocks(UID)[0]
+        # Remoto mutante: mesmo SUMMARY/SEQUENCE/DTSTAMP, DTSTART divergente.
+        mutant = ExportBlock(
+            block_id=exported.block_id,
+            uid=exported.uid,
+            summary=exported.summary,
+            value_type=exported.value_type,
+            start_utc=_utc(D0, 8 * 60),
+            end_utc=_utc(D0, 9 * 60),
+            created_at=exported.created_at,
+            modified_at=exported.modified_at,
+            event_sequence=exported.event_sequence,
+        )
+        remote = FakeConnector(
+            initial={
+                str(exported.uid): RemoteEvent(
+                    uid=str(exported.uid),
+                    href="/cal/a.ics",
+                    etag="old",
+                    event_ics=build_calendar([mutant]),
+                )
+            }
+        )
+        ops = service.build_sync_ops(UID, result.confirmation, remote)
+        updates = [op for op in ops if op.kind is RemoteOpKind.UPDATE]
+        # Antes da correção: nenhuma op (igualdade incompleta); agora: UPDATE.
+        assert len(updates) == 1
+        assert updates[0].if_match_etag == "old"
+        # (b) All-day: mesmo resumo/sequência/DTSTAMP, DTEND divergente.
+        block_c = _block(3, _utc(D0, 0), _utc(date(2026, 10, 22), 0), demand=3)
+        _insert_demand(store, block_c.demand_id)
+        service.approve_plan(
+            UID,
+            _proposal(
+                [block_c], revision=2, snapshot=1, added=[block_c.block_id]
+            ),
+            all_day_demand_ids=[block_c.demand_id],
+        )
+        all_day = service.export_blocks(UID)[1]
+        assert all_day.value_type == "DATE"
+        mutant_date = ExportBlock(
+            block_id=all_day.block_id,
+            uid=all_day.uid,
+            summary=all_day.summary,
+            value_type=all_day.value_type,
+            start_utc=all_day.start_utc,
+            end_utc=_utc(date(2026, 10, 23), 0),  # DTEND divergente
+            created_at=all_day.created_at,
+            modified_at=all_day.modified_at,
+            event_sequence=all_day.event_sequence,
+        )
+        remote_date = FakeConnector(
+            initial={
+                str(all_day.uid): RemoteEvent(
+                    uid=str(all_day.uid),
+                    href="/cal/c.ics",
+                    etag="old",
+                    event_ics=build_calendar([mutant_date]),
+                )
+            }
+        )
+        ops_date = service.build_sync_ops(UID, result.confirmation, remote_date)
+        updates_date = [op for op in ops_date if op.kind is RemoteOpKind.UPDATE]
+        assert [op.uid for op in updates_date] == [str(all_day.uid)]
