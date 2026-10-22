@@ -223,7 +223,10 @@ class SQLiteCheckpointer(BaseCheckpointSaver):
         if limit is not None:
             query += " LIMIT ?"
             params = params + (limit,)
-        rows = self._conn.execute(query, params).fetchall()
+        # Mesmo lock de get_tuple/put/put_writes: a conexão é compartilhada
+        # e as leituras do fan-out/retomada também são serializadas (§5).
+        with self._lock:
+            rows = self._conn.execute(query, params).fetchall()
         for row in rows:
             if filter:
                 metadata = self.serde.loads_typed(

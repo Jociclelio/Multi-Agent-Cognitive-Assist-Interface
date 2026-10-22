@@ -90,6 +90,7 @@ from eduagent.policy import (
     GenerationGate,
     TurnLimits,
     assert_public_url,
+    assert_redirect_target,
     require_tool,
     resolve_owned_path,
     typed_error_of,
@@ -2480,11 +2481,21 @@ class EduAgentGraph:
         ]:
             url = str(candidate["url"])
             resource = self._web_connector.fetch(url)
+            # §10: o destino final é SEMPRE revalidado — mesmo quando o
+            # conector devolve a URL original (DNS pode ter mudado entre a
+            # validação da busca e o fetch; revalidação de redirect/DNS a
+            # cada consulta, §10).
             final_url = str(resource.get("url") or url)
-            if final_url != url:
-                # §10: revalidar redirects/DNS a cada hop (contrato do
-                # conector da task 016: dois redirects com revalidação).
-                assert_public_url(final_url)
+            assert_public_url(final_url)
+            # Pré-condição contratual do conector real (task 016): se o
+            # recurso expõe a cadeia de hops (``redirect_chain``, URLs
+            # absolutas em ordem), CADA hop é revalidado contra o hop
+            # anterior com ``assert_redirect_target`` ("dois redirects com
+            # revalidação", §10) — recusa tipada bloqueia a rota inteira.
+            hop_anterior = url
+            for hop in [str(h) for h in resource.get("redirect_chain") or []]:
+                assert_redirect_target(hop_anterior, hop)
+                hop_anterior = hop
             fetched.append({**candidate, "resource": dict(resource)})
         return {"fetched": fetched}
 

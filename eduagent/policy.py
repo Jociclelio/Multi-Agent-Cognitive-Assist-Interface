@@ -32,10 +32,11 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from eduagent.contracts import (
     Budgets,
@@ -128,6 +129,11 @@ class TurnLimits:
         self.max_repairs_total = int(max_repairs_total)
         self.deadline = deadline
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        # Fan-out do §10 (ex.: ["curator_retrieve","librarian_retrieve"])
+        # executa nós em threads do LangGraph: toda mutação/leitura dos
+        # contadores é serializada (RLock reentrante — consume_repair chama
+        # consume_llm dentro do mesmo lock).
+        self._lock = threading.RLock()
         self.llm_calls_remaining = int(max_llm_calls)
         self.tool_calls_remaining = int(max_tool_calls)
         self.repairs_remaining = int(max_repairs_total)
@@ -138,24 +144,26 @@ class TurnLimits:
     def begin_step(
         self, *, cancel_requested: bool = False, step: str = ""
     ) -> None:
-        """Abre um passo do grafo: cancelamento → deadline → steps (§12,
-        nessa ordem). Cancelamento tem prioridade sobre tudo — o terminal é
-        ``CANCELLED``, nunca um erro de budget de um turno pedido para parar.
-        """
-        if cancel_requested:
-            raise _error(
-                ErrorCode.CANCELLED,
-                "turno cancelado antes do passo "
-                f"{step!r}: nada além de efeitos já iniciados é executado",
-            )
-        if self.steps_used >= self.max_graph_steps:
-            raise _error(
-                ErrorCode.RESOURCE_LIMIT,
-                "limite de passos do grafo esgotado "
-                f"({self.max_graph_steps}; default de ensaio, mapa §3)",
-            )
-        self.steps_used += 1
-        self.check_deadline()
+        """Abre um passo do grafo: cancelamento → deadline → limite de
+        passos (§12, nessa ordem). Cancelamento tem prioridade sobre tudo —
+        o terminal é ``CANCELLED``, nunca um erro de budget de um turno
+        pedido para parar. Com deadline e limite de passos esgotados ao
+        mesmo tempo, ``TIMEOUT`` prevalece (ordem documentada)."""
+        with self._lock:
+            if cancel_requested:
+                raise _error(
+                    ErrorCode.CANCELLED,
+                    "turno cancelado antes do passo "
+                    f"{step!r}: nada além de efeitos já iniciados é executado",
+                )
+            self.check_deadline()
+            if self.steps_used >= self.max_graph_steps:
+                raise _error(
+                    ErrorCode.RESOURCE_LIMIT,
+                    "limite de passos do grafo esgotado "
+                    f"({self.max_graph_steps}; default de ensaio, mapa §3)",
+                )
+            self.steps_used += 1
 
     def check_deadline(self) -> None:
         if self.deadline is not None and self._clock() >= self.deadline:
@@ -176,57 +184,71 @@ class TurnLimits:
 
     def consume_llm(self, count: int = 1) -> None:
         """Geração LLM: consome chamada e contador (§12). Fila/budget cheios
-        respondem ``RESOURCE_LIMIT``."""
+        respondem ``RESOURCE_LIMIT``. Serializado para o fan-out do §10."""
         if count <= 0:
             raise _error(ErrorCode.SCHEMA_INVALID, "consumo de LLM deve ser > 0")
-        if self.llm_calls_remaining < count:
-            raise _error(
-                ErrorCode.RESOURCE_LIMIT,
-                "orçamento de chamadas LLM do turno esgotado "
-                f"({self.max_llm_calls}; default de ensaio, mapa §3)",
-            )
-        self.llm_calls_remaining -= count
+        with self._lock:
+            if self.llm_calls_remaining < count:
+                raise _error(
+                    ErrorCode.RESOURCE_LIMIT,
+                    "orçamento de chamadas LLM do turno esgotado "
+                    f"({self.max_llm_calls}; default de ensaio, mapa §3)",
+                )
+            self.llm_calls_remaining -= count
+
+    def refund_llm(self, count: int = 1) -> None:
+        """Reembolsa chamadas LLM debitadas sem geração real (§12): recusa
+        do enqueue (fila cheia/``RESOURCE_LIMIT``, servidor encerrado) não
+        consome o orçamento do turno — débito vale só com enqueue aceito."""
+        if count <= 0:
+            raise _error(ErrorCode.SCHEMA_INVALID, "reembolso de LLM deve ser > 0")
+        with self._lock:
+            self.llm_calls_remaining += count
 
     def consume_tool(self, count: int = 1) -> None:
         if count <= 0:
             raise _error(
                 ErrorCode.SCHEMA_INVALID, "consumo de tools deve ser > 0"
             )
-        if self.tool_calls_remaining < count:
-            raise _error(
-                ErrorCode.RESOURCE_LIMIT,
-                "orçamento de chamadas de ferramentas do turno esgotado "
-                f"({self.max_tool_calls}; default de ensaio, mapa §3)",
-            )
-        self.tool_calls_remaining -= count
+        with self._lock:
+            if self.tool_calls_remaining < count:
+                raise _error(
+                    ErrorCode.RESOURCE_LIMIT,
+                    "orçamento de chamadas de ferramentas do turno esgotado "
+                    f"({self.max_tool_calls}; default de ensaio, mapa §3)",
+                )
+            self.tool_calls_remaining -= count
 
     def consume_repair(self) -> None:
         """Reparo consome chamada (de LLM) e contador próprio (§12)."""
-        if self.repairs_remaining < 1:
-            raise _error(
-                ErrorCode.RESOURCE_LIMIT,
-                "orçamento de reparos do turno esgotado "
-                f"({self.max_repairs_total}; default de ensaio, mapa §3)",
-            )
-        self.repairs_remaining -= 1
-        self.consume_llm()
+        with self._lock:
+            if self.repairs_remaining < 1:
+                raise _error(
+                    ErrorCode.RESOURCE_LIMIT,
+                    "orçamento de reparos do turno esgotado "
+                    f"({self.max_repairs_total}; default de ensaio, mapa §3)",
+                )
+            self.repairs_remaining -= 1
+            self.consume_llm()
 
     # -- projeção para o contrato GraphState (mapa §4) ------------------------
 
     def budgets(self) -> Budgets:
-        return Budgets(
-            llm_calls_remaining=self.llm_calls_remaining,
-            tool_calls_remaining=self.tool_calls_remaining,
-            tokens_remaining=None,  # desconhecido: null, nunca zero (§12)
-        )
+        with self._lock:
+            return Budgets(
+                llm_calls_remaining=self.llm_calls_remaining,
+                tool_calls_remaining=self.tool_calls_remaining,
+                tokens_remaining=None,  # desconhecido: null, nunca zero (§12)
+            )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "llm_calls_remaining": self.llm_calls_remaining,
-            "tool_calls_remaining": self.tool_calls_remaining,
-            "repairs_remaining": self.repairs_remaining,
-            "steps_used": self.steps_used,
-        }
+        with self._lock:
+            return {
+                "llm_calls_remaining": self.llm_calls_remaining,
+                "tool_calls_remaining": self.tool_calls_remaining,
+                "repairs_remaining": self.repairs_remaining,
+                "steps_used": self.steps_used,
+            }
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +261,10 @@ class GenerationGate:
     loopback da task 002 (um slot + fila de quatro, mapa §3.1) — fila cheia
     responde ``RESOURCE_LIMIT`` (§12), nunca seguida turna.
 
-    ``limits.consume_llm()`` é debitado ANTES do submit: estourar orçamento é
-    recusa tipada sem enfileirar pedido.
+    ``limits.consume_llm()`` é conferido ANTES do submit: estourar orçamento
+    é recusa tipada sem enfileirar pedido. Se o próprio enqueue recusa
+    (fila cheia, servidor encerrado), o débito é **reembolsado** — orçamento
+    só vale com enqueue aceito (§12: recusa tipada não consome o turno).
     """
 
     def __init__(
@@ -266,10 +290,12 @@ class GenerationGate:
         deadline: datetime | None = None,
     ) -> GenerationResult:
         """Geração serial: consome orçamento, respeita deadline do turno e
-        devolve o ``GenerationResult`` do adaptador (erro tipado propagado)."""
+        devolve o ``GenerationResult`` do adaptador (erro tipado propagado;
+        recusa do enqueue reembolsa o débito — nenhuma geração ocorreu)."""
         limits.consume_llm()
         limits.check_deadline()
         if deadline is not None and deadline.tzinfo is None:
+            limits.refund_llm()
             raise _error(
                 ErrorCode.SCHEMA_INVALID, "deadline de geração exige zona"
             )
@@ -282,6 +308,9 @@ class GenerationGate:
                 seed=seed,
             )
         except ModelAdapterError as exc:
+            # Recusa do enqueue (fila cheia RESOURCE_LIMIT, servidor
+            # encerrado): nada foi gerado — orçamento reembolsado.
+            limits.refund_llm()
             raise EduAgentError(
                 exc.code,
                 exc.message,
@@ -360,6 +389,9 @@ def resolve_owned_path(
 ) -> Path:
     """Resolve ``data_root/<user_id>/<relative>`` de forma segura (§10).
 
+    - exige que o diretório do usuário seja **subdiretório direto de
+      ``data_root``** (recusa ``user_id`` vazio, ``.`` e ``..`` — ownership
+      por usuário é segregação real, não escrita na própria raiz);
     - canonicaliza o caminho (resolvendo symlinks) e exige que o resultado
       permaneça dentro do diretório do usuário (ownership);
     - ``..`` e symlink que escapem do diretório do usuário são bloqueados
@@ -378,10 +410,14 @@ def resolve_owned_path(
         )
     root = Path(data_root).resolve()
     user_dir = (root / user_id).resolve()
-    if user_dir != root and user_dir.parent != root:
-        # user_id não pode conter traversal (defesa em profundidade).
+    if user_dir == root or user_dir.parent != root:
+        # user_id tem que nomear um subdiretório DIRETO de root: vazio, ".",
+        # ".." ou traversal resolvem para a própria raiz (ou fora dela) e
+        # escapariam da segregação por usuário (§10, defesa em profundidade).
         raise _error(
-            ErrorCode.TOOL_DENIED, "user_id não resolve para diretório próprio"
+            ErrorCode.TOOL_DENIED,
+            "user_id deve resolver para subdiretório direto do data_root "
+            "(ownership por usuário, §10)",
         )
     candidate = (user_dir / relative).resolve()
     if candidate != user_dir and user_dir not in candidate.parents:
@@ -457,16 +493,13 @@ def assert_public_url(url: str) -> str:
 
 def assert_redirect_target(current_url: str, location: str) -> str:
     """Revalida destino de redirect (§10: "dois redirects com revalidação";
-    a revalidação de DNS/destino é reaplicada ao alvo resolvido)."""
-    parts = urlsplit(current_url)
-    if urlsplit(location).scheme:
-        target = location
-    else:
-        base = f"{parts.scheme}://{parts.netloc}"
-        if location.startswith("/"):
-            target = base + location
-        else:
-            target = base + "/" + location
+    a revalidação de DNS/destino é reaplicada ao alvo resolvido).
+
+    O alvo é resolvido com ``urljoin`` ANTES de validar: alvo
+    protocol-relative (``//host/...``) é tratado como host absoluto e o host
+    resultante é revalidado por ``assert_public_url`` — não é concatenado ao
+    host atual (que burlaria a barreira de IP privado/loopback)."""
+    target = urljoin(current_url, location)
     return assert_public_url(target)
 
 

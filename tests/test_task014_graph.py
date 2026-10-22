@@ -37,13 +37,22 @@ Tabela de testes (código → caso):
 | T-P3 | fonte/tool result é dado rotulado e não altera política (§10) |
 | S-F1 | path traversal e symlink escape bloqueados por código; ownership resolvido (§10) |
 | S-F2 | fetch bloqueia IP privado/loopback e revalida redirect/DNS (§10) |
+| S-F3 | user_id "."/""/".." recusado — ownership exige subdiretório direto (A1 da revisão) |
+| S-F4 | redirect protocol-relative "//host" revalidado via urljoin (A2 da revisão) |
+| S-F5 | web fetch revalida destino final sempre e cada hop da cadeia (A4 da revisão) |
+| L-C1 | contadores do TurnLimits exatos sob consumos concorrentes (A3 da revisão) |
+| L-P1 | precedência cancelamento → deadline → passos; simultâneo = TIMEOUT (luna A-01) |
+| L-Q2 | fila cheia reembolsa orçamento de LLM (L-A1 da revisão) |
+| CK-3 | list() do checkpointer sob o mesmo lock de put/get_tuple (A5 da revisão) |
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import socket
 import threading
+import time
 import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1392,6 +1401,334 @@ class TestSegurancaPathsFetch:
         assert target.endswith("/outro")
         with pytest.raises(EduAgentError):
             assert_redirect_target(url, "http://127.0.0.1/armadilha")
+
+    def test_user_id_ponto_vazio_e_traversal_recusados(self, tmp_path):
+        # A1 da revisão: user_id "." ou "" resolvia para o próprio root,
+        # escapando da segregação por usuário. Ownership exige subdiretório
+        # DIRETO de root (§10) — vazio, ".", ".." e traversal são recusados
+        # por código.
+        data_root = tmp_path / "data"
+        user_dir = data_root / UID
+        user_dir.mkdir(parents=True)
+        (user_dir / "ok.txt").write_text("conteudo")
+        for uid in (".", "", ".."):
+            with pytest.raises(EduAgentError) as exc:
+                resolve_owned_path(data_root, uid, "arquivo.txt")
+            assert exc.value.code == ErrorCode.TOOL_DENIED
+        # Subdiretório direto continua resolvendo dentro do diretório próprio.
+        resolved = resolve_owned_path(data_root, UID, "ok.txt")
+        assert resolved.is_file()
+        assert resolved.parent == user_dir
+
+    def test_redirect_protocol_relative_revalidado(self):
+        # A2 da revisão: alvo protocol-relative ("//host/...") é host
+        # absoluto — urljoin resolve antes de validar e o host resultante é
+        # revalidado (antes, era concatenado ao host atual sem revalidação).
+        url = "http://93.184.216.34/a"
+        for location in ("//10.0.0.1/evil", "//127.0.0.1/evil"):
+            with pytest.raises(EduAgentError) as exc:
+                assert_redirect_target(url, location)
+            assert exc.value.code == ErrorCode.TOOL_DENIED
+        # Alvo relativo comum continua resolvendo no mesmo host.
+        assert assert_redirect_target(url, "/outro").endswith("/outro")
+
+    def test_web_fetch_revalida_destino_final_sempre(self, monkeypatch, tmp_path):
+        # A4 da revisão (parte 1): o destino final é revalidado MESMO quando
+        # o conector devolve a URL original — DNS pode ter mudado entre a
+        # busca e o fetch (revalidação de redirect/DNS a cada consulta, §10).
+        def getaddrinfo_privado(host, port, **kwargs):
+            # Simula resolução privada no momento do fetch (DNS rebinding).
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.1", port))]
+
+        monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo_privado)
+
+        class ConectorMesmaUrl:
+            def search(self, query, language, max_results):
+                return [{"url": "http://93.184.216.34/x", "title": "t"}]
+
+            def fetch(self, url):
+                return {"url": url, "state": "text_read"}  # final == url
+
+        env = open_stack(
+            tmp_path,
+            web_connector=ConectorMesmaUrl(),
+            config={"network_enabled": True},
+        )
+        try:
+            with pytest.raises(EduAgentError) as exc:
+                env.graph._node_web_fetch(  # noqa: SLF001 — nó sob teste
+                    {"web_candidates": [{"url": "http://93.184.216.34/x"}]}
+                )
+            assert exc.value.code == ErrorCode.TOOL_DENIED
+        finally:
+            env.store.close()
+            env.checkpointer.close()
+
+    def test_web_fetch_revalida_cada_hop_da_cadeia(self, tmp_path):
+        # A4 da revisão (parte 2): se o conector expõe a cadeia de hops
+        # (redirect_chain), cada hop é revalidado (pré-condição contratual
+        # do conector real da task 016); hop privado bloqueia por código.
+        class ConectorComCadeia:
+            def __init__(self, chain):
+                self._chain = chain
+
+            def search(self, query, language, max_results):
+                return [{"url": "http://93.184.216.34/x", "title": "t"}]
+
+            def fetch(self, url):
+                return {
+                    "url": "http://93.184.216.34/final",
+                    "state": "text_read",
+                    "redirect_chain": self._chain,
+                }
+
+        # Cadeia válida (hops públicos) passa.
+        (tmp_path / "ok").mkdir()
+        env_ok = open_stack(
+            tmp_path / "ok",
+            web_connector=ConectorComCadeia(["http://93.184.216.34/hop1"]),
+            config={"network_enabled": True},
+        )
+        try:
+            resultado = env_ok.graph._node_web_fetch(  # noqa: SLF001
+                {"web_candidates": [{"url": "http://93.184.216.34/x"}]}
+            )
+            assert resultado["fetched"][0]["resource"]["url"].endswith("/final")
+        finally:
+            env_ok.store.close()
+            env_ok.checkpointer.close()
+
+        # Hop privado na cadeia é recusado por código.
+        (tmp_path / "ruim").mkdir()
+        env_ruim = open_stack(
+            tmp_path / "ruim",
+            web_connector=ConectorComCadeia(["http://10.0.0.1/hop1"]),
+            config={"network_enabled": True},
+        )
+        try:
+            with pytest.raises(EduAgentError) as exc:
+                env_ruim.graph._node_web_fetch(  # noqa: SLF001 — nó sob teste
+                    {"web_candidates": [{"url": "http://93.184.216.34/x"}]}
+                )
+            assert exc.value.code == ErrorCode.TOOL_DENIED
+        finally:
+            env_ruim.store.close()
+            env_ruim.checkpointer.close()
+
+
+# ---------------------------------------------------------------------------
+# Limites sob fan-out concorrente e recusa de enqueue (A3, luna A-01, L-A1)
+# ---------------------------------------------------------------------------
+
+
+class TestLimitesConcorrenciaERecusa:
+    def test_turn_limits_contagem_exata_sob_concorrencia(self):
+        # A3 da revisão: o fan-out do §10 executa nós em threads do
+        # LangGraph — begin_step/consume_tool/consume_llm são serializados e
+        # a contagem é exata. A janela de preempção (ler→verificar→escrever)
+        # é forçada por subclassificação que só instrumenta o escalonamento
+        # (time.sleep(0) na leitura); a semântica de produção é executada
+        # integralmente. Sem lock, atualizações se perdem (sonda da revisão).
+        class LimPreemptavel(TurnLimits):
+            @property
+            def llm_calls_remaining(self):
+                v = self.__dict__["_llm_restantes"]
+                time.sleep(0)
+                return v
+
+            @llm_calls_remaining.setter
+            def llm_calls_remaining(self, v):
+                self.__dict__["_llm_restantes"] = v
+
+            @property
+            def tool_calls_remaining(self):
+                v = self.__dict__["_tool_restantes"]
+                time.sleep(0)
+                return v
+
+            @tool_calls_remaining.setter
+            def tool_calls_remaining(self, v):
+                self.__dict__["_tool_restantes"] = v
+
+        maximo = 1000
+        total_por_thread = 200
+        threads_n = 8
+        limits = LimPreemptavel(
+            max_llm_calls=maximo,
+            max_tool_calls=maximo,
+            max_graph_steps=100000,
+            max_repairs_total=10,
+            clock=lambda: FIXED_NOW,
+        )
+        barreira = threading.Barrier(threads_n)
+        sucessos = {"llm": 0, "tool": 0}
+        recusas = {"llm": 0, "tool": 0}
+        trava = threading.Lock()
+
+        def worker():
+            barreira.wait()
+            for _ in range(total_por_thread):
+                try:
+                    limits.consume_llm()
+                    with trava:
+                        sucessos["llm"] += 1
+                except EduAgentError:
+                    with trava:
+                        recusas["llm"] += 1
+                try:
+                    limits.consume_tool()
+                    with trava:
+                        sucessos["tool"] += 1
+                except EduAgentError:
+                    with trava:
+                        recusas["tool"] += 1
+
+        threads = [threading.Thread(target=worker) for _ in range(threads_n)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        total = threads_n * total_por_thread
+        # Contagem exata: cada sucesso debita exatamente 1 do orçamento.
+        assert limits.llm_calls_remaining == maximo - sucessos["llm"]
+        assert limits.tool_calls_remaining == maximo - sucessos["tool"]
+        assert sucessos["llm"] == maximo
+        assert sucessos["tool"] == maximo
+        assert recusas["llm"] == total - maximo
+        assert recusas["tool"] == total - maximo
+
+    def test_begin_step_precedencia_deadline_antes_de_passos(self):
+        # luna A-01 da revisão: ordem documentada é cancelamento → deadline
+        # → limite de passos; com deadline e limite de passos esgotados ao
+        # mesmo tempo, o terminal é TIMEOUT (e cancelamento segue primeiro).
+        rolou = {"sim": False}
+
+        def clock():
+            if rolou["sim"]:
+                return FIXED_NOW + timedelta(hours=1)
+            return FIXED_NOW
+
+        limits = TurnLimits(
+            max_llm_calls=5,
+            max_tool_calls=5,
+            max_graph_steps=1,
+            max_repairs_total=1,
+            deadline=FIXED_NOW + timedelta(seconds=30),
+            clock=clock,
+        )
+        limits.begin_step(step="unico")  # consome o único passo
+        rolou["sim"] = True  # deadline passa depois do primeiro passo
+        with pytest.raises(EduAgentError) as exc:
+            limits.begin_step(step="segundo")
+        assert exc.value.code == ErrorCode.TIMEOUT
+        # Cancelamento tem prioridade sobre deadline e limite de passos.
+        with pytest.raises(EduAgentError) as exc:
+            limits.begin_step(step="terceiro", cancel_requested=True)
+        assert exc.value.code == ErrorCode.CANCELLED
+
+    def test_fila_cheia_preserva_orcamento_de_llm(self):
+        # L-A1 da revisão: recusa do enqueue (fila cheia RESOURCE_LIMIT)
+        # reembolsa o débito — orçamento só vale com enqueue aceito (§12).
+        backend = BlockingBackend()
+        gate = GenerationGate(backend, queue_size=1, clock=lambda: FIXED_NOW)
+        limits = TurnLimits(
+            max_llm_calls=10,
+            max_tool_calls=10,
+            max_graph_steps=16,
+            max_repairs_total=2,
+            clock=lambda: FIXED_NOW,
+        )
+        try:
+            futures = []
+            for _ in range(2):  # 1 slot + 1 fila
+                futures.append(
+                    gate._server.submit(  # noqa: SLF001 — fronteira da fila
+                        messages=[{"role": "user", "content": "x"}],
+                        schema=None,
+                        sampler=None,
+                        deadline=FIXED_NOW.timestamp() + 30,
+                        seed=0,
+                    )
+                )
+            antes = limits.llm_calls_remaining
+            with pytest.raises(EduAgentError) as exc:
+                gate.generate(
+                    limits=limits,
+                    messages=[{"role": "user", "content": "x"}],
+                    schema=None,
+                    sampler=None,
+                    seed=0,
+                )
+            assert exc.value.code == ErrorCode.RESOURCE_LIMIT
+            assert limits.llm_calls_remaining == antes
+            # Drena as futures para o worker terminar limpo.
+            backend.release.set()
+            for future in futures:
+                try:
+                    future.result(timeout=5)
+                except Exception:
+                    pass
+        finally:
+            backend.release.set()
+            gate.close()
+
+    def test_checkpointer_list_sob_lock(self, tmp_path):
+        # A5 da revisão: list() usa o mesmo lock de get_tuple/put — enquanto
+        # um put está em curso (segurando o lock), list() aguarda.
+        checkpointer = SQLiteCheckpointer(tmp_path / "cp-list.sqlite")
+        config = {"configurable": {"thread_id": "sessao-list-lock"}}
+        checkpoint = {"id": "cp-list-1", "v": 1}
+        entrou = threading.Event()
+        libera = threading.Event()
+
+        class ConnBloqueante:
+            """Proxy que prende o INSERT do put enquanto o lock é mantido."""
+
+            def __init__(self, conn):
+                self._conn = conn
+
+            def execute(self, sql, *args, **kwargs):
+                if "INTO checkpoints" in sql:
+                    entrou.set()
+                    libera.wait(timeout=5)
+                return self._conn.execute(sql, *args, **kwargs)
+
+            def __getattr__(self, name):
+                return getattr(self._conn, name)
+
+        checkpointer._conn = ConnBloqueante(  # noqa: SLF001 — instrumentação
+            checkpointer._conn
+        )
+        erros: dict[str, Exception] = {}
+
+        def faz_put():
+            try:
+                checkpointer.put(config, checkpoint, {"source": "teste"}, {})
+            except Exception as exc:  # pragma: no cover
+                erros["put"] = exc
+
+        thread_put = threading.Thread(target=faz_put)
+        thread_put.start()
+        assert entrou.wait(timeout=2)  # put está dentro do lock, no INSERT
+
+        resultado: dict[str, int] = {}
+
+        def faz_list():
+            resultado["n"] = len(list(checkpointer.list(config)))
+
+        thread_list = threading.Thread(target=faz_list)
+        thread_list.start()
+        time.sleep(0.2)
+        # list() aguarda o lock liberado pelo put (não lê a conexão em paralelo).
+        assert thread_list.is_alive()
+        assert "n" not in resultado
+        libera.set()
+        thread_put.join(timeout=5)
+        thread_list.join(timeout=5)
+        assert not erros
+        assert resultado["n"] == 1
+        checkpointer.close()
 
 
 # ---------------------------------------------------------------------------
