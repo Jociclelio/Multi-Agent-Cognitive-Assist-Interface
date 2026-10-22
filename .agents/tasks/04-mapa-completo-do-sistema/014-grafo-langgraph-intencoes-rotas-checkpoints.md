@@ -1,6 +1,6 @@
 # Task 014: Grafo LangGraph — intenções, rotas, checkpoints e limites (mapa §10, §12, §13.8 parte 1)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks
 Depende de: 013
 Origem: nenhuma
 
@@ -136,13 +136,20 @@ intenção. Nenhum impeditivo; ambiguidades do mapa resolvidas conservadoramente
 e registradas acima.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: master do ciclo opt-in — sd2/GLM-5.3-Flash (GLM-5.3-Flash via `~/sd2-llm.sh`, provider `sd2`).
+- Alvo: task 014; base `2373cfb9d6c13cdf23d1ce6d87bcdb07535c8540`; entrega `6968403283db129e6fc5094a9477e91c1d27228f`; registro `121a0e7a034602a40122bccf7b81e5c640c16811`; árvore limpa; mapa/config/`uv.lock`/submódulo intocados entre base e registro (verificado por diff).
+- Modo da rodada: **sequencial** — revisores compartilham o venv e a suíte do projeto; cada revisor rodou em sessão nova com exclusividade dos recursos.
+- Avaliações (quórum de três modelos distintos):
+  - **GLM-5.3-Flash (sd2) — 9/10, aprovada.** Reproduziu a suíte integral (482 passed) com exclusividade do venv. Achados baixos/informativos: L-A1 débito de orçamento LLM antes do `submit` na fila cheia; L-A2 `resolve_owned_path` aceita `user_id` `.`/vazio (julgado baixo por validação a montante de UUID); L-A3 TOCTOU DNS informativo (pré-condição p/ 016); divergência declarada de precedência em `begin_step` (deadline após limite de passos).
+  - **GPT-6 Luna (openai) — 7/10, provisória/inconclusiva.** Não executou a suíte (dependências ausentes na cópia isolada; pendência coberta pela reprodução independente de GLM e beam, ambos 482 passed). Achado médio A-01: `begin_step` verifica limite de passos antes do deadline, contrariando a ordem documentada cancelamento → deadline → steps; caso simultâneo sem teste.
+  - **Beam Free (opencode) — 8/10, requer correções.** Reproduziu suíte 482 e sondas de segurança. Achados: **A1 alto** — `resolve_owned_path(root, ".")` e `""` resolvem para o próprio root (probe-confirmado), bypass da segregação por usuário, violando "resolver paths/ownership" do §10; **A2 alto** — redirect protocol-relative `//host` não revalidado (`assert_redirect_target`), bypass da barreira de fetch IP privado/loopback; **A3 médio** — `TurnLimits` muta contadores sem sincronização durante o fan-out paralelo do §10 (threads reais do LangGraph, confirmado pelo próprio executor para o `DomainStore`); **A4 médio** — `_node_web_fetch` revalida destino final apenas se diferente da URL inicial, sem revalidação por hop; **A5 baixo** — `checkpointer.list()` acessa conexão sem lock; **A6 baixo** — contagem "37 vs 36" no commit de entrega (auto-declarada).
+- Divergências e resolução: GLM avaliou path ownership e concorrência de contadores como baixos/informativos (validação a montante; limitação declarada single-threaded); beam probe-confirmou o bypass de paths e apontou que o fan-out do §10 executa nós em threads paralelas no design entregue — evidência reprodutível prevalece sobre o atenuante declarado; luna convergiu de forma independente na precedência de `begin_step`. Sem contradição factual entre pareceres.
+- Nota final: **7/10** — C1, C2 e C4 comprovados com suíte reproduzida por dois revisores independentes (482 passed, 36 testes novos, testes por rota, deadline tipado com artefatos preservados, checkpointer com retomada provada, limites antes de cada nó, mapa intocado, commits separados). C3 não está plenamente comprovado: dois achados altos probe-confirmados (bypass de ownership em `resolve_owned_path` e redirect protocol-relative não revalidado) violam requisitos explícitos do prompt da task, somando-se dois médios (corrida nos contadores do `TurnLimits` no fan-out paralelo; precedência deadline/limites em `begin_step`) e baixos (lock ausente em `checkpointer.list()`; débito de orçamento na fila cheia). Pendências essenciais não podem ser fechadas com a nota.
+- Parecer: entrega substancial e bem testada no núcleo do grafo (rotas, checkpoints, limites), porém com falhas localizadas e concretas de segurança de paths/fetch e de atomicidade dos contadores que o prompt exige resolvidas. Não justifica reinício nem repartição: defeitos delimitados em `eduagent/policy.py` e pontos de integração, corrigíveis preservando o design aprovado.
+- Decisão: **corrigir**
+- Reversão: não se aplica — entrega `6968403` e registro `121a0e7` preservados sem reversão.
+- Próximo passo: subtask 014a (pendente de criação) — corrigir ownership de paths (recusar `user_dir == root`; exigir filho direto de root), revalidação de redirect protocol-relative com `urljoin` antes de `assert_public_url`, sincronização (`RLock`) dos contadores de `TurnLimits` para o fan-out paralelo, revalidação do destino final/cadeia de redirects em `_node_web_fetch`, lock em `checkpointer.list()`, precedência cancelamento → deadline → limite de passos em `begin_step` com teste do caso simultâneo, e débito de orçamento LLM apenas após enqueue aceito (ou reembolso em recusa), com testes de regressão e suíte integral reexecutada.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/014a-correcao-seguranca-paths-fetch-e-limites.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
