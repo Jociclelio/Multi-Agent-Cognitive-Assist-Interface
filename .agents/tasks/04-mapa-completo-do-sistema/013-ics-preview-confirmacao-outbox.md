@@ -1,6 +1,6 @@
 # Task 013: ICS RFC5545, confirmação e outbox (mapa §9, §13.7 parte 2)
 
-Estado: aguardando revisao
+Estado: aguardando subtasks (corrigir — 013a)
 Depende de: 012
 Origem: nenhuma
 
@@ -33,13 +33,17 @@ Implementar a exportação ICS e o fluxo de confirmação (mapa §9) em `eduagen
 - Evidências: `python -m pytest tests/test_task013_calendar_confirmation.py -q` → 25 passed; suíte integral `python -m pytest tests/ -q` → 439 passed (414 anteriores + 25 novos; warnings pré-existentes da task 006). `icalendar` 6.3.2 já pinado em `pyproject.toml`/`uv.lock` — nenhuma dependência nova, nenhum lock alterado. Migração 0007 aplicada do zero em banco de probe em /tmp/opencode (versão 7, colunas verificadas). Probes em /tmp/opencode apenas; sem jobs remotos, sem benchmarks; mapa, config e submodule intocados; commits de entrega e registro separados, sem amend/force-push.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider sd2, model id GLM-5.3-Flash) — master do ciclo opt-in, sessão própria; rodada **sequencial** por venv compartilhado (revisores podem executar a suíte no mesmo `.venv`, recursos concorrentes), cada revisor em sessão nova com o mesmo pedido/base/SHAs, sem pareceres cruzados.
+- Alvo: entrega `f72440c58c4ff50e4f5095b7b5994db577c91b34` sobre base `f85c95f558c1c0e6b0bb829e2ad16cf822e1344c`; registro `d1ecc58` (= HEAD na rodada, árvore limpa); commits de entrega e registro separados (verificado por inspeção Git).
+- Avaliações: GLM-5.3-Flash (sd2) — 9/10, aprovada, suíte 439 passed e 25/25 reproduzidas com sondas próprias em /tmp/opencode; GPT-6 Luna (openai/gpt-6-luna) — 7/10 provisória (não executou a suíte: `ModuleNotFoundError: icalendar` no ambiente do revisor; pendência coberta pela reprodução independente de GLM e beam, ambos com 439 passed); Beam Free (opencode/beam-free) — 8/10, 25/25 e 439/439 reproduzidos, com achado alto reproduzido por sonda.
+- Achados relevantes: **A-01 (alto, beam, reproduzido)** — precisão de microssegundos quebra ICS real: ICS RFC5545 tem precisão de segundos, mas `build_calendar` (DTSTAMP/CREATED/LAST-MODIFIED), `verify_calendar` e `build_sync_ops` comparam/gravam com microssegundos; sonda com relógio de microssegundos reproduz `render_plan` falhando ("CREATED/DTSTAMP divergentes") — com relógio real nenhum ICS é publicado e o sync considera o bloco sempre desatualizado; testes atuais usam `FakeClock` de minuto inteiro e não cobrem o caso. **A-02 (médio, beam)** — `build_sync_ops` ramo all-day pré-converte start/end para meia-noite UTC antes de `build_calendar(..., local_timezone=...)`, dupla conversão de fuso para serviços com fuso não-UTC. **L-A1 (médio, luna)** — `apply_plan` valida a confirmação apenas no início; sem revalidação imediatamente antes de cada efeito remoto, janela de obsolescência entre checagem e envio contra §15.1 (impacto contido nesta task: sync é só contrato/estados; conexão real é 016, mas o dispatcher deve definir a regra agora). **L-A2 (baixo, luna)** — após timeout reconciliado como `NOT_APPLIED`, o status agregado pode permanecer `APPLIED`, enganoso. **G-A1 (baixo, GLM)** — `_confirmation_from_row` faz `json.loads(dependencies_json)` assumindo objeto enquanto a migração 0007 usa `DEFAULT '[]'`; inconsistência latente schema/parser. **G-A2 (baixo, GLM)** — igualdade de UPDATE remoto compara só SUMMARY/SEQUENCE/DTSTAMP, não DTSTART/DTEND; remoto mutante com SEQUENCE intacta escapa (residual teórico contra RFC5545).
+- Divergências: GLM aprovou C1 como comprovado; beam demonstrou por sonda que C1 falha com relógio de microssegundos (lacuna de cobertura, não contradição de protocolo — a suíte passa porque os testes usam clock de minuto inteiro). Nota provisória da luna aceita como inconclusiva quanto à execução, com pendência coberta pelas reproduções independentes dos outros dois revisores.
+- Nota final: **7/10** — contratos de confirmação/outbox (C3) e sync (C4) sólidos e provados, parser e testes bem construídos, mas um achado alto reproduzido afeta o núcleo da entrega (renderização ICS com relógio real) e um médio afeta o ramo all-day do sync; não é possível fechar com C1 parcialmente comprometido.
+- Parecer: entrega preservada, sem reversão; correção delimitada cobrindo A-01 (obrigatório), A-02, L-A1, L-A2 e, como pontos de robustez no mesmo patch, G-A1 e G-A2, com testes de regressão para relógio de microssegundos e revalidação por operação.
+- Decisão: **corrigir** (estado: aguardando subtasks)
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: subtask 013a de correção pontual (criada em commit próprio, link no índice do plano).
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/013a-correcao-precisao-temporal-e-sync.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
