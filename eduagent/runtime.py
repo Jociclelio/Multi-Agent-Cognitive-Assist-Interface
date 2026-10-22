@@ -31,6 +31,7 @@ from eduagent.services.ingestion import IngestionService
 from eduagent.services.memory import MemoryService
 from eduagent.services.retrieval import RetrievalService
 from eduagent.services.scheduling import DemandService
+from eduagent.services.sync_connectors import build_calendar_connector
 from eduagent.skills import SkillCatalog
 from eduagent.storage.checkpoints import SQLiteCheckpointer
 from eduagent.storage.repository import DomainStore
@@ -141,6 +142,11 @@ class RuntimeContext:
             demands=demands,
             calendar=calendar,
             ingestion=ingestion,
+            # Wiring do conector de sync (correção 016a, achado QW-A1):
+            # CalDAV configurado/admitido chega ao grafo pela superfície
+            # CLI/API; sem config, ``None`` mantém CONNECTOR_DISABLED com
+            # ICS/preview (§9, comportamento S7 preservado).
+            calendar_connector=build_calendar_connector(effective_config),
             data_root=root,
             telemetry_dir=telemetry_dir if telemetry else None,
         )

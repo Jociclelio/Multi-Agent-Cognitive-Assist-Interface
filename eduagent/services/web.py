@@ -56,7 +56,8 @@ MAX_CANDIDATES = 5
 #: Máximo de fetches por consulta (§6) — aplicado no grafo (``_MAX_FETCHES``).
 MAX_FETCHES = 3
 
-#: Timeout por requisição HTTP em segundos (§6: "10s/5MiB").
+#: Timeout por requisição HTTP em segundos (§6: "10s/5MiB"). Default também
+#: do transporte real (``urllib_transport``) — correção 016a.
 DEFAULT_TIMEOUT_S = 10.0
 
 #: Limite de corpo por resposta em bytes (§6: "10s/5MiB").
@@ -155,18 +156,42 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def urllib_transport(url: str, timeout_s: float) -> tuple[int, Mapping[str, str], bytes]:
+def urllib_transport(
+    url: str, timeout_s: float = DEFAULT_TIMEOUT_S
+) -> tuple[int, Mapping[str, str], bytes]:
     """Transporte padrão (urllib): devolve ``(status, headers, body)`` para
     qualquer status HTTP (2xx/3xx/4xx/5xx); erros de rede propagam
     ``TimeoutError``/``OSError``. Usado apenas quando nenhum transporte é
-    injetado — os testes usam transporte falso, sem rede real."""
+    injetado — os testes usam transporte falso, sem rede real.
+
+    Limites do §6 impostos AQUI no transporte real (correção 016a):
+    - timeout default de 10 s (§6: "10s/5MiB") quando não informado;
+    - leitura do corpo limitada a ``MAX_BODY_BYTES + 1`` bytes — inclusive
+      no caminho ``HTTPError`` (``exc.read(limit)``) — de modo que um corpo
+      maior que o limite normativo NÃO é lido integralmente; o excesso é
+      detectado em ``_build_resource`` e mapeado ao estado ``unavailable``.
+    """
     request = urllib.request.Request(url, headers={"User-Agent": "EduAgent-OS/0.1"})
     opener = urllib.request.build_opener(_NoRedirect)
+    # §6: lê no máximo MAX_BODY_BYTES + 1 — o "+1" permite detectar excesso
+    # sem baixar o corpo inteiro (correção 016a, achado LUNA-A1).
+    read_limit = MAX_BODY_BYTES + 1
     try:
         with opener.open(request, timeout=timeout_s) as response:
-            return int(response.status), dict(response.headers), response.read()
+            return (
+                int(response.status),
+                dict(response.headers),
+                response.read(read_limit),
+            )
     except urllib.error.HTTPError as exc:
-        return int(exc.code), dict(exc.headers or {}), exc.read() or b""
+        return int(exc.code), dict(exc.headers or {}), exc.read(read_limit) or b""
+    except urllib.error.URLError as exc:
+        # Normaliza timeout de conexão: ``URLError`` com reason de timeout é
+        # re-erguido como ``TimeoutError`` (contrato do seam, §6 "10s").
+        reason = getattr(exc, "reason", exc)
+        if isinstance(reason, TimeoutError):
+            raise TimeoutError(str(reason)) from exc
+        raise
 
 
 def _content_type_of(headers: Mapping[str, str]) -> str:

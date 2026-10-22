@@ -7,12 +7,17 @@ Contratos de estados/precondições vieram da task 013
 e precondições condicionais. Nesta task 016 os conectores são ADMITIDOS
 individualmente, cada um após contrato e testes de falha de rede:
 
-- **CalDAV (RFC 4791) — ADMITIDO**: href estável por recurso; criação
-  ``PUT`` com ``If-None-Match: *``; atualização/remoção ``PUT``/``DELETE``
-  com ``If-Match: <ETag>`` do read anterior; timeout de transporte levanta
-  ``ConnectorTimeout`` → o dispatcher reconcilia por leitura, **sem retry
-  cego** (§9/§11). A conexão real usa urllib com credenciais configuradas;
-  os testes usam transporte injetado (sem rede real).
+- **CalDAV (RFC 4791) — ADMITIDO** (admissão revalidada na 016a): href
+  estável por recurso; criação ``PUT`` com ``If-None-Match: *``;
+  atualização/remoção ``PUT``/``DELETE`` com ``If-Match: <ETag>`` do read
+  anterior; timeout de transporte levanta ``ConnectorTimeout`` → o
+  dispatcher reconcilia por leitura, **sem retry cego** (§9/§11). A conexão
+  real usa urllib com credenciais configuradas; redirect automático do
+  urllib é DESABILITADO e cada destino de redirect é validado (mesmo
+  esquema/autoridade do ``base_url``) antes de ser segido — destino
+  distinto é recusado sem contatar o segundo host e sem reenviar a
+  credencial Basic. Os testes usam transporte injetado (sem rede real) e
+  servidores HTTP locais reais para o redirect.
 - **Google Calendar — NÃO ADMITIDO**: update/delete condicional exige
   verificação documental específica (§9) que não foi realizada nesta
   entrega, e não há credenciais para testes de falha de rede. O conector
@@ -59,15 +64,37 @@ DIAGNOSTIC = "eduagent/services/sync_connectors.py"
 #: Timeout por requisição HTTP em segundos (default de ensaio, §3/§12).
 DEFAULT_SYNC_TIMEOUT_S = 10.0
 
+#: Máximo de hops de redirect seguidos pelo transporte real do CalDAV
+#: (default de ensaio rotulado — o §9 não prescreve valor; redirects
+#: legítimos de servidor CalDAV são raros e mesmo-origem).
+MAX_REDIRECT_HOPS = 3
+
+#: Limite de bytes aceitos no parse do ``207 Multi-Status`` antes do parse
+#: (default de ensaio rotulado — o §9 não prescreve valor; NÃO é resultado
+#: medido). Corpo maior é recusado antes de qualquer parsing XML.
+MAX_MULTISTATUS_BYTES = 1 * 1024 * 1024
+
+#: Teto de corpo aceito na resposta do REPORT do CalDAV (default de ensaio
+#: rotulado — o §9 NÃO prescreve valor; nunca apresentar como resultado
+#: medido). Resposta maior é recusada com falha definida.
+MAX_REPORT_BODY_BYTES = 5 * 1024 * 1024
+
 #: Registro de admissão dos conectores (§9: cada conector é admitido
 #: individualmente; o que não é admitido fica registrado com motivo).
 CONNECTOR_ADMISSION: dict[str, str] = {
     "caldav": (
-        "ADMITIDO (§9): contrato RFC 4791 — href estável, criação "
-        "If-None-Match: *, atualização/remoção If-Match ETag; timeout → "
-        "ConnectorTimeout → read/reconcile sem retry cego; testes de falha "
-        "de rede (timeout, precondição falhada, resposta inválida) com "
-        "transporte injetado."
+        "ADMITIDO (revalidado na 016a). Histórico da admissão da 016: "
+        "contrato RFC 4791 — href estável, criação If-None-Match: *, "
+        "atualização/remoção If-Match ETag; timeout → ConnectorTimeout → "
+        "read/reconcile sem retry cego; testes de falha de rede (timeout, "
+        "precondição falhada, resposta inválida) com transporte injetado. "
+        "Revalidação 016a (achado LUNA-A2): redirect automático do urllib "
+        "DESABILITADO; cada destino de redirect é validado antes de ser "
+        "seguido — mesmo esquema e mesma autoridade (host:porta) do "
+        "base_url configurado; redirect para origem distinta é recusado com "
+        "ConnectorError SEM contatar o segundo host e SEM reenviar a "
+        "credencial Basic; teste de rede 'redirect malicioso do CalDAV' "
+        "adicionado contra servidores HTTP locais reais."
     ),
     "google": (
         "NÃO ADMITIDO (§9): update/delete condicional só é habilitado "
@@ -114,6 +141,29 @@ SyncTransport = Callable[
 ]
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Desativa o auto-follow do urllib no transporte CalDAV (correção 016a,
+    achado LUNA-A2): o urllib reenviaria a credencial Basic a um destino de
+    redirect escolhido pelo servidor. O laço de redirects — com validação de
+    origem a cada hop — passa a ser do transporte."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
+def _same_origin(base_url: str, target: str) -> bool:
+    """Origem (esquema + autoridade host:porta) do destino de redirect igual
+    à do ``base_url`` configurado (correção 016a). Comparação por autoridade
+    completa: porta distinta é outro serviço/origem — escolha local
+    documentada, mais estrita que "mesmo host" a miolo."""
+    base = urlsplit(base_url)
+    dest = urlsplit(target)
+    return (base.scheme.lower(), base.netloc.lower()) == (
+        dest.scheme.lower(),
+        dest.netloc.lower(),
+    )
+
+
 def make_urllib_transport(
     base_url: str,
     username: str | None,
@@ -122,7 +172,15 @@ def make_urllib_transport(
     timeout_s: float = DEFAULT_SYNC_TIMEOUT_S,
 ) -> SyncTransport:
     """Transporte padrão (urllib) com autenticação Basic. Apenas para uso
-    real configurado; os testes usam transporte injetado (sem rede)."""
+    real configurado; os testes usam transporte injetado (sem rede).
+
+    Redirects (correção 016a, achado LUNA-A2): o auto-follow do urllib é
+    DESABILITADO — ele reenviaria a credencial Basic a um destino escolhido
+    pelo servidor. Cada destino de redirect é validado ANTES de ser segido:
+    mesmo esquema e mesma autoridade (host:porta) do ``base_url``; destino
+    distinto é recusado com ``ConnectorError`` SEM contatar o segundo host e
+    SEM reenviar a credencial. Redirects mesmo-origem são segidos até
+    ``MAX_REDIRECT_HOPS`` hops (default de ensaio rotulado)."""
     host = urlsplit(base_url)
     if host.scheme not in {"http", "https"} or not host.netloc:
         raise _error(
@@ -135,27 +193,61 @@ def make_urllib_transport(
             f"{username or ''}:{password or ''}".encode("utf-8")
         ).decode("ascii")
         headers["Authorization"] = f"Basic {token}"
+    opener = urllib.request.build_opener(_NoRedirect)
 
     def transport(
         method: str, url: str, body: bytes, extra: Mapping[str, str]
     ) -> tuple[int, Mapping[str, str], bytes]:
-        request = urllib.request.Request(
-            url, data=body if body else None, method=method
+        current = url
+        for hop in range(MAX_REDIRECT_HOPS + 1):
+            request = urllib.request.Request(
+                current, data=body if body else None, method=method
+            )
+            for key, value in {**headers, **extra}.items():
+                request.add_header(key, value)
+            try:
+                with opener.open(request, timeout=timeout_s) as resp:
+                    return int(resp.status), dict(resp.headers), resp.read()
+            except urllib.error.HTTPError as exc:
+                status = int(exc.code)
+                response_headers = dict(exc.headers or {})
+                payload = exc.read() or b""
+                exc.close()
+            except (TimeoutError, ConnectionError):
+                raise
+            except OSError as exc:
+                reason = getattr(exc, "reason", exc)
+                if isinstance(reason, TimeoutError):
+                    raise TimeoutError(str(reason)) from exc
+                raise ConnectorError(str(exc)) from exc
+            if 300 <= status < 400:
+                location = ""
+                for key in ("Location", "location"):
+                    if key in response_headers:
+                        location = str(response_headers[key])
+                        break
+                if not location:
+                    return status, response_headers, payload
+                target = urljoin(current, location)
+                if not _same_origin(base_url, target):
+                    # Redirect malicioso: recusado SEM contatar o segundo
+                    # host e SEM reenviar a credencial Basic (correção 016a).
+                    raise ConnectorError(
+                        "redirect CalDAV para origem distinta recusado "
+                        f"({method} {current} -> {target}); a credencial "
+                        "não é reenviada a outro host/esquema"
+                    )
+                if hop == MAX_REDIRECT_HOPS:
+                    raise ConnectorError(
+                        f"excesso de redirects no transporte CalDAV "
+                        f"(> {MAX_REDIRECT_HOPS} hops, default de ensaio)"
+                    )
+                current = target
+                continue
+            return status, response_headers, payload
+        raise ConnectorError(
+            "laço de redirects do transporte CalDAV exaurido"
         )
-        for key, value in {**headers, **extra}.items():
-            request.add_header(key, value)
-        try:
-            with urllib.request.urlopen(request, timeout=timeout_s) as resp:
-                return int(resp.status), dict(resp.headers), resp.read()
-        except urllib.error.HTTPError as exc:
-            return int(exc.code), dict(exc.headers or {}), exc.read() or b""
-        except (TimeoutError, ConnectionError):
-            raise
-        except OSError as exc:
-            reason = getattr(exc, "reason", exc)
-            if isinstance(reason, TimeoutError):
-                raise TimeoutError(str(reason)) from exc
-            raise ConnectorError(str(exc)) from exc
 
     return transport
 
@@ -165,11 +257,34 @@ _CALDAV = "urn:ietf:params:xml:ns:caldav"
 
 
 def parse_multistatus(
-    xml_body: bytes, base_url: str
+    xml_body: bytes,
+    base_url: str,
+    *,
+    max_bytes: int = MAX_MULTISTATUS_BYTES,
 ) -> list[dict[str, Any]]:
     """Parse mínimo de ``207 Multi-Status`` (RFC 4918): devolve
     ``{href, etag, ics}`` por response. Corpo de calendário ausente ou
-    ilegível NÃO é inventado — ``ics`` vem ``None``."""
+    ilegível NÃO é inventado — ``ics`` vem ``None``.
+
+    Endurecimento (correção 016a, achados GLM-A1/QW-A2):
+    - corpo maior que ``max_bytes`` (default de ensaio rotulado,
+      ``MAX_MULTISTATUS_BYTES`` = 1 MiB — o §9 não prescreve valor) é
+      recusado ANTES de qualquer parsing XML;
+    - XML com DTD/declaração de entidades no preâmbulo é recusado com
+      ``ConnectorError`` — defesa contra expansão de entidades; conteúdo
+      ICS legítimo não contém essas marcações (texto é escapado no XML).
+    """
+    if len(xml_body) > max_bytes:
+        raise ConnectorError(
+            f"multistatus excede {max_bytes} bytes "
+            "(limite local de ensaio, não prescrito pelo §9)"
+        )
+    lowered = xml_body.lower()
+    if b"<!doctype" in lowered or b"<!entity" in lowered:
+        raise ConnectorError(
+            "multistatus com DTD/entidades XML é recusado "
+            "(defesa contra expansão de entidades)"
+        )
     responses: list[dict[str, Any]] = []
     try:
         root = ET.fromstring(xml_body)
@@ -225,6 +340,13 @@ class CaldavConnector:
     - Falha definida de conexão (``ConnectorError``/``ConnectionError``) →
       ``NOT_APPLIED`` nas escritas (efeito certamente não ocorreu; reenvio
       condicional é seguro) e propagação nas leituras.
+    - Redirects (correção 016a): o transporte real não segue redirect
+      automaticamente; destino de origem distinta (esquema/autoridade
+      diferentes do ``base_url``) é recusado com ``ConnectorError`` sem
+      contatar o segundo host e sem reenviar a credencial Basic; leitura
+      REPORT tem teto de corpo (``MAX_REPORT_BODY_BYTES``, default de
+      ensaio rotulado) e o parse do multistatus recusa DTD/entidades e
+      corpos acima de ``MAX_MULTISTATUS_BYTES`` (default de ensaio).
     """
 
     def __init__(
@@ -284,6 +406,13 @@ class CaldavConnector:
         if status != 207:
             raise ConnectorError(
                 f"REPORT CalDAV respondeu HTTP {status} (esperado 207)"
+            )
+        if len(body) > MAX_REPORT_BODY_BYTES:
+            # Teto de corpo do REPORT (default de ensaio rotulado — o §9 não
+            # prescreve valor; nunca apresentado como resultado medido).
+            raise ConnectorError(
+                f"corpo do REPORT CalDAV excede {MAX_REPORT_BODY_BYTES} "
+                "bytes (limite local de ensaio, não prescrito pelo §9)"
             )
         events: list[RemoteEvent] = []
         for entry in parse_multistatus(body, self._base_url):
@@ -624,6 +753,9 @@ __all__ = [
     "ConnectorError",
     "DEFAULT_SYNC_TIMEOUT_S",
     "GoogleCalendarConnector",
+    "MAX_MULTISTATUS_BYTES",
+    "MAX_REDIRECT_HOPS",
+    "MAX_REPORT_BODY_BYTES",
     "McpCalendarAdapter",
     "RemoteOpKind",
     "SyncTransport",

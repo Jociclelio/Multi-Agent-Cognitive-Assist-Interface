@@ -30,10 +30,17 @@ Tabela de testes (código → caso):
 | S8 | adaptador MCP: allowlist de read/create/update/delete com IDs/precondições; fora da lista negado por código (§9/§10) |
 | S9 | admissão individual: registro caldav ADMITIDO, google NÃO ADMITIDO com motivo; construção Google recusada (§9) |
 | D1 | dívida da 014a: TIMEOUT pós-consume_llm e pré-enqueue reembolsa o débito (§12) |
+| W9 | transporte real (``urllib_transport``) impõe o §6: leitura limitada a ``MAX_BODY_BYTES + 1`` (incluindo caminho ``HTTPError``) e timeout de 10 s — provado contra servidor HTTP local real chamando o transporte diretamente, fora da barreira de IP privado da rota (correção 016a) |
+| W10 | rota curate corta ``max_results`` com ``min(max_results, _MAX_CANDIDATES)`` antes de chamar ``search`` (correção 016a) |
+| S10 | redirect malicioso do CalDAV: transporte real sem auto-follow; destino de origem distinta recusado com ``ConnectorError`` sem contatar o segundo host e sem reenviar a credencial Basic — provado com servidores HTTP locais reais (correção 016a) |
+| S11 | endurecimento do parse: multistatus com DTD/entidades recusado, bytes pré-parse limitados (1 MiB, default de ensaio) e teto de corpo no REPORT (5 MiB, default de ensaio — §9 não prescreve valor) (correção 016a) |
+| S12 | wiring: ``RuntimeContext`` constrói ``calendar_connector=build_calendar_connector(...)`` — config CalDAV presente chega ao grafo; ausente mantém ``CONNECTOR_DISABLED`` com ICS/preview (correção 016a) |
 """
 
 from __future__ import annotations
 
+import http.server
+import threading
 import time
 import uuid as _uuid
 from collections.abc import Mapping
@@ -51,6 +58,7 @@ from eduagent.contracts import (
 )
 from eduagent.graph import EduAgentGraph
 from eduagent.policy import GenerationGate, TurnLimits
+from eduagent.runtime import RuntimeContext
 from eduagent.services.calendar import (
     CalendarService,
     SyncOutcome,
@@ -62,15 +70,21 @@ from eduagent.services.sync_connectors import (
     CaldavConnector,
     ConnectorError,
     GoogleCalendarConnector,
+    MAX_MULTISTATUS_BYTES,
+    MAX_REPORT_BODY_BYTES,
     McpCalendarAdapter,
     build_calendar_connector,
     connector_admission,
+    make_urllib_transport,
+    parse_multistatus,
 )
 from eduagent.services.web import (
+    DEFAULT_TIMEOUT_S,
     MAX_BODY_BYTES,
     MAX_CANDIDATES,
     ResourceState,
     WebFetchConnector,
+    urllib_transport,
 )
 from eduagent.storage.checkpoints import SQLiteCheckpointer
 from eduagent.storage.repository import DomainStore
@@ -405,6 +419,194 @@ class TestCuradoriaWeb:
         ).fetch("https://exemplo.valido.org/outro")
         assert sem_cache["state"] == "unavailable"
         assert sem_cache["cached"] is False
+
+    def test_w10_rota_corta_max_results_antes_de_chamar_search(
+        self, tmp_path
+    ):
+        """Correção 016a (achado GLM-A2): o payload não faz ``search`` ver
+        pedido acima do limite normativo — ``min(max_results, 5)`` ANTES da
+        chamada (o corte pós-busca é mantido em segunda camada)."""
+        received: list[int] = []
+
+        class _FakeWebConnectorRegistra:
+            def search(self, query, language, max_results):
+                received.append(int(max_results))
+                return [
+                    {"url": "https://exemplo.valido.org/item0", "title": "0"}
+                ]
+
+            def fetch(self, url):
+                return {
+                    "url": url,
+                    "state": "text_read",
+                    "hash": "ab" * 32,
+                    "captured_at": T0.isoformat(),
+                }
+
+        env = open_curate_stack(
+            tmp_path,
+            web_connector=_FakeWebConnectorRegistra(),
+            config={"network_enabled": True},
+        )
+        try:
+            result = env.graph.run_turn(
+                user_id=UID,
+                session_id=SESSION,
+                message="/curate busca",
+                intent="curate",
+                payload={"query": "aula", "max_results": 50},
+            )
+            assert result.status == "completed"
+            assert received == [MAX_CANDIDATES]  # 5, nunca 50 (§6)
+            # Sem payload: default normativo preservado.
+            result2 = env.graph.run_turn(
+                user_id=UID,
+                session_id=SESSION,
+                message="/curate busca 2",
+                intent="curate",
+                payload={"query": "aula"},
+            )
+            assert result2.status == "completed"
+            assert received == [MAX_CANDIDATES, MAX_CANDIDATES]
+        finally:
+            env.store.close()
+            env.checkpointer.close()
+
+
+class _HttpServerLocal:
+    """Servidor HTTP local REAL em 127.0.0.1 (porta efêmera, sem rede
+    externa) para exercitar os transportes reais diretamente — FORA da
+    barreira de IP privado/loopback da rota (camadas distintas: o teste
+    chama o transporte, não ``fetch``/``read_all`` com destino loopback).
+    ``respond(method, path, headers, body) -> (status, extra_headers,
+    payload)`` decide a resposta; toda requisição é registrada."""
+
+    def __init__(self, respond) -> None:
+        self.requests_seen: list[tuple[str, str, dict[str, str]]] = []
+        self._respond = respond
+        outer = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def _handle(self) -> None:
+                length = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(length) if length else b""
+                outer.requests_seen.append(
+                    (self.command, self.path, dict(self.headers))
+                )
+                status, extra, payload = outer._respond(
+                    self.command, self.path, self.headers, body
+                )
+                self.send_response(status)
+                for key, value in (extra or {}).items():
+                    self.send_header(key, value)
+                self.send_header("Content-Length", str(len(payload or b"")))
+                self.end_headers()
+                if payload:
+                    self.wfile.write(payload)
+
+            do_GET = _handle
+            do_PUT = _handle
+            do_POST = _handle
+            do_DELETE = _handle
+            do_REPORT = _handle
+
+            def log_message(self, *args) -> None:  # silencioso
+                pass
+
+        self._server = http.server.ThreadingHTTPServer(
+            ("127.0.0.1", 0), Handler
+        )
+        self.port = int(self._server.server_address[1])
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, daemon=True
+        )
+        self._thread.start()
+
+    @property
+    def url(self) -> str:
+        return f"http://127.0.0.1:{self.port}"
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=5)
+
+
+class TestTransporteRealWeb:
+    """W9 (correção 016a, achado LUNA-A1): o limite "10s/5MiB" do §6 vale no
+    transporte real — leitura limitada a ``MAX_BODY_BYTES + 1`` (inclusive no
+    caminho ``HTTPError``) e timeout imposto — provado contra servidor HTTP
+    local real chamando ``urllib_transport`` diretamente (a barreira de IP
+    privado da rota é outra camada e não se aplica aqui)."""
+
+    def test_w9_transporte_real_limita_leitura_a_max_body_mais_um(self):
+        excesso = 4096
+        total = MAX_BODY_BYTES + excesso
+
+        def respond(method, path, headers, body):
+            return 200, {"Content-Type": "text/plain"}, b"x" * total
+
+        server = _HttpServerLocal(respond)
+        try:
+            status, headers, payload = urllib_transport(
+                f"{server.url}/grande", DEFAULT_TIMEOUT_S
+            )
+        finally:
+            server.close()
+        assert status == 200
+        # Discriminante: exatamente MAX+1 bytes lidos — nem um byte a mais
+        # do limite normativo é baixado (mutação read() sem limite falha).
+        assert len(payload) == MAX_BODY_BYTES + 1
+        assert len(payload) > MAX_BODY_BYTES  # excesso é detectável
+        # O excesso mapeia ao estado tipado unavailable (mesma forma do W7):
+        connector = WebFetchConnector()
+        resource = connector._build_resource(
+            f"{server.url}/grande",
+            {"Content-Type": "text/plain"},
+            payload,
+            [],
+        )
+        assert resource["state"] == "unavailable"
+        assert "corpo excede" in resource["reason"]
+
+    def test_w9b_transporte_real_limita_leitura_no_caminho_httperror(self):
+        excesso = 2048
+        total = MAX_BODY_BYTES + excesso
+
+        def respond(method, path, headers, body):
+            return 404, {"Content-Type": "text/plain"}, b"y" * total
+
+        server = _HttpServerLocal(respond)
+        try:
+            status, headers, payload = urllib_transport(
+                f"{server.url}/ausente", DEFAULT_TIMEOUT_S
+            )
+        finally:
+            server.close()
+        assert status == 404
+        # Caminho HTTPError (exc.read) também é limitado a MAX+1.
+        assert len(payload) == MAX_BODY_BYTES + 1
+
+    def test_w9c_timeout_imposto_no_transporte_real(self):
+        def respond(method, path, headers, body):
+            time.sleep(1.5)  # excede o timeout curto do teste
+            return 200, {"Content-Type": "text/plain"}, b"tarde"
+
+        server = _HttpServerLocal(respond)
+        try:
+            with pytest.raises(TimeoutError):
+                urllib_transport(f"{server.url}/lento", 0.25)
+        finally:
+            server.close()
+
+    def test_w9d_timeout_default_do_transporte_real_e_dez_segundos(self):
+        import inspect
+
+        signature = inspect.signature(urllib_transport)
+        assert signature.parameters["timeout_s"].default is DEFAULT_TIMEOUT_S
+        assert DEFAULT_TIMEOUT_S == 10.0  # §6: "10s/5MiB"
 
 
 class _FakeWebConnectorVideo:
@@ -924,6 +1126,264 @@ class TestAdmissaoIndividual:
             GoogleCalendarConnector()
         assert exc.value.code is ErrorCode.RESOURCE_LIMIT
         assert "CONNECTOR_DISABLED" in exc.value.message
+
+    def test_s9b_admissao_caldav_revalidada_com_redirect_malicioso(self):
+        """Correção 016a (achado LUNA-A2): a admissão do CalDAV é revalidada
+        com o teste de redirect malicioso no transporte real; o histórico da
+        admissão anterior fica preservado no registro."""
+        admission = connector_admission()
+        assert "revalidado na 016a" in admission["caldav"]
+        assert "Histórico da admissão da 016" in admission["caldav"]
+        assert "SEM reenviar a credencial Basic" in admission["caldav"]
+
+
+class TestRedirectMaliciosoCaldav:
+    """S10 (correção 016a, achado LUNA-A2): o transporte real do CalDAV não
+    segue redirect automático do urllib (que reenviaria a credencial Basic a
+    um destino escolhido pelo servidor); cada destino é validado — mesmo
+    esquema e mesma autoridade (host:porta) do ``base_url`` — e redirect
+    para origem distinta é recusado com ``ConnectorError`` SEM contatar o
+    segundo host e SEM reenviar a credencial. Prova por captura em dois
+    servidores HTTP locais reais."""
+
+    def _conector(self, base_url: str) -> CaldavConnector:
+        transport = make_urllib_transport(
+            base_url, "aluno", "segredo-do-aluno", timeout_s=5.0
+        )
+        return CaldavConnector(
+            CaldavConfig(base_url=base_url), transport=transport
+        )
+
+    def test_s10_redirect_para_outro_host_recusado_sem_contato_e_sem_credencial(
+        self,
+    ):
+        malicioso = _HttpServerLocal(
+            lambda method, path, headers, body: (
+                302,
+                {},
+                b"",
+            )
+        )
+        porta_maliciosa = malicioso.port
+
+        def respond(method, path, headers, body):
+            return (
+                302,
+                {
+                    "Location": f"http://127.0.0.1:{porta_maliciosa}/roubo"
+                },
+                b"",
+            )
+
+        servidor = _HttpServerLocal(respond)
+        try:
+            connector = self._conector(f"{servidor.url}/dav/")
+            with pytest.raises(ConnectorError) as exc:
+                connector.read_all("calendar.sync")
+            assert "origem distinta" in str(exc.value)
+            assert "credencial" in str(exc.value)
+            # Captura: o primeiro host recebeu EXATAMENTE a requisição
+            # autenticada original (credencial confinada à origem configurada)
+            # e o segundo host NUNCA foi contatado.
+            assert len(servidor.requests_seen) == 1
+            metodo, caminho, headers = servidor.requests_seen[0]
+            assert metodo == "REPORT"
+            assert headers.get("Authorization", "").startswith("Basic ")
+            assert malicioso.requests_seen == []
+        finally:
+            servidor.close()
+            malicioso.close()
+
+    def test_s10b_redirect_trocando_esquema_recusado(self):
+        porta: dict[str, int] = {}
+
+        def respond(method, path, headers, body):
+            # Mesmo host:porta, mas https — esquema distinto do base_url.
+            return (
+                302,
+                {"Location": f"https://127.0.0.1:{porta['valor']}/dav/"},
+                b"",
+            )
+
+        servidor = _HttpServerLocal(respond)
+        porta["valor"] = servidor.port
+        try:
+            connector = self._conector(f"{servidor.url}/dav/")
+            with pytest.raises(ConnectorError) as exc:
+                connector.read_all("calendar.sync")
+            assert "origem distinta" in str(exc.value)
+            # Nenhuma requisição adicional além do REPORT original.
+            assert len(servidor.requests_seen) == 1
+        finally:
+            servidor.close()
+
+    def test_s10c_location_protocol_relative_recusado(self):
+        def respond(method, path, headers, body):
+            return 302, {"Location": "//evil.exemplo.invalid/roubo"}, b""
+
+        servidor = _HttpServerLocal(respond)
+        try:
+            connector = self._conector(f"{servidor.url}/dav/")
+            with pytest.raises(ConnectorError) as exc:
+                connector.read_all("calendar.sync")
+            assert "origem distinta" in str(exc.value)
+            assert len(servidor.requests_seen) == 1
+        finally:
+            servidor.close()
+
+    def test_s10d_redirect_mesmo_origem_e_segido(self):
+        multistatus = (
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<d:multistatus xmlns:d="DAV:" '
+            'xmlns:c="urn:ietf:params:xml:ns:caldav">'
+            "<d:response><d:href>/dav/evento.ics</d:href>"
+            "<d:propstat><d:prop>"
+            '<d:getetag>"etag-1"</d:getetag>'
+            "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>"
+            "</d:response></d:multistatus>"
+        ).encode("utf-8")
+
+        def respond(method, path, headers, body):
+            if path == "/dav/":
+                return 302, {"Location": "/dav/colecao/"}, b""
+            if path == "/dav/colecao/":
+                return 207, {"Content-Type": "application/xml"}, multistatus
+            raise AssertionError(f"caminho inesperado: {path}")
+
+        servidor = _HttpServerLocal(respond)
+        try:
+            connector = self._conector(f"{servidor.url}/dav/")
+            events = connector.read_all("calendar.sync")
+            assert len(events) == 1
+            assert events[0].etag == "etag-1"
+            # Dois REPORTs: o original e o hop mesmo-origem seguido.
+            assert [r[0] for r in servidor.requests_seen] == [
+                "REPORT",
+                "REPORT",
+            ]
+        finally:
+            servidor.close()
+
+
+class TestEndurecimentoParseMultistatus:
+    """S11 (correção 016a, achados GLM-A1/QW-A2): parse recusa DTD/entidades,
+    limita bytes pré-parse (1 MiB, default de ensaio) e o REPORT tem teto de
+    corpo (5 MiB, default de ensaio — o §9 NÃO prescreve valor; nunca
+    apresentado como resultado medido)."""
+
+    def test_s11_multistatus_com_dtd_e_entidades_recusado(self):
+        xml = (
+            '<?xml version="1.0"?>'
+            "<!DOCTYPE d:multistatus ["
+            '<!ENTITY a "aaaaaaaaaaaaaaaaaaaa">'
+            "]>"
+            '<d:multistatus xmlns:d="DAV:"/>'
+        ).encode("utf-8")
+        with pytest.raises(ConnectorError) as exc:
+            parse_multistatus(xml, BASE_URL)
+        assert "DTD" in str(exc.value) or "entidades" in str(exc.value)
+
+    def test_s11b_entidade_no_preambulo_sem_doctype_recusada(self):
+        xml = (
+            '<?xml version="1.0"?>'
+            '<!ENTITY xxe SYSTEM "file:///etc/passwd">'
+            '<d:multistatus xmlns:d="DAV:"/>'
+        ).encode("utf-8")
+        with pytest.raises(ConnectorError):
+            parse_multistatus(xml, BASE_URL)
+
+    def test_s11c_bytes_pre_parse_limitados_a_um_mib(self):
+        assert MAX_MULTISTATUS_BYTES == 1 * 1024 * 1024  # default de ensaio
+        xml = (
+            b'<d:multistatus xmlns:d="DAV:">'
+            + b"a" * MAX_MULTISTATUS_BYTES
+            + b"</d:multistatus>"
+        )
+        with pytest.raises(ConnectorError) as exc:
+            parse_multistatus(xml, BASE_URL)
+        assert "excede" in str(exc.value)
+        # Limite é default: parâmetro explícito é honrado (ensaio).
+        menor = (
+            b'<d:multistatus xmlns:d="DAV:">' + b"a" * 2049 + b"</d:multistatus>"
+        )
+        with pytest.raises(ConnectorError):
+            parse_multistatus(menor, BASE_URL, max_bytes=2048)
+
+    def test_s11d_report_com_corpo_acima_do_teto_recusado(self):
+        assert MAX_REPORT_BODY_BYTES == 5 * 1024 * 1024  # default de ensaio
+
+        def transport(method, url, body, headers):
+            return (
+                207,
+                {"Content-Type": "application/xml"},
+                b"<d:multistatus xmlns:d=\"DAV:\"></d:multistatus>"
+                .ljust(MAX_REPORT_BODY_BYTES + 1, b"a"),
+            )
+
+        connector = CaldavConnector(
+            CaldavConfig(base_url=BASE_URL), transport=transport
+        )
+        with pytest.raises(ConnectorError) as exc:
+            connector.read_all("calendar.sync")
+        assert "REPORT" in str(exc.value)
+        assert "excede" in str(exc.value)
+
+    def test_s11e_multistatus_legitimo_sem_dtd_continua_ok(self):
+        uid = str(_uid(9010))
+        xml = (
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<d:multistatus xmlns:d="DAV:" '
+            'xmlns:c="urn:ietf:params:xml:ns:caldav">'
+            f"<d:response><d:href>{BASE_URL}{uid}.ics</d:href>"
+            "<d:propstat><d:prop>"
+            '<d:getetag>"etag-9"</d:getetag>'
+            "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>"
+            "</d:response></d:multistatus>"
+        ).encode("utf-8")
+        entries = parse_multistatus(xml, BASE_URL)
+        assert len(entries) == 1
+        assert entries[0]["etag"] == "etag-9"
+
+
+class TestWiringConectorCalendar:
+    """S12 (correção 016a, achado QW-A1): o runtime constrói
+    ``calendar_connector=build_calendar_connector(effective_config)`` —
+    CalDAV configurado chega ao grafo pela superfície CLI/API; sem config,
+    ``CONNECTOR_DISABLED`` com ICS/preview (S7 preservado)."""
+
+    def test_s12_config_caldav_presente_chega_ao_grafo(self, tmp_path):
+        ctx = RuntimeContext.open(
+            tmp_path,
+            config={
+                "calendar_sync_enabled": True,
+                "calendar_sync": {"base_url": BASE_URL},
+            },
+        )
+        try:
+            connector = ctx.graph._calendar_connector
+            assert isinstance(connector, CaldavConnector)
+        finally:
+            ctx.close()
+
+    def test_s12_sem_config_conectora_desabilitada_mantida(self, tmp_path):
+        ctx = RuntimeContext.open(tmp_path)
+        try:
+            assert ctx.graph._calendar_connector is None
+        finally:
+            ctx.close()
+        # Comportamento S7 preservado: sem conector, apply mantém
+        # ICS/preview e reporta CONNECTOR_DISABLED.
+        store, effects, service, confirmation = _confirmed_plan(
+            tmp_path / "s7"
+        )
+        try:
+            report = service.apply_plan(
+                UID, confirmation.plan_id, connector=None
+            )
+            assert report.status is SyncOutcome.UNCHANGED
+            assert "CONNECTOR_DISABLED" in report.detail
+        finally:
+            store.close()
 
 
 # ---------------------------------------------------------------------------

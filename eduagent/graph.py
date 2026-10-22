@@ -2661,10 +2661,16 @@ class EduAgentGraph:
             raise _error(
                 ErrorCode.SCHEMA_INVALID, "consulta de curadoria vazia"
             )
+        # Correção 016a (achado GLM-A2): ``max_results`` do payload é cortado
+        # ANTES de chamar ``search`` — o backend nunca vê pedido acima do
+        # limite normativo §6 (o corte defensivo pós-busca é mantido).
         candidates = self._web_connector.search(
             query,
             language=payload.get("language", "pt"),
-            max_results=int(payload.get("max_results", _MAX_CANDIDATES)),
+            max_results=min(
+                int(payload.get("max_results", _MAX_CANDIDATES)),
+                _MAX_CANDIDATES,
+            ),
         )
         # §6: até 5 candidatos — payload não amplia o limite normativo
         # (o conector também limita; corte defensivo em segunda camada).
