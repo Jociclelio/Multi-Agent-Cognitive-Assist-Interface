@@ -528,23 +528,32 @@ class BackupService:
         }
 
     def _current_domain_tombstones(self) -> list[str]:
-        """Tombstones do domínio CORRENTE (§15.1): o restore é confrontado
-        com o estado vivo da deleção — backup pré-deleção que traga payload
-        tombstonado é recusado com o diretório descartado. Sem banco de
-        domínio corrente (restore em raiz nova isolada), não há tombstones a
-        confrontar."""
+        """Tombstones do domínio CORRENTE (§15.1), fail-closed: o restore é
+        confrontado com o estado vivo da deleção — backup pré-deleção que
+        traga payload tombstonado é recusado com o diretório descartado.
+        A lista vazia (confronto trivialmente satisfeito) vale APENAS para
+        a ausência documentada do banco (raiz isolada, sem ``domain.sqlite``).
+        Banco corrente PRESENTE porém ilegível (corrompido, sem a tabela,
+        qualquer outro erro de leitura) recusa o restore por código
+        (INTERNAL_FAILURE): nunca prosseguir sem confrontar tombstones."""
         domain_path = self._data_root / "domain.sqlite"
         if not domain_path.exists():
-            return []
-        conn = sqlite3.connect(f"file:{domain_path}?mode=ro", uri=True)
+            return []  # ausência documentada: raiz isolada (§15.1)
         try:
-            rows = conn.execute(
-                "SELECT artifact_ref FROM tombstones ORDER BY rowid"
-            ).fetchall()
-        except sqlite3.Error:
-            return []
-        finally:
-            conn.close()
+            conn = sqlite3.connect(f"file:{domain_path}?mode=ro", uri=True)
+            try:
+                rows = conn.execute(
+                    "SELECT artifact_ref FROM tombstones ORDER BY rowid"
+                ).fetchall()
+            finally:
+                conn.close()
+        except sqlite3.Error as exc:
+            raise _error(
+                ErrorCode.INTERNAL_FAILURE,
+                "banco de domínio corrente presente porém ilegível — "
+                "tombstones do §15.1 não podem ser confrontados no restore: "
+                f"{exc}",
+            ) from exc
         return [str(row[0]) for row in rows]
 
     @staticmethod
