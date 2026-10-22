@@ -1,6 +1,6 @@
 # Task 013: ICS RFC5545, confirmação e outbox (mapa §9, §13.7 parte 2)
 
-Estado: pendente
+Estado: aguardando revisao
 Depende de: 012
 Origem: nenhuma
 
@@ -12,10 +12,10 @@ Implementar a exportação ICS e o fluxo de confirmação (mapa §9) em `eduagen
 - Solver/preview (012), commit idempotente (005), contratos (003).
 
 ## Corretude
-- [ ] C1 — ICS conforme RFC5545/§9: sem METHOD, UID estável, timestamps estáveis por revisão, SEQUENCE só em mudança de evento (testes com reexportação idêntica e com revisão).
-- [ ] C2 — Parser independente valida round-trip; all-day com DATE e fim exclusivo; CRLF/folding verificados.
-- [ ] C3 — Confirmação vincula plan/revision/digest; outbox exige `approval_revision` atual; alteração posterior invalida confirmação (testes); `calendar.apply` sem confirmação atual é recusado.
-- [ ] C4 — Sync implementado só como contrato/estados (sem conexão real nesta task); mapa intocado; commits separados.
+- [x] C1 — ICS conforme RFC5545/§9: sem METHOD, UID estável, timestamps estáveis por revisão, SEQUENCE só em mudança de evento (testes com reexportação idêntica e com revisão). **Comprovado** — I1 (estrutura VCALENDAR VERSION 2.0/PRODID, sem METHOD, campos §9 em UTC Z, fim exclusivo), I2 (reexportação idêntica: `render_plan` duas vezes e `build_calendar` sobre os mesmos blocos produzem bytes idênticos; renderização é função pura do estado persistido, sem relógio), I3 (revisão de evento: SEQUENCE 0→1, DTSTAMP/LAST-MODIFIED avançam, UID/CREATED estáveis), I4 (mudança em outra parte do plano não altera SEQUENCE nem timestamps do bloco não afetado, §15.5); sanidade cruzada extra com o parser da própria `icalendar` (probe em /tmp/opencode, OK).
+- [x] C2 — Parser independente valida round-trip; all-day com DATE e fim exclusivo; CRLF/folding verificados. **Comprovado** — P1 (render → `parse_ics` reimplementado sem a biblioteca → `parsed_event_to_block` → render reproduz bytes idênticos, incluindo all-day), I5 (`DTSTART;VALUE=DATE` e `DTEND;VALUE=DATE` no dia final exclusivo), P2 (nenhum LF solto, nenhuma linha física > 75 octets com summary longo, unfolding recupera o texto), P3 (`verify_calendar` detecta SUMMARY alterado e METHOD presente).
+- [x] C3 — Confirmação vincula plan/revision/digest; outbox exige `approval_revision` atual; alteração posterior invalida confirmação (testes); `calendar.apply` sem confirmação atual é recusado. **Comprovado** — A1 (base_revision/approval_revision pós-commit, digest 64 hex, dependências com hash, `plans.approval_ref`), A2 (confirmação+outbox no mesmo commit; payload com digest e blocos desejados), A3 (outbox imediatamente após aprovação ok; segunda outbox e outbox após escrita de domínio alheia → `VERSION_CONFLICT`), A4 (escrita de domínio posterior invalida render/apply; mudança de dependência com domínio congelado → `VERSION_CONFLICT` de dependência), A5 (sem confirmação → `SOURCE_UNRESOLVED`), A6 (gating §10: render só Planejador, apply só SYSTEM → `TOOL_DENIED`), B1 (retry mesmo operation_id: recibo original `was_retry=True`, sem nova escrita, ICS idêntico), B2 (bloco iniciado é fixo → `SCHEMA_INVALID`), B3 (removido pelo diff sai de `logical_blocks` — ausência na exportação), F1 (fluxo integral solver 012 → approve → render → parse).
+- [x] C4 — Sync implementado só como contrato/estados (sem conexão real nesta task); mapa intocado; commits separados. **Comprovado** — S1 (ops: CREATE `If-None-Match: *`, UPDATE/DELETE `If-Match` ETag + href estável do read, DELETE com digest da confirmação), S2 (apply executa com duplo de conector; estado já igual não repete efeito), S3 (timeout com efeito ocorrido → read/reconcile → APPLIED, update chamado uma única vez — sem retry cego), S4 (timeout sem efeito e divergente → UNKNOWN_EFFECT terminal), S5 (alteração externa → CONFLICT + novo preview), S6 (sem conector admitido → CONNECTOR_DISABLED, mantém ICS/preview), M1 (migração 0007 com colunas novas). Mapa `fase2/documentos/04_mapa_completo_do_sistema.md` intocado (git status), submodule `docs/playground-llmagenticsystem` intocado, commit de entrega separado do registro.
 
 ## Notas
 
@@ -23,7 +23,14 @@ Implementar a exportação ICS e o fluxo de confirmação (mapa §9) em `eduagen
 4/10 — ICS bem especificado; risco em estabilidade de timestamps e invalidação de confirmação.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+5/10 — O ICS em si foi direto (icalendar cobre CRLF/folding/UTC Z e o parser independente é pequeno). A dificuldade concentrou-se em duas decisões não totalmente determinadas pelo prompt: (1) o payload da outbox conjunta precisa do estado desejado ANTES da projeção executar — exigiu derivar o estado efetivo por bloco do próprio plano de materialização (novo/mantido/movido) em vez de reler `export_blocks` pós-commit; (2) distinguir invalidação por domínio de invalidação por dependência (o teste de dependência usa ajuste de projeção com `bump_domain_revision=False`, espelhando `refresh_review_due` da 011, para isolar o caminho). Decisões de codificação do MVP registradas no código: exportação com statuses planned/started/completed (missed/cancelled ausentes — remoção é ausência); render exige confirmação atual (conservador, evita exportar grade desalinhada do domínio); summary default "Estudo" com mapa por demanda; all-day exige instantes alinhados à meia-noite; remoção local usa o diff `removed` da própria proposta; reconciliação de update exige leitura de corpo do conector (sem corpo → UNKNOWN_EFFECT e não admitido). Nenhuma questão aberta do plano foi decidida; conexão real de sync permanece na task 016; nenhum valor numérico apresentado como medido.
+
+### Execução
+- Identidade real do modelo: GLM-5.3-Flash (provider sd2, model id GLM-5.3-Flash, via ~/sd2-llm.sh) — informado pelo runtime.
+- Base: `f85c95f558c1c0e6b0bb829e2ad16cf822e1344c` (família 012/012a fechada).
+- Entrega: `f72440c58c4ff50e4f5095b7b5994db577c91b34`.
+- Arquivos da entrega: `eduagent/services/calendar.py` (implementação completa: `build_calendar`, parser independente `parse_ics`/`verify_calendar`, `CalendarService` com `approve_plan`/`enqueue_outbox`/`render_plan`/`apply_plan`/`build_sync_ops` e contratos de sync `CalendarConnector`/`RemoteOp`/`SyncOutcome`), `eduagent/storage/migrations.py` (migração 0007), `tests/test_task013_calendar_confirmation.py` (25 testes I1–I5, P1–P3, F1, A1–A6, B1–B3, S1–S6, M1).
+- Evidências: `python -m pytest tests/test_task013_calendar_confirmation.py -q` → 25 passed; suíte integral `python -m pytest tests/ -q` → 439 passed (414 anteriores + 25 novos; warnings pré-existentes da task 006). `icalendar` 6.3.2 já pinado em `pyproject.toml`/`uv.lock` — nenhuma dependência nova, nenhum lock alterado. Migração 0007 aplicada do zero em banco de probe em /tmp/opencode (versão 7, colunas verificadas). Probes em /tmp/opencode apenas; sem jobs remotos, sem benchmarks; mapa, config e submodule intocados; commits de entrega e registro separados, sem amend/force-push.
 
 ### Revisão
 - Orquestrador: —
