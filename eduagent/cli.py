@@ -120,6 +120,15 @@ def build_parser() -> argparse.ArgumentParser:
             "ask/practice recusa com erro tipado"
         ),
     )
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help=(
+            "manifesto congelado (mapa §3.1/§13.10; default: manifest.json "
+            "no diretório atual quando existir). Sem manifesto, capacidades "
+            "NÃO são presumidas (json_schema desligada)"
+        ),
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("doctor", help="saúde do modelo/DB/índices/config (§12)")
@@ -210,16 +219,54 @@ def build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 
+def _manifest_capabilities(manifest_path: Path | None) -> RuntimeCapabilities:
+    """Capacidades do runtime a partir do manifesto congelado (mapa §3.1:
+    capacidade verificada e fixada por hash; task 017 congela o manifesto).
+
+    Sem manifesto, a capacidade NÃO é presumida (``json_schema=False``).
+    Com manifesto, a capacidade lida é a VERIFICADA no gate (G5) e o
+    arquivo/verificação estão registrados no próprio manifesto.
+    """
+    if manifest_path is None or not manifest_path.exists():
+        return RuntimeCapabilities(
+            json_schema=False,
+            json_schema_evidence="não verificada pela CLI (sem manifesto)",
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise EduAgentError(
+            ErrorCode.INTERNAL_FAILURE,
+            f"manifesto ilegível em {manifest_path}: {exc}",
+            diagnostic=DIAGNOSTIC,
+        ) from exc
+    json_schema = bool(
+        (manifest.get("capacidades") or {}).get("json_schema", {}).get(
+            "suportada"
+        )
+    )
+    return RuntimeCapabilities(
+        json_schema=json_schema,
+        json_schema_evidence=(
+            "manifesto congelado "
+            f"({manifest_path}; verificação registrada no gate da task 002)"
+        ),
+    )
+
+
 def default_runtime_factory(args: argparse.Namespace) -> Callable[[], Any]:
     def factory() -> RuntimeContext:
         backend = None
         if args.model_url:
-            # Capacidade JSON schema vem do manifesto verificado por hash
-            # (mapa §3.1); sem manifesto, a capacidade NÃO é presumida.
-            capabilities = RuntimeCapabilities(
-                json_schema=False,
-                json_schema_evidence="não verificada pela CLI (sem manifesto)",
+            # Capacidade JSON schema vem do manifesto congelado e verificado
+            # por hash (mapa §3.1); sem manifesto, a capacidade NÃO é
+            # presumida.
+            manifest_path = (
+                Path(args.manifest)
+                if args.manifest
+                else Path("manifest.json")
             )
+            capabilities = _manifest_capabilities(manifest_path)
             backend = ModelAdapter(
                 base_url=args.model_url, capabilities=capabilities
             )
@@ -742,6 +789,10 @@ _COMMANDS = {
 def main() -> int:  # pragma: no cover — ponto de entrada do pyproject
     """Ponto de entrada declarado no ``pyproject.toml`` (mapa §12)."""
     return run(sys.argv[1:])
+
+
+if __name__ == "__main__":  # pragma: no cover — `python -m eduagent.cli`
+    raise SystemExit(main())
 
 
 __all__ = [

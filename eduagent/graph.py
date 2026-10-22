@@ -1708,8 +1708,13 @@ class EduAgentGraph:
                 "resposta vazia: submission exige resposta original (§8)",
             )
         operation_ids = dict(state.get("operation_ids") or {})
-        operation_ids.setdefault("attempt", str(_uuid.uuid4()))
-        operation_ids.setdefault("assessment", str(_uuid.uuid4()))
+        # ID de operação por TURNO (§4/§11): mesmo ID com digest diferente é
+        # erro, então um novo turno nunca reusa o ID de um turno anterior da
+        # sessão; dentro do turno o ID é estável (interrupt retomado reusa).
+        # Achado do ensaio longitudinal da task 017 (segundo submit na mesma
+        # sessão reusava o ID do primeiro com digest divergente).
+        operation_ids["attempt"] = _turn_operation_id(state, "attempt")
+        operation_ids["assessment"] = _turn_operation_id(state, "assessment")
         return {"pending_item": item, "operation_ids": operation_ids}
 
     def _node_monitor(self, state: dict) -> dict:
@@ -1965,10 +1970,10 @@ class EduAgentGraph:
         )
         operation_ids = dict(state.get("operation_ids") or {})
         for record in pending:
-            operation_ids.setdefault(
-                f"confirm:{record.demand_id}", str(_uuid.uuid4())
+            operation_ids[f"confirm:{record.demand_id}"] = (
+                _turn_operation_id(state, f"confirm:{record.demand_id}")
             )
-        operation_ids.setdefault("approval", str(_uuid.uuid4()))
+        operation_ids["approval"] = _turn_operation_id(state, "approval")
         return {
             "result": result,
             "pending_demands": [
@@ -2529,7 +2534,7 @@ class EduAgentGraph:
         change = dict(state.get("change") or {})
         result = dict(state.get("result") or {})
         operation_ids = dict(state.get("operation_ids") or {})
-        operation_ids.setdefault("change", str(_uuid.uuid4()))
+        operation_ids["change"] = _turn_operation_id(state, "change")
         if change["kind"] == "fact":
             fact = memory._fact_record(  # noqa: SLF001
                 str(state["user_id"]), change["fact_id"]
@@ -2892,6 +2897,22 @@ class EduAgentGraph:
 # ---------------------------------------------------------------------------
 # Helpers locais
 # ---------------------------------------------------------------------------
+
+
+def _turn_operation_id(state: Mapping[str, Any], kind: str) -> str:
+    """ID de operação determinístico POR TURNO (mapa §4/§11).
+
+    Derivado do ``turn_id`` (novo a cada turno, persistido pelo checkpoint):
+    estável dentro do turno — interrupt retomado reusa o mesmo ID e o commit
+    idempotente devolve o recibo — e diferente entre turnos, pois o mesmo ID
+    com digest diferente é erro (§11). O estado da sessão persiste entre
+    turnos, então IDs gerados com ``setdefault`` vazavam de um turno para o
+    próximo (achado do ensaio longitudinal da task 017).
+    """
+    turn_id = str(state.get("turn_id") or "")
+    return str(
+        _uuid.uuid5(_uuid.NAMESPACE_URL, f"eduagent:op:{turn_id}:{kind}")
+    )
 
 
 def BudgetsOf(**kwargs: Any):

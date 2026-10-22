@@ -123,5 +123,90 @@
     "Calibração de defaults numéricos (janelas, timeouts, sampling) no hardware registrado antes do congelamento final do manifesto (task 017, mapa §13.10).",
     "Timezone America/Sao_Paulo somente após confirmação explícita (mapa §3; decisão fora do escopo desta task).",
     "Cache/reuso do KV e desempenho em GPU do runtime fixado: sem medição nesta task (sem benchmarks, restrição da task)."
-  ]
+  ],
+  "congelamento": {
+    "schema_version": "1.0",
+    "proposito": "Congelamento final da configuração do MVP (mapa §13.10, task 017): perfil de sampling selecionado, hashes de skills, modelos auxiliares, lock de pacotes e pendências declaradas. Congelado ANTES do ensaio final da rota completa.",
+    "data_congelamento": "2026-10-22",
+    "task_origem": ".agents/tasks/04-mapa-completo-do-sistema/017-ensaio-longitudinal-congelamento-e-relatorio.md",
+    "perfil_selecionado": {
+      "modo": "non-thinking",
+      "sampler": {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "min_p": 0.0,
+        "presence_penalty": 1.5,
+        "repeat_penalty": 1.0,
+        "max_tokens": 16384
+      },
+      "implementacao": "eduagent/services/model_adapter.py NON_THINKING_SAMPLER (usado pelo grafo em todo pedido)",
+      "fonte": "perfil instruct publicado do candidato, adotado como default de ensaio no gate G4 da task 002",
+      "nota": "Escolha de ensaio a calibrar — NÃO resultado medido. O comparativo thinking (1/.95/20/.05) permanece PENDENTE de validação em desenvolvimento e NÃO foi executado nesta task (sem GPU dedicada no gate 002; não reexecutado na 017); a seleção do non-thinking segue o mapa §3.1 (primeiro modo a testar)."
+    },
+    "timezone": {
+      "valor": null,
+      "estado": "PENDENTE — America/Sao_Paulo somente após confirmação explícita (mapa §3; sem confirmação recebida nesta task); janelas de disponibilidade e horizonte operam em UTC enquanto não confirmado"
+    },
+    "skills": {
+      "catalog": "eduagent/skills/catalog.json",
+      "catalog_sha256": "c0db3988e8289af13610bb4dd20f8a2064875e7f8f398a4bf5474896fbb01da2",
+      "skill_sha256": {
+        "explain": "ffd7b6842f07e16f19ea70a62f8a336af48ff5672e7bb916e8f257ed6cd6daa9",
+        "flashcard": "8e8829a1f68ff9d8592286700269e651a68ba7dc5fa4680683c4d74af70ea993",
+        "graduated_hint": "5e7be9bcf6dd06049f9358dcaff89bab598c2a09d209aa10f6c31558fcd8020c",
+        "quiz": "97ac8aedad52d9df3104dd69a6541607dd684ad8854e8463d6b8e2278159a8c8",
+        "self_explain": "0ba37d2d4aae17eae6109ff4d3c73d46ed0fa792b392730a97e74afcb5941714"
+      },
+      "nota": "Hashes conferidos em 2026-10-22 (sha256sum) contra os skill.yaml e o catálogo (mesmos hashes de tests/test_task008_tutor.py); alteração de skill exige revisão offline e --rehash (mapa §8)"
+    },
+    "modelo_auxiliares": {
+      "bge_m3": {
+        "repo": "BAAI/bge-m3",
+        "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+        "local": "runner-llm/models/bge-m3",
+        "hashes": {
+          "config.json": "26159e7ad065073448460117eb24b7a4572f6f4e78eadff65dc0a11c052449fa",
+          "pytorch_model.bin": "b5e0ce3470abf5ef3831aa1bd5553b486803e83251590ab7ff35a117cf6aad38",
+          "tokenizer.json": "21106b6d7dab2952c1d496fb21d5dc9db75c28ed361a05f5020bbba27810dd08",
+          "tokenizer_config.json": "a62b2b6784f990259fddef5f16388693a8043be4f69179e6a5257eeb3f9abac4",
+          "special_tokens_map.json": "8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835",
+          "sentencepiece.bpe.model": "cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865"
+        },
+        "uso": "embedder denso do MVP (produto interno exato; reranker NÃO adotado — questão aberta do plano, seleção em validação, mapa §6.6)"
+      },
+      "docling_layout": {
+        "layout": {
+          "repo": "docling-project/docling-layout-heron",
+          "snapshot": "8f39ad3c0b4c58e9c2d2c84a38465abf757272d8",
+          "arquivo": "model.safetensors",
+          "sha256": "00333a43451945aaf89db8ca9c0a17e75d1537c17db60fdb91aa95f4c7929e0c"
+        },
+        "tableformer": {
+          "repo": "docling-project/docling-models",
+          "snapshot": "fc0f2d45e2218ea24bce5045f58a389aed16dc23",
+          "arquivo": "model_artifacts/tableformer/accurate/tableformer_accurate.safetensors",
+          "sha256": "2a7d6c924b3cd12fb99a09280ca9c33a89c5d60b93253617d2e088c1a40374d9"
+        },
+        "origem": "baixados automaticamente pelo Docling no smoke real da task 017 (cache HF local); revisões registradas como executadas no smoke, não como pins escolhidos manualmente"
+      }
+    },
+    "lock": {
+      "uv_lock_sha256": "40c5156cec3cdcb4114c84c686ff298e4f865d9080547068c7e90713748706ff",
+      "alterado_na_017": false,
+      "nota": "nenhuma dependência nova na 017; pacotes reconfiridos por importlib.metadata na data do congelamento (valores em pacotes.principais)"
+    },
+    "superficie_real": {
+      "extrator_default": "DoclingExtractor (wired no RuntimeContext; smoke real executado na 017)",
+      "capacidades_cli": "a CLI lê o manifesto (--manifest, default manifest.json) e só habilita json_schema se a capacidade verificada estiver registrada; sem manifesto, capacidade NÃO presumida",
+      "ensaio": "eval/ensaio_longitudinal.py (protocolo por passos; relatório eval/relatorio-testes-mvp.md)"
+    },
+    "pendencias_congelamento": [
+      "Timezone America/Sao_Paulo: NÃO confirmada nesta task — permanece null e o horizonte/disponibilidade operam em UTC (escolha de ensaio); fixar somente após confirmação explícita (mapa §3).",
+      "Comparativo thinking: PENDENTE — NÃO executado na 017; non-thinking congelado como perfil selecionado conforme §3.1 (primeiro modo a testar).",
+      "Reranker BAAI/bge-reranker-v2-m3: NÃO adotado — questão aberta do plano permanece ABERTA (seleção em validação, mapa §6.6); config inicial sem reranker.",
+      "Conector de busca web: NÃO admitido — sem backend escolhido/configurado, CONNECTOR_DISABLED (questão aberta do plano; §6).",
+      "Calibração fina de defaults numéricos no hardware registrado segue pendente; os valores congelados aqui são escolhas de ensaio, NÃO resultados medidos."
+    ]
+  }
 }

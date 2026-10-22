@@ -44,6 +44,25 @@ TELEMETRY_DIR_NAME = "telemetry"
 DEFAULT_CONFIG_PATH = Path("config/default.yaml")
 
 
+def _default_extractor(config: dict[str, Any]) -> Any | None:
+    """Extrator real da superfície CLI/API (mapa §3/§6.2).
+
+    Sem extrator injetado (testes), o Docling é usado quando disponível
+    (pin do uv.lock; smoke real executado na task 017); ``ingestion.
+    extractor: none`` na configuração desliga explicitamente. Docling
+    indisponível devolve ``None`` — a versão permanece ``pending`` com
+    impedimento explícito, nunca ``indexed`` como completa (§6.1/§12).
+    """
+    choice = str((config.get("ingestion") or {}).get("extractor", "docling"))
+    if choice == "none":
+        return None
+    from eduagent.services.ingestion import DoclingExtractor, docling_available
+
+    if not docling_available():
+        return None
+    return DoclingExtractor()
+
+
 def load_config(path: Path | str | None = None) -> dict[str, Any]:
     """Configuração do MVP (mapa §3). YAML quando ``pyyaml`` está disponível;
     JSON é aceito como alternativa; arquivo ausente → defaults vazios (os
@@ -110,7 +129,7 @@ class RuntimeContext:
         demands = DemandService(store, effects, clock=clock_fn)
         calendar = CalendarService(store, effects, clock=clock_fn)
         planner = PlannerAgent(store, effects, clock=clock_fn)
-        ingestion = IngestionService(store, root, extractor=extractor)
+        ingestion = IngestionService(store, root, extractor=extractor or _default_extractor(effective_config))
         curator = CuratorAgent(store, ingestion=ingestion)
         retrieval = RetrievalService(store, root)
         tutor = (

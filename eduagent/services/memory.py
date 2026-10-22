@@ -84,7 +84,7 @@ import json
 import uuid as _uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 from rank_bm25 import BM25Okapi
@@ -128,6 +128,31 @@ _EVENT_KIND_MAP: dict[str, MemoryPack.EventKind] = {
     "self_report": MemoryPack.EventKind.SELF_REPORT,
     "preference": MemoryPack.EventKind.PREFERENCE,
 }
+
+#: Origens de eventos de política/demanda (§15.3) no payload bruto → origem
+#: do §7 exibida no ``MemoryPack`` (observed/asserted/inferred). Encontrado
+#: pelo ensaio longitudinal da 017: o evento ``demand_generated`` carrega
+#: ``origin='review_after_error'`` e o enum do §4 não o aceita — sem o
+#: mapeamento, TODO turno posterior com recuperação de memória falha.
+_EVENT_ORIGIN_MAP: dict[str, MemoryPack.Origin] = {
+    "review_after_error": MemoryPack.Origin.INFERRED,
+    "recovery_after_correct": MemoryPack.Origin.INFERRED,
+    "duration_confirmed": MemoryPack.Origin.ASSERTED,
+}
+
+
+def _pack_origin(payload: Mapping[str, Any]) -> MemoryPack.Origin:
+    """Origem do §7 para exibição no pacote: valor do enum passa direto;
+    origem de política é mapeada; valor desconhecido cai no default do §7
+    (``observed`` — mesmo default de eventos sem marca de origem)."""
+    raw = str(payload.get("origin", "observed"))
+    mapped = _EVENT_ORIGIN_MAP.get(raw)
+    if mapped is not None:
+        return mapped
+    try:
+        return MemoryPack.Origin(raw)
+    except ValueError:
+        return MemoryPack.Origin.OBSERVED
 
 # ---------------------------------------------------------------------------
 # Defaults do §7/§5 — valores normativos (2.048/8) e escolha de ensaio (30d)
@@ -1439,9 +1464,7 @@ class MemoryService:
                         is not None
                         else None
                     ),
-                    source=MemoryPack.Origin(
-                        (event.payload or {}).get("origin", "observed")
-                    ),
+                    source=_pack_origin(event.payload or {}),
                 )
                 for event in events
             ],

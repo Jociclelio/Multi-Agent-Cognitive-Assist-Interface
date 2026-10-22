@@ -1138,10 +1138,11 @@ class DoclingExtractor:
       inteira — a reextração do OCR seletivo é do documento inteiro, §6.2).
       Solicitação não honrável (MIME não-PDF ou API sem as opções) falha
       tipada em vez de gravar manifesto descrevendo intenção não executada
-      (§12). Limitação registrada: a distinção nativo × OCR por bloco e o
-      smoke do pipeline real dependem do download de modelos de layout, fora
-      das autorizações desta task — pendência documentada para a validação
-      (task 017).
+      (§12). Smoke real do pipeline de PDF executado na task 017 (docling
+      2.141 pinado no uv.lock; modelos de layout ``docling-layout-heron`` e
+      ``docling-models``/tableformer baixados com revisão registrada no
+      relatório da 017) — a distinção nativo × OCR por bloco continua
+      marcada por ``ocr_source`` do payload real.
     - **Cancelamento (opção b registrada)**: cooperativo **pós-conversão** —
       o subprocesso não observa o flag de cancelamento; o teto duro é o
       timeout de §3 (``timeout_s`` do subprocesso). O flag é verificado ao
@@ -1187,11 +1188,16 @@ class DoclingExtractor:
             )
         # O corpo roda em subprocesso com RLIMIT_AS (§3); o alvo é um
         # partial de função module-level — picklável com qualquer start
-        # method (correção da 006a, item 8).
+        # method (correção da 006a, item 8). O smoke real da task 017
+        # revelou que ``fork`` herda o estado pesado do processo pai (ex.:
+        # torch do embedder denso já carregado na mesma superfície) e o
+        # filho estoura o RLIMIT_AS de §3 — a extração usa ``spawn``,
+        # que reimporta o Docling em um filho limpo.
         payload = run_in_subprocess(
             functools.partial(_docling_convert, data, mime, max_pages, languages),
             mem_gib=self.mem_gib,
             timeout_s=self.timeout_s,
+            start_method="spawn",
         )
         ocr_error = payload.get("ocr_config_error")
         if ocr_error:
@@ -1238,8 +1244,8 @@ def _ocr_pipeline_options(languages: tuple[str, ...] | list[str]) -> Any:
     do OCR seletivo é do documento inteiro, §6.2).
 
     Construir as opções **não** executa o pipeline nem baixa modelos — o
-    smoke real do pipeline de PDF/OCR segue pendente de autorização de
-    download (task 017, impedimento documentado na 006 e na 006a).
+    smoke real do pipeline de PDF foi executado na task 017 (modelos de
+    layout baixados com revisão registrada no relatório da 017).
     """
     from docling.datamodel.pipeline_options import (
         OcrAutoOptions,
@@ -1300,6 +1306,10 @@ def _docling_convert(
     exportadas em texto legível quando possível; itens sem texto legível
     chegam como pendência (``legible=false``, §6.2).
 
+    Smoke real executado na task 017 contra o docling pinado no uv.lock
+    (2.141.0): ``convert`` recebe ``DocumentStream``; ``iterate_items``
+    devolve tuplas ``(item, nível)``; proveniência usa ``page_no``.
+
     Com ``languages``, os idiomas são plumbados às opções do pipeline
     (OCR seletivo, §6.2); blocos de uma passada com OCR de página inteira
     carregam ``ocr_source='embedded'`` — texto recuperado dentro do próprio
@@ -1311,7 +1321,11 @@ def _docling_convert(
 
     from docling_core.types.doc import TextItem
 
-    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.document_converter import (
+        DocumentConverter,
+        DocumentStream,
+        PdfFormatOption,
+    )
 
     ocr_languages: list[str] | None = None
     format_options: dict[str, Any] | None = None
@@ -1329,16 +1343,21 @@ def _docling_convert(
         format_options = {"pdf": PdfFormatOption(pipeline_options=pipeline_options)}
         ocr_languages = list(languages)
     converter = DocumentConverter(format_options=format_options)
-    result = converter.convert(BytesIO(data))
+    # Smoke real do pipeline executado na task 017 (docling 2.141, pin do
+    # uv.lock): ``convert`` exige ``DocumentStream`` (BytesIO cru é recusado
+    # pela validação da API) e ``iterate_items`` devolve tuplas
+    # ``(item, nível)`` com proveniência em ``prov.page_no``.
+    stream = DocumentStream(name="document", stream=BytesIO(data))
+    result = converter.convert(stream)
     document = result.document
 
     entries: list[dict[str, Any]] = []
-    for item in document.iterate_items():
-        prov = item.prov[0] if item.prov else None
-        page = int(prov.page) if prov is not None else 1
+    for item, _level in document.iterate_items():
+        prov = item.prov[0] if getattr(item, "prov", None) else None
+        page = int(getattr(prov, "page_no", 1)) if prov is not None else 1
         text = ""
         legible = True
-        kind = str(getattr(item, "type", "paragraph"))
+        kind = str(getattr(item, "label", "text"))
         if isinstance(item, TextItem):
             text = item.text
         elif hasattr(item, "export_to_markdown"):

@@ -899,7 +899,7 @@ class Tutor:
             skill_id = "quiz"
             kind = LearningItem.ItemKind.QUIZ
             schema = _ITEM_SCHEMA
-            builder = self._quiz_fields
+            builder = self._deterministic_quiz_fields
         elif move is StudentMove.FLASHCARD:
             skill_id = "flashcard"
             kind = LearningItem.ItemKind.FLASHCARD
@@ -1244,6 +1244,27 @@ class Tutor:
         _separated(prompt, expected_answer)
         rubric = self._clean_rubric(data)
         source_refs = self._resolve_item_citations(data, pack)
+        return prompt, expected_answer, rubric, source_refs
+
+    def _deterministic_quiz_fields(
+        self, data: Mapping[str, Any], pack: TutorEvidence
+    ) -> tuple[str, str, list[dict[str, Any]], list[SourceRef]]:
+        """Item determinístico de prática (quiz, mapa §8): exatidão com
+        tolerância/unidades explícitas — o Monitor recusa item determinístico
+        com rubrica de mais de um critério (abstinência ``FORMAL_DIVERGENCE``).
+        Publicar item que a avaliação determinística não consegue julgar seria
+        saída parcial sistematicamente não avaliável: a rubrica do item
+        determinístico tem EXATAMENTE um critério (achado do ensaio
+        longitudinal da task 017 com o modelo real, que tende a gerar
+        rubricas multi-critério; violação entra no ciclo de reparo, §12)."""
+        prompt, expected_answer, rubric, source_refs = self._quiz_fields(
+            data, pack
+        )
+        if len(rubric) != 1:
+            raise _PolicyViolation(
+                f"item determinístico (quiz) exige rubrica com exatamente um "
+                f"critério de exatidão; obtidos {len(rubric)} (mapa §8)"
+            )
         return prompt, expected_answer, rubric, source_refs
 
     def _flashcard_fields(
