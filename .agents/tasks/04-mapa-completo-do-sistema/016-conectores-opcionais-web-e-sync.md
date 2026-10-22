@@ -1,6 +1,6 @@
 # Task 016: Conectores opcionais — curadoria web e sync de calendário (mapa §6/§9, §13.9)
 
-Estado: aguardando revisão
+Estado: aguardando subtasks
 Depende de: 015
 Origem: nenhuma
 
@@ -63,13 +63,18 @@ Implementar e admitir individualmente os conectores opcionais (mapa §6 curadori
 4/10 — Contratos da 013/014 bem preparados (o dispatcher de `calendar.apply` já tinha todos os estados), o que reduziu o risco principal. Pontos de atrito: (1) desenhar o seam de transporte de forma que os testes de falha de rede sejam honestos sem rede real — a invalidação de destino e as precondições tiveram que ficar FORA do transporte injetado para que o seam não burlasse a segurança; (2) a barreira de IP privado/loopback bloqueia localhost, então os testes usam resolução real de nomes literais/IPs públicos (93.184.216.34) e transporte falso para o laço de redirects; (3) o parsing de multistatus exigiu escapar CRLF como entidades XML para não corromper o ICS na reconciliação por leitura; (4) o teste de candidatos (W7b) revelou que o limite efetivo da rota é o de FETCHES (3), não o de candidatos — a asserção foi alinhada ao comportamento normativo real em vez de prometer 5 leituras. A dívida da 014a foi de execução simples com mutação para provar discriminação.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+
+- Orquestrador: GLM-5.3-Flash (provider `sd2`, model id `GLM-5.3-Flash`, via `~/sd2-llm.sh`) — master do ciclo.
+- Alvo: entrega `7db9267075e6c54bc794cdc65173f66a7434f2aa` sobre base `5f56f8ea710a20d13c4a0c489d30bb29a046425c`; registro `a365ea5ae409e0a7d3ee7e927df0ed7940cd0943`; árvore limpa e inalterada durante toda a rodada (confirmada pelos três revisores).
+- Modo da rodada: **sequencial** (um revisor por vez, cada um em sessão nova) — a revisão exige executar a suíte no `.venv` compartilhado do repositório, recurso concorrente; mesmo padrão das rodadas 013a–015b.
+- Avaliações (quórum de três modelos distintos, sem falhas nem substituições):
+  - GLM-5.3-Flash (`sd2/GLM-5.3-Flash`) — **9/10**, fechar. Suíte 564 passed reproduzida; sonda própria de mutação da dívida D1 (1 failed sob mutação, passed restaurado). GLM-A1 (baixo): `parse_multistatus` sem contenção de expansão de entidades XML (billion laughs) nem limite prévio de bytes. GLM-A2 (baixo): `max_results` da rota curate repassado sem corte prévio (`min(max_results, _MAX_CANDIDATES)`), latente até existir backend de busca.
+  - qwen3-27b (`sorgan-qwen/qwen3-27b`) — **9/10**, fechar. Suíte 564 passed reproduzida (29,3 s); 11 sondas adversariais próprias em `/tmp/opencode/revisao-016-qwen/` (redirect protocol-relative, link-local 169.254.169.254, defesa em profundidade na `redirect_chain`, P6 de precondições MCP, P5 de loopback no CalDAV, mutação D1 reproduzida). QW-A1 (baixo): `runtime.py` nunca chama `build_calendar_connector` — CalDAV admitido não é alcançável pela superfície CLI/API. QW-A2 (baixo): REPORT CalDAV sem teto de corpo e parse XML sem rejeição de entidades (cap de 5 MiB do §6 é escopado à curadoria web). QW-A3 (informativo): CalDAV aceita endpoint loopback/privado — coerente por design (endpoint configurado pelo próprio usuário; barreira de IP privado é escopada ao fetch web).
+  - gpt-6-luna (`openai/gpt-6-luna`) — **7/10**, corrigir. Suíte 564 passed reproduzida; sem sondas próprias. LUNA-A1 (alto): `urllib_transport` (web.py:157-160) lê corpo sem limite — inclusive no caminho `HTTPError` — e o cheque de 5 MiB ocorre só depois em `_build_resource`; o limite normativo não é imposto no transporte real. LUNA-A2 (alto): transporte CalDAV usa redirect automático do `urllib`; servidor pode redirecionar requisição autenticada a outro host com reenvio da credencial Basic, e a admissão do CalDAV não incluiu o teste de redirect malicioso exigido pela task para cada conector.
+- Síntese: convergência factual total entre os três (limites/estados/cache da web, barreira retestada na rota, precondições CalDAV, reconcile sem retry cego, Google/busca não admitidos sem invenção, dívida 014a resolvida com discriminação provada, intocabilidade e commits separados). Divergência apenas de severidade: GLM e qwen classificam os gaps de transporte (leitura sem teto, redirects/credenciais, XML) como baixos e recomendam fechar; luna classifica dois deles como altos e pede correção. **Acolho a posição mais rigorosa** (precedente 015a): LUNA-A2 corresponde diretamente ao requisito da própria task — "Cada conector é admitido individualmente após contratos e testes de falha de rede (timeout, redirect malicioso, resposta inválida)" — e o CalDAV foi ADMITIDO sem o teste de redirect malicioso no transporte real, que segue redirects automáticos com credencial; isso é lacuna de critério de admissão (C3/C4), não apenas robustez. LUNA-A1 contraria o limite "10 s/5 MiB" do §6 ("deve" é contrato) no caminho real de rede. Os demais achados baixos (GLM-A1/A2, QW-A1/A2) entram na correção como itens complementares; QW-A3 fica registrado como comportamento por design, sem correção.
+- Nota final: **8/10** — entrega sólida e honesta (admissões individualmente registradas, nada inventado, dívida da 014a resolvida com sensibilidade à mutação provada, suíte 564 passed reproduzida pelos três revisores), rebaixada de 9 para 8 pela lacuna de admissão do CalDAV no teste de redirect malicioso e pelo limite de 5 MiB não imposto no transporte real — pendências essenciais que a nota não pode esconder.
+- Decisão: **corrigir** — entrega preservada sem reversão; subtask 016a delimitada aos dois itens obrigatórios (LUNA-A1, LUNA-A2) e aos baixos complementares (GLM-A1, GLM-A2, QW-A1, QW-A2).
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: criar subtask 016a (correção de limites de transporte web/CalDAV, redirect malicioso do CalDAV, wiring do conector no runtime, clamp de `max_results` e endurecimento do parse XML), pendente de criação; questão aberta do conector de busca permanece aberta.
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
