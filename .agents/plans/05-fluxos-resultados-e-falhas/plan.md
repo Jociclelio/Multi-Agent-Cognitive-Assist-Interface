@@ -1,6 +1,6 @@
 # Plano: Materializar a Etapa 5 — fluxos, saídas esperadas e pontos de falha do EduAgent-OS
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: aprovado — tasks derivadas (001–005, seções 1–5 do plano em ordem); execução pendente de início do ciclo
 
 ## Objetivo
 Consolidar `05_fluxos_resultados_e_falhas.md` como a referência de fluxos operacionais, qualidade de saídas e catálogo de falhas do EduAgent-OS, garantindo que o material esteja coerente com a especificação v0.1 (etapa 4), registrado no índice da entrega e rastreável (IDs W, O e F), sem apresentar nada como resultado medido.
@@ -37,4 +37,12 @@ O documento é normativo (especificação), portanto o plano descreve a implemen
 - Nenhuma essencial. Nota do próprio documento: o catálogo não presume enumerar todos os defeitos futuros; mudanças de capability exigirão novos fluxos, saídas, falhas e testes.
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Cobertura (plano) | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md](../../tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md) | Abordagem 1 (matriz W01–W12) | nenhuma | pendente |
+| 2 | [002-validar-qualidade-saidas-o01-o18.md](../../tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md) | Abordagem 2 (qualidade O01–O18) | 001 | pendente |
+| 3 | [003-validar-catalogo-falhas-f01-f24-severidades.md](../../tasks/05-fluxos-resultados-e-falhas/003-validar-catalogo-falhas-f01-f24-severidades.md) | Abordagem 3 (catálogo F01–F24, S1–S4) | 002 | pendente |
+| 4 | [004-validar-falhas-compostas-prioritarias.md](../../tasks/05-fluxos-resultados-e-falhas/004-validar-falhas-compostas-prioritarias.md) | Abordagem 4 (6 falhas compostas) | 003 | pendente |
+| 5 | [005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md](../../tasks/05-fluxos-resultados-e-falhas/005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md) | Abordagem 5 + critérios de conclusão | 004 | pendente |
+
+Notas: o documento `fase2/documentos/05_fluxos_resultados_e_falhas.md` já está materializado e registrado no índice da entrega — as tasks são de conferência de fidelidade contra a etapa 4 (e coerência com a v0.1 implementada no plano 04), com correção apenas em dif mínimo no próprio documento 05; `fase2/documentos/04_mapa_completo_do_sistema.md` permanece intocado. Nada é apresentado como resultado medido; severidades são potenciais. Métricas para os IDs W/O/F são da etapa 6 e métodos da etapa 7 — fora do escopo deste plano.
