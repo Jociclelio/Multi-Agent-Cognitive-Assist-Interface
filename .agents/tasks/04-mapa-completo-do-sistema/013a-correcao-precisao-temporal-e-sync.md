@@ -1,6 +1,6 @@
 # Task 013a: Correção — precisão temporal do ICS, fuso all-day no sync e robustez de confirmação/outbox
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 013
 Origem: 013 (correção — decisão do master `e177547`; entrega `f72440c` e registro `d1ecc58` preservados, sem reversão)
 
@@ -24,17 +24,22 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` INTOCADO ("deve"
 - `fase2/documentos/04_mapa_completo_do_sistema.md` — §9, §10, §11, §15.1, §15.5 (normativo).
 
 ## Corretude
-- [ ] C1 — Com relógio/instantes de microssegundos ≠ 0: `render_plan` publica ICS válido e estável (mesma revisão → bytes idênticos), `verify_calendar` não diverge e `build_sync_ops` não marca bloco atual como desatualizado (A-01 corrigido, com teste de regressão).
-- [ ] C2 — All-day em `build_sync_ops` para serviço com `local_timezone` ≠ UTC gera DATE com fim exclusivo no dia local correto, sem dupla conversão (A-02, com teste).
-- [ ] C3 — `apply_plan` revalida a confirmação antes de cada efeito remoto: mutação de domínio/dependência entre checagem e envio interrompe o lote com recusa tipada, sem aplicar efeitos restantes, sem retry cego; status agregado coerente com reconciliação (L-A1 e L-A2, com testes).
-- [ ] C4 — Parser de `dependencies_json` tolerante ao default da migração 0007 e igualdade de UPDATE incluindo DTSTART/DTEND (G-A1/G-A2, com testes); suíte integral verde (≥ 439 + novos), mapa/config/submódulo intocados, commits de entrega e registro separados.
+- [x] C1 — Com relógio/instantes de microssegundos ≠ 0: `render_plan` publica ICS válido e estável (mesma revisão → bytes idênticos), `verify_calendar` não diverge e `build_sync_ops` não marca bloco atual como desatualizado (A-01 corrigido, com teste de regressão).
+- [x] C2 — All-day em `build_sync_ops` para serviço com `local_timezone` ≠ UTC gera DATE com fim exclusivo no dia local correto, sem dupla conversão (A-02, com teste).
+- [x] C3 — `apply_plan` revalida a confirmação antes de cada efeito remoto: mutação de domínio/dependência entre checagem e envio interrompe o lote com recusa tipada, sem aplicar efeitos restantes, sem retry cego; status agregado coerente com reconciliação (L-A1 e L-A2, com testes).
+- [x] C4 — Parser de `dependencies_json` tolerante ao default da migração 0007 e igualdade de UPDATE incluindo DTSTART/DTEND (G-A1/G-A2, com testes); suíte integral verde (≥ 439 + novos), mapa/config/submódulo intocados, commits de entrega e registro separados.
 
 ## Execução
-- Modelo: _preencher pelo executor_
-- Base: _SHA completo antes da implementação_
-- Entrega: _SHA(s) completos, sem commits de registro_
-- Arquivos da entrega: _paths_
-- Evidências: _comandos, resultados e limitações_
+- Modelo: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime
+- Base: `dc00d7993586298299e6a452e5722ce8680706cb` (criação da subtask; entrega `f72440c` e registro `d1ecc58` da 013 preservados, sem reversão)
+- Entrega: `8ddbaea` (commit único de código — `eduagent/services/calendar.py` + `tests/test_task013_calendar_confirmation.py`)
+- Arquivos da entrega: `eduagent/services/calendar.py`, `tests/test_task013_calendar_confirmation.py`
+- Evidências:
+  - Sonda pré-correção (base) reproduziu o achado A-01: `build_calendar` com `created_at`/`modified_at` em microssegundos serializa em segundos (icalendar trunca), mas `verify_calendar` comparava com micros → `['CREATED divergente…', 'DTSTAMP/LAST-MODIFIED divergentes…']` → `render_plan` falharia com INTERNAL_FAILURE; `build_sync_ops` comparava `event.dtstamp` (segundos) contra `_utc(modified_at)` (micros) → todo bloco desatualizado. Sonda pós-correção: `verify_calendar` → `[]`.
+  - Correções: helper `_ics_moment` (trunca para segundos) aplicado em `build_calendar` (DTSTAMP/CREATED/LAST-MODIFIED), `verify_calendar` e `build_sync_ops` (comparação de DTSTAMP), preservando §15.5 (persistidos mantêm precisão original; reexportação byte-idêntica; SEQUENCE só em mudança de evento — I2/I3/I4/P1 verdes); pré-conversão all-day removida de `build_sync_ops` (fronteira única em `_all_day_bounds`/`build_calendar`); `apply_plan` revalida via `check_confirmation_current` imediatamente antes de cada op remoto (recusa tipada VERSION_CONFLICT propaga; efeitos já enviados ficam para reconciliação por leitura; sem retry); status agregado propaga `NOT_APPLIED` total/parcial reconciliado; `_confirmation_from_row` tolerante a `'[]'` (linha legada com hash vazio valida só revisão de domínio em `check_confirmation_current`); igualdade de UPDATE inclui DTSTART/DTEND (também na reconciliação de update, mesma classe do achado).
+  - Testes: 7 regressões novas R1–R7 (relógio `MicroClock` com microssegundos ≠ 0 cobrindo render sucesso + estabilidade + verify + `build_sync_ops`; all-day com offset fixo −3 — fuso America/Sao_Paulo permanece questão aberta, não decidido aqui; duplo `DomainMutatingConnector` mutando domínio e dependência entre checagem e envio; duplo `TimeoutLostConnector` para reconciliação NOT_APPLIED total e parcial; linha legada da 0007; remoto mutante DATE-TIME e DATE).
+  - Comandos: `python3 -m pytest tests/test_task013_calendar_confirmation.py -q` → 32 passed (25 da 013 + 7 novas, sem quebra); `python3 -m pytest tests/ -q` → **446 passed** (439 + 7) em ~20 s; `git status` confirma apenas os dois arquivos da entrega alterados (mapa, config e submodule `docs/playground-llmagenticsystem` intocados).
+  - Limitações: sem conexão real de sync (permanece na 016 — duplos de teste apenas); nenhum resultado medido apresentado; a escolha de interromper o lote propagando a `EduAgentError` tipada (sem `ApplyReport` intermediário) segue o idioma de recusas tipadas já registrado na 013; a reconciliação `UNKNOWN_EFFECT` de update continua comparando corpo parsed, agora também com DTSTART/DTEND (mais conservador).
 
 ## Notas
 
@@ -42,7 +47,7 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` INTOCADO ("deve"
 3/10 — correções pontuais e bem localizadas; cuidado principal é não quebrar a estabilidade byte-idêntica de reexportação e a semântica §15.5 de timestamps por revisão.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+3/10 — correções pontuais e bem localizadas conforme previsto; a sonda reproduziu o achado A-01 de imediato e os critérios tinham caminho de teste direto. Único ajuste de rota: no caso "total" do R5 o lote continua após `NOT_APPLIED` reconciliado (decisão da 013 preservada — só CONFLICT/UNKNOWN interrompem), então o teste total precisou de dois updates perdidos para não aplicar efeito residual; a guarda de linha legada em `check_confirmation_current` (hash vazio) foi acrescentada para o caminho do parser G-A1 ficar coeso sem enfraquecer a invalidação por revisão de domínio.
 
 ### Revisão
 - Orquestrador: —
