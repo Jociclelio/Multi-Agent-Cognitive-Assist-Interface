@@ -1,6 +1,6 @@
 # Task 015a: Correção da 015 — ownership de sessão, tombstones no restore, confinamento de caminhos e JSON da API
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (decisão `corrigir` — subtask 015b pendente de criação)
 Depende de: 015
 Origem: task mãe 015 — correção (decisão `corrigir`, revisão com quórum GLM 8/10, qwen3-27b 7/10, gpt-6-luna 7/10)
 
@@ -75,16 +75,22 @@ Restrições: preservar o design e a entrega da 015; tocar apenas `eduagent/` e 
 3/10 — Correções pontuais e locais com sondas já descritas pela revisão; maior cuidado no confronto de tombstones com o domínio corrente sem quebrar o restore legítimo da 015.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+3/10 — Registrada pelo executor na seção Execução (calibração da sonda de traversal com SHA-256 real e construção do gate de approve).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — master do ciclo opt-in, sessão dedicada.
+- Alvo: entrega `e17cbf05e8b9e8de70ee372c842e41e926924372` sobre base `95c21af6ae93b360ab4ef945ada779946c10390d`, registro `6f4b385`; árvore limpa e inalterada durante a rodada (confirmado por `git status`/`git log` antes, entre e após os pareceres).
+- Avaliações (quórum completo, três modelos distintos, rodada **sequencial** — motivo: os revisores precisam rodar a suíte integral no venv compartilhado do repositório, uso concorrente que se interferiria em paralelo):
+  - GLM-5.3-Flash — 9/10, recomenda **fechar**. C1–C4 provados (sondas próprias de ownership/traversal/tombstone/API em `/tmp/opencode/rev-015a-glm/`, suíte 533 passed reproduzida em 28,4 s, isolamento do diff confirmado). Residuais baixos: guard ausente para `user_id=None` em `run_turn` (latente), janela do span `queue` compensada por atributo com a razão, mensagem de exceção interna exposta ao cliente (aceitável no MVP local).
+  - qwen3-27b — 9/10, recomenda **fechar**. Sondas da própria revisão da 015 re-executadas (`probe_a_tombstone.py`, `probe_b_api.py`) mais sonda independente de ownership; suíte 533 passed reproduzida (28,7 s); divergência factual nenhuma. Residuais: F1 (baixo) `except sqlite3.Error: return []` em `_current_domain_tombstones` degrada silenciosamente o confronto se o banco corrente existir mas estiver corrompido — recomenda mesmo assim "registrar a anomalia ou recusar, em vez de `[]` mudo"; F2 (baixo) `resume_turn(user_id=None)` documentado e não alcançável pelas interfaces do §12.
+  - gpt-6-luna — 8/10, recomenda **corrigir**. C1 e C2 classificados provisórios (não reproduziu sondas adversariais; C3 e C4 provados por leitura e suíte 533 passed). Achado A1 (**alto**): o mesmo fail-open de `backup.py:544-545` — banco corrente presente porém ilegível faz o restore prosseguir sem confrontar tombstones, podendo restaurar payload excluído; exige recusa tipada com descarte do destino, reservando lista vazia apenas para ausência documentada do banco.
+- Síntese: convergência factual total — os três confirmam os seis itens obrigatórios e os quatro baixos implementados, a suíte 533 passed (521 + 12 regressões), o isolamento do diff (apenas `eduagent/` e `tests/`; mapa, `config/`, `docs/`, submódulo e `uv.lock` intocados) e a separação entrega/registro. Nenhuma divergência factual. A única divergência é de severidade no fail-open de `_current_domain_tombstones`: GLM e qwen classificam baixo (caso de borda, sem regressão em fluxo normal), luna alto. A decisão acolhe a posição mais rigorosa: o critério C2 desta task estabelece garantia absoluta ("nenhum ref tombstonado resolva vivo no conjunto liberado"), §15.1 prevalece quando mais preciso, o restore é precisamente o caminho de recuperação em que corrupção do banco vivo é plausível, e até o revisor que classificou baixo recomenda a recusa — a pendência não pode ser escondida atrás da nota.
+- Nota final: 8/10 — entrega sólida e provada em quase sua totalidade, com um fail-open residual num controle de privacidade do caminho de recuperação que exige correção delimitada antes do fechamento da família.
+- Parecer: aprovada com ressalva obrigatória — todos os itens do prompt implementados e provados por sondas antes/depois e regressões; falha de fail-closed no confronto com tombstones do domínio corrente quando o `domain.sqlite` corrente existe mas não pode ser consultado.
+- Decisão: `corrigir` — entrega `e17cbf0` preservada sem reversão (design aprovado; correção é pequena e local).
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: criar a subtask 015b (fail-closed do confronto com tombstones do domínio corrente em `eduagent/services/backup.py`: recusa tipada com diretório descartado quando o banco corrente existe mas não pode ser consultado; lista vazia apenas para ausência documentada; teste de regressão com banco corrente corrompido/ilegível provando a recusa). Família: 011-demandas-atividades-e-politica-evidencia.md.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/015b-correcao-fail-closed-tombstones-correntes.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
