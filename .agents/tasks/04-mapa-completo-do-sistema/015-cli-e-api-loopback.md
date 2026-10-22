@@ -64,4 +64,6 @@ Implementar a interface e a observabilidade (mapa §12) em `eduagent/cli.py`, `e
 - Reversão: não se aplica — entrega preservada; nenhum commit revertido.
 - Próximo passo: criar subtask 015a (`.agents/tasks/04-mapa-completo-do-sistema/015a-correcao-ownership-restore-e-api-json.md`) cobrindo os achados obrigatórios 1–6 e os baixos triviais; família 011 permanece aberta; task 016 segue bloqueada até resolução.
 
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/015a-correcao-ownership-restore-e-api-json.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
