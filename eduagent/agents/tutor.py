@@ -939,6 +939,17 @@ class Tutor:
             skill, messages, schema, validator
         )
         prompt, expected_answer, rubric, source_refs = fields
+        # §15.2 (integração da task 014): a rubrica publicada é POR TÓPICO —
+        # cada critério carrega os topic_ids do item (resolvidos do override
+        # do chamador, do pacote ou da família pendente, §8); critério sem
+        # tópico não atualizaria competência (AssessmentService recusa
+        # tipada). O schema do MODELO não inclui topic_ids (o modelo não
+        # escolhe tópicos); a atribuição é determinística aqui.
+        if topics:
+            rubric = [
+                dict(entry, topic_ids=[str(t) for t in topics])
+                for entry in rubric
+            ]
         published_at = self._clock()
         item_id = _uuid.uuid4()
 
@@ -1256,6 +1267,7 @@ class Tutor:
         rubric = [
             {
                 "criterion_id": "verso_correto",
+                "topic_ids": [str(t) for t in pack.topic_ids],
                 "description": (
                     "O verso declarado corresponde ao conteúdo esperado do "
                     "conceito."

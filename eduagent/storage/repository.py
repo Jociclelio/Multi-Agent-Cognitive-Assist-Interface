@@ -46,6 +46,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -229,6 +230,11 @@ class DomainStore:
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
+        # Task 014 (mapa §10/§1): as leituras independentes ("+") do grafo
+        # rodam em threads de trabalho do LangGraph no MESMO processo — o
+        # acesso à conexão é serializado por lock (MVP: sem multiusuário em
+        # rede; leitores concorrentes intra-processo apenas).
+        self._lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # Abertura e configuração
@@ -254,7 +260,13 @@ class DomainStore:
         require_wal_capable_sqlite()
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(path), timeout=busy_timeout_ms / 1000)
+        # check_same_thread=False (task 014): as leituras paralelas ("+") do
+        # grafo usam threads de trabalho no mesmo processo; o acesso é
+        # serializado por ``DomainStore._lock`` (mapa §1: sem multiusuário
+        # concorrente em rede).
+        conn = sqlite3.connect(
+            str(path), timeout=busy_timeout_ms / 1000, check_same_thread=False
+        )
         conn.row_factory = sqlite3.Row
         conn.isolation_level = None  # transações explícitas (autocommit off)
         conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
@@ -293,36 +305,38 @@ class DomainStore:
           persiste junto do incremento.
         """
         conn = self._conn
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            row = conn.execute(
-                "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
-            ).fetchone()
-            if row is None:
-                raise EduAgentError(
-                    ErrorCode.SOURCE_UNRESOLVED,
-                    f"usuário {user_id} não existe no domínio",
-                    diagnostic="eduagent/storage/repository.py",
-                )
-            current = int(row["domain_revision"])
-            if expected_version is not None and expected_version != current:
-                raise EduAgentError(
-                    ErrorCode.VERSION_CONFLICT,
-                    f"revisão esperada {expected_version} difere da atual "
-                    f"{current} (usuário {user_id})",
-                    diagnostic="eduagent/storage/repository.py",
-                )
-            yield conn
-            if bump_domain_revision:
-                conn.execute(
-                    "UPDATE users SET domain_revision = domain_revision + 1 "
-                    "WHERE id = ?",
+        with self._lock:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = conn.execute(
+                    "SELECT domain_revision FROM users WHERE id = ?",
                     (user_id,),
-                )
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+                ).fetchone()
+                if row is None:
+                    raise EduAgentError(
+                        ErrorCode.SOURCE_UNRESOLVED,
+                        f"usuário {user_id} não existe no domínio",
+                        diagnostic="eduagent/storage/repository.py",
+                    )
+                current = int(row["domain_revision"])
+                if expected_version is not None and expected_version != current:
+                    raise EduAgentError(
+                        ErrorCode.VERSION_CONFLICT,
+                        f"revisão esperada {expected_version} difere da atual "
+                        f"{current} (usuário {user_id})",
+                        diagnostic="eduagent/storage/repository.py",
+                    )
+                yield conn
+                if bump_domain_revision:
+                    conn.execute(
+                        "UPDATE users SET domain_revision = domain_revision + 1 "
+                        "WHERE id = ?",
+                        (user_id,),
+                    )
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
 
     @contextmanager
     def read_transaction(self) -> Iterator[sqlite3.Connection]:
@@ -332,11 +346,12 @@ class DomainStore:
         imediatamente após o yield — agentes nunca mantêm conexão aberta
         (§15.1: "os agentes não mantêm uma conexão aberta").
         """
-        self._conn.execute("BEGIN DEFERRED")
-        try:
-            yield self._conn
-        finally:
-            self._conn.execute("COMMIT")
+        with self._lock:
+            self._conn.execute("BEGIN DEFERRED")
+            try:
+                yield self._conn
+            finally:
+                self._conn.execute("COMMIT")
 
     # ------------------------------------------------------------------
     # Escritas de domínio de alto nível
@@ -401,84 +416,85 @@ class DomainStore:
         dispatcher com lease de ``eduagent/services/effects.py``.
         """
         conn = self._conn
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            existing = conn.execute(
-                "SELECT user_id, digest, receipt_json FROM operations "
-                "WHERE id = ?",
-                (operation_id,),
-            ).fetchone()
-            if existing is not None:
-                if existing["user_id"] != user_id:
+        with self._lock:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                existing = conn.execute(
+                    "SELECT user_id, digest, receipt_json FROM operations "
+                    "WHERE id = ?",
+                    (operation_id,),
+                ).fetchone()
+                if existing is not None:
+                    if existing["user_id"] != user_id:
+                        raise EduAgentError(
+                            ErrorCode.SCHEMA_INVALID,
+                            "mesmo operation_id sob usuário diferente (mapa §11)",
+                            diagnostic="eduagent/storage/repository.py",
+                        )
+                    if existing["digest"] != digest:
+                        raise EduAgentError(
+                            ErrorCode.SCHEMA_INVALID,
+                            "mesmo operation_id com digest diferente (mapa §4/§11)",
+                            diagnostic="eduagent/storage/repository.py",
+                        )
+                    receipt = _decode_receipt(existing["receipt_json"], operation_id)
+                    conn.execute("COMMIT")
+                    return receipt  # retry: nada incrementa (§15.1)
+
+                row = conn.execute(
+                    "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
+                ).fetchone()
+                if row is None:
                     raise EduAgentError(
-                        ErrorCode.SCHEMA_INVALID,
-                        "mesmo operation_id sob usuário diferente (mapa §11)",
+                        ErrorCode.SOURCE_UNRESOLVED,
+                        f"usuário {user_id} não existe no domínio",
                         diagnostic="eduagent/storage/repository.py",
                     )
-                if existing["digest"] != digest:
+                current = int(row["domain_revision"])
+                if expected_version != current:
                     raise EduAgentError(
-                        ErrorCode.SCHEMA_INVALID,
-                        "mesmo operation_id com digest diferente (mapa §4/§11)",
+                        ErrorCode.VERSION_CONFLICT,
+                        f"revisão esperada {expected_version} difere da atual "
+                        f"{current} (usuário {user_id})",
                         diagnostic="eduagent/storage/repository.py",
                     )
-                receipt = _decode_receipt(existing["receipt_json"], operation_id)
+
+                for sql, params in statements:
+                    conn.execute(sql, params)
+
+                new_revision = current + 1
+                conn.execute(
+                    "UPDATE users SET domain_revision = domain_revision + 1 "
+                    "WHERE id = ?",
+                    (user_id,),
+                )
+                applied_at = _utc_now_iso()
+                receipt = Receipt(
+                    operation_id=operation_id,
+                    domain_revision=new_revision,
+                    was_retry=False,
+                    applied_at=applied_at,
+                )
+                conn.execute(
+                    "INSERT INTO operations(id, user_id, digest, state, "
+                    "expected_version, receipt_json) VALUES (?,?,?,?,?,?)",
+                    (
+                        operation_id,
+                        user_id,
+                        digest,
+                        "committed",
+                        expected_version,
+                        receipt.to_json(),
+                    ),
+                )
+                if outbox_statement is not None:
+                    # por último: a FK do outbox referencia operations(id) (§5)
+                    conn.execute(*outbox_statement)
                 conn.execute("COMMIT")
-                return receipt  # retry: nada incrementa (§15.1)
-
-            row = conn.execute(
-                "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
-            ).fetchone()
-            if row is None:
-                raise EduAgentError(
-                    ErrorCode.SOURCE_UNRESOLVED,
-                    f"usuário {user_id} não existe no domínio",
-                    diagnostic="eduagent/storage/repository.py",
-                )
-            current = int(row["domain_revision"])
-            if expected_version != current:
-                raise EduAgentError(
-                    ErrorCode.VERSION_CONFLICT,
-                    f"revisão esperada {expected_version} difere da atual "
-                    f"{current} (usuário {user_id})",
-                    diagnostic="eduagent/storage/repository.py",
-                )
-
-            for sql, params in statements:
-                conn.execute(sql, params)
-
-            new_revision = current + 1
-            conn.execute(
-                "UPDATE users SET domain_revision = domain_revision + 1 "
-                "WHERE id = ?",
-                (user_id,),
-            )
-            applied_at = _utc_now_iso()
-            receipt = Receipt(
-                operation_id=operation_id,
-                domain_revision=new_revision,
-                was_retry=False,
-                applied_at=applied_at,
-            )
-            conn.execute(
-                "INSERT INTO operations(id, user_id, digest, state, "
-                "expected_version, receipt_json) VALUES (?,?,?,?,?,?)",
-                (
-                    operation_id,
-                    user_id,
-                    digest,
-                    "committed",
-                    expected_version,
-                    receipt.to_json(),
-                ),
-            )
-            if outbox_statement is not None:
-                # por último: a FK do outbox referencia operations(id) (§5)
-                conn.execute(*outbox_statement)
-            conn.execute("COMMIT")
-            return receipt
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+                return receipt
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
 
     # ------------------------------------------------------------------
     # Replay autoritativo (§11 — checkpoint não é atômico)
@@ -489,12 +505,13 @@ class DomainStore:
         separado (task 014) e não é atômico — o replay consulta a operação
         no banco de domínio, que é a fonte da verdade, e reutiliza o recibo.
         """
-        row = self._conn.execute(
-            "SELECT id, user_id, digest, state, expected_version, receipt_json "
-            "FROM operations WHERE id = ?",
-            (operation_id,),
-        ).fetchone()
-        return dict(row) if row is not None else None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, user_id, digest, state, expected_version, receipt_json "
+                "FROM operations WHERE id = ?",
+                (operation_id,),
+            ).fetchone()
+            return dict(row) if row is not None else None
 
     def receipt_for(
         self, user_id: str, operation_id: str, digest: str
@@ -511,11 +528,12 @@ class DomainStore:
         - Operação ``pending``/``failed`` sem recibo → ``None``: nada foi
           aplicado, o replay não pode reutilizar recibo inexistente.
         """
-        row = self._conn.execute(
-            "SELECT user_id, digest, state, receipt_json FROM operations "
-            "WHERE id = ?",
-            (operation_id,),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT user_id, digest, state, receipt_json FROM operations "
+                "WHERE id = ?",
+                (operation_id,),
+            ).fetchone()
         if row is None:
             return None
         if row["user_id"] != user_id:
@@ -546,12 +564,13 @@ class DomainStore:
         committed correspondente é reutilizado com ``was_retry=True``.
         Sem operação committed correspondente → ``None``.
         """
-        row = self._conn.execute(
-            "SELECT id, receipt_json FROM operations "
-            "WHERE user_id = ? AND digest = ? AND state = 'committed' "
-            "ORDER BY rowid LIMIT 1",
-            (user_id, digest),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, receipt_json FROM operations "
+                "WHERE user_id = ? AND digest = ? AND state = 'committed' "
+                "ORDER BY rowid LIMIT 1",
+                (user_id, digest),
+            ).fetchone()
         if row is None or not row["receipt_json"]:
             return None
         return _decode_receipt(row["receipt_json"], str(row["id"]))
@@ -584,40 +603,41 @@ class DomainStore:
         lexicograficamente (mesmo formato de ``_utc_now_iso``).
         """
         conn = self._conn
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            rows = conn.execute(
-                "SELECT id, user_id, operation_id, target, payload_json, "
-                "state, lease_until FROM outbox WHERE state = 'pending' OR "
-                "(state = 'in_flight' AND lease_until IS NOT NULL AND "
-                "lease_until <= ?) ORDER BY rowid LIMIT ?",
-                (now, limit),
-            ).fetchall()
-            claimed: list[OutboxRow] = []
-            for row in rows:
-                conn.execute(
-                    "UPDATE outbox SET state = 'in_flight', lease_until = ? "
-                    "WHERE id = ?",
-                    (lease_until, row["id"]),
-                )
-                claimed.append(
-                    OutboxRow(
-                        id=str(row["id"]),
-                        user_id=str(row["user_id"]),
-                        operation_id=str(row["operation_id"]),
-                        target=str(row["target"]),
-                        payload=json.loads(str(row["payload_json"])),
-                        state_before=str(row["state"]),
-                        lease_until=str(row["lease_until"])
-                        if row["lease_until"] is not None
-                        else None,
+        with self._lock:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                rows = conn.execute(
+                    "SELECT id, user_id, operation_id, target, payload_json, "
+                    "state, lease_until FROM outbox WHERE state = 'pending' OR "
+                    "(state = 'in_flight' AND lease_until IS NOT NULL AND "
+                    "lease_until <= ?) ORDER BY rowid LIMIT ?",
+                    (now, limit),
+                ).fetchall()
+                claimed: list[OutboxRow] = []
+                for row in rows:
+                    conn.execute(
+                        "UPDATE outbox SET state = 'in_flight', lease_until = ? "
+                        "WHERE id = ?",
+                        (lease_until, row["id"]),
                     )
-                )
-            conn.execute("COMMIT")
-            return claimed
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+                    claimed.append(
+                        OutboxRow(
+                            id=str(row["id"]),
+                            user_id=str(row["user_id"]),
+                            operation_id=str(row["operation_id"]),
+                            target=str(row["target"]),
+                            payload=json.loads(str(row["payload_json"])),
+                            state_before=str(row["state"]),
+                            lease_until=str(row["lease_until"])
+                            if row["lease_until"] is not None
+                            else None,
+                        )
+                    )
+                conn.execute("COMMIT")
+                return claimed
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
 
     def _set_outbox_state(
         self,
@@ -632,24 +652,25 @@ class DomainStore:
         outro estado é falha interna (surfaced, não engolida).
         """
         conn = self._conn
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            cursor = conn.execute(
-                "UPDATE outbox SET state = ?, lease_until = NULL "
-                "WHERE id = ? AND state = ?",
-                (state, outbox_id, from_state),
-            )
-            if cursor.rowcount != 1:
-                raise EduAgentError(
-                    ErrorCode.INTERNAL_FAILURE,
-                    f"outbox {outbox_id} não está em '{from_state}' — "
-                    "transição de lease inválida",
-                    diagnostic="eduagent/storage/repository.py",
+        with self._lock:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                cursor = conn.execute(
+                    "UPDATE outbox SET state = ?, lease_until = NULL "
+                    "WHERE id = ? AND state = ?",
+                    (state, outbox_id, from_state),
                 )
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+                if cursor.rowcount != 1:
+                    raise EduAgentError(
+                        ErrorCode.INTERNAL_FAILURE,
+                        f"outbox {outbox_id} não está em '{from_state}' — "
+                        "transição de lease inválida",
+                        diagnostic="eduagent/storage/repository.py",
+                    )
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
 
     def ack_outbox(self, outbox_id: str) -> None:
         """ACK do efeito: linha ``done`` (§11 — após efeito, confirma)."""
@@ -668,12 +689,13 @@ class DomainStore:
 
     def outbox_row(self, outbox_id: str) -> dict[str, Any] | None:
         """Leitura de inspeção do outbox (testes/diagnóstico local)."""
-        row = self._conn.execute(
-            "SELECT id, user_id, operation_id, target, payload_json, state, "
-            "lease_until FROM outbox WHERE id = ?",
-            (outbox_id,),
-        ).fetchone()
-        return dict(row) if row is not None else None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, user_id, operation_id, target, payload_json, state, "
+                "lease_until FROM outbox WHERE id = ?",
+                (outbox_id,),
+            ).fetchone()
+            return dict(row) if row is not None else None
 
     # ------------------------------------------------------------------
     # Leituras de domínio (ownership por user_id — §15.1)
@@ -681,9 +703,10 @@ class DomainStore:
 
     def domain_revision(self, user_id: str) -> int:
         """Revisão atual do domínio do usuário (``expected_version``)."""
-        row = self._conn.execute(
-            "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT domain_revision FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
         if row is None:
             raise EduAgentError(
                 ErrorCode.SOURCE_UNRESOLVED,
@@ -695,17 +718,18 @@ class DomainStore:
     def ensure_user(self, user_id: str, *, timezone: str | None = None) -> None:
         """Cria o usuário se ausente (idempotente; não incrementa revisão)."""
         conn = self._conn
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            conn.execute(
-                "INSERT INTO users(id, timezone) VALUES (?, ?) "
-                "ON CONFLICT(id) DO NOTHING",
-                (user_id, timezone),
-            )
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+        with self._lock:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.execute(
+                    "INSERT INTO users(id, timezone) VALUES (?, ?) "
+                    "ON CONFLICT(id) DO NOTHING",
+                    (user_id, timezone),
+                )
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
 
     def fetch_user_rows(
         self, sql: str, params: tuple[Any, ...] = ()
