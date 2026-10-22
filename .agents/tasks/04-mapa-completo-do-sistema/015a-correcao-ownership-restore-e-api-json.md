@@ -1,6 +1,6 @@
 # Task 015a: Correção da 015 — ownership de sessão, tombstones no restore, confinamento de caminhos e JSON da API
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 015
 Origem: task mãe 015 — correção (decisão `corrigir`, revisão com quórum GLM 8/10, qwen3-27b 7/10, gpt-6-luna 7/10)
 
@@ -25,17 +25,49 @@ Restrições: preservar o design e a entrega da 015; tocar apenas `eduagent/` e 
 - `eduagent/services/backup.py`, `eduagent/api.py`, `eduagent/cli.py`, `eduagent/graph.py`, `eduagent/policy.py`, `eduagent/telemetry.py`, `tests/test_task015_cli_api.py` — alvos da correção.
 
 ## Corretude
-- [ ] C1 — Sonda de ownership reproduzida antes/depois: usuário B autenticado não consegue `resume`/`cancel`/`approve` em sessão de A (recusa tipada, sem efeito aplicado); regressões novas na suíte da 015 cobrindo os três comandos pela API e pela CLI.
-- [ ] C2 — Sondas de restore reproduzidas antes/depois: (a) backup pré-deleção + delete + restore → recusa tipada com diretório descartado, payload tombstonado não ressuscita; (b) manifesto adulterado com `../` e caminho absoluto → recusa tipada; testes de regressão para os dois caminhos negativos e para o teste de recusa do verificador de tombstones (item 6).
-- [ ] C3 — API responde JSON com `status: failed` e `INTERNAL_FAILURE` em exceção fora do contrato (teste com payload que provoque `ValueError` fora dos handlers); item de exit code 3 resolvido com teste alinhado ou escolha documentada no registro; itens baixos corrigidos com teste ou documentados.
-- [ ] C4 — Suíte integral verde (521 anteriores + regressões novas, sem quebrar 490+31); entrega em commit de código separado do registro; mapa, `config/`, `docs/` e submódulo intocados; `uv.lock` inalterado.
+- [x] C1 — Sonda de ownership reproduzida antes/depois: usuário B autenticado não consegue `resume`/`cancel`/`approve` em sessão de A (recusa tipada, sem efeito aplicado); regressões novas na suíte da 015 cobrindo os três comandos pela API e pela CLI.
+- [x] C2 — Sondas de restore reproduzidas antes/depois: (a) backup pré-deleção + delete + restore → recusa tipada com diretório descartado, payload tombstonado não ressuscita; (b) manifesto adulterado com `../` e caminho absoluto → recusa tipada; testes de regressão para os dois caminhos negativos e para o teste de recusa do verificador de tombstones (item 6).
+- [x] C3 — API responde JSON com `status: failed` e `INTERNAL_FAILURE` em exceção fora do contrato (teste com payload que provoque `ValueError` fora dos handlers); item de exit code 3 resolvido com teste alinhado ou escolha documentada no registro; itens baixos corrigidos com teste ou documentados.
+- [x] C4 — Suíte integral verde (521 anteriores + regressões novas, sem quebrar 490+31); entrega em commit de código separado do registro; mapa, `config/`, `docs/` e submódulo intocados; `uv.lock` inalterado.
 
 ## Execução
-- Modelo: —
-- Base: —
-- Entrega: —
-- Arquivos da entrega: —
-- Evidências: —
+- Modelo: GLM-5.3-Flash (provider `sd2`, model id `GLM-5.3-Flash`, via `~/sd2-llm.sh`) — identidade informada pelo runtime da sessão.
+- Base: `95c21af6ae93b360ab4ef945ada779946c10390d` (árvore limpa, pós-criação da subtask; entrega da 015 `429a5cd` preservada sem reversão).
+- Entrega: `e17cbf05e8b9e8de70ee372c842e41e926924372` (commit de código; commit de registro é este, encontrado por `git log -- <task.md>`).
+- Arquivos da entrega: `eduagent/graph.py` (ownership usuário↔sessão `_session_owner`/`_require_session_owner` aplicado em `run_turn` e `resume_turn(user_id=...)`; `_require_service` e check de embedder → classe 3 `SOURCE_UNRESOLVED`), `eduagent/cli.py` (resume/approve/delete passam o usuário autenticado ao `resume_turn`; import futuro duplicado removido; nota de mapeamento §12 no `EXIT_CODE_BY_ERROR`), `eduagent/api.py` (resume com ownership; captura genérica do dispatch respondendo JSON `failed`/`INTERNAL_FAILURE` com HTTP 500; docstring 401→400), `eduagent/services/backup.py` (`_validate_manifest_relative` no verificador/cópia/`_relative_domain_name`; `_current_domain_tombstones` confrontado no restore), `eduagent/policy.py` (`_notify` publica evento de erro de geração ao observador), `eduagent/telemetry.py` (span `queue` por evento de geração em `observe_llm`), `tests/test_task015_cli_api.py` (CLI-3 realinhada à escolha §12), `tests/test_task015a_correcoes.py` (novo; 12 regressões OWN-1..4, TOM-1..2, PTH-1..3, API-6, TEL-5..6).
+
+### Evidências (Corretude)
+
+- **Sondas antes/depois (reprodução obrigatória)**:
+  - Ownership (GLM-A1, `/tmp/opencode/rev015/probe1.py`, artefatos em `/tmp/opencode/rev015/p1`): ANTES — `resume B (gate de A): 0 {"status": "completed", ... "change_applied": true ...}` (B aplicou a deleção de A); DEPOIS — `resume B (gate de A): 3 {"status": "failed", "error": {"code": "TOOL_DENIED", "message": "sessão de outro usuário: ..."}}`, sem efeito aplicado.
+  - Tombstone pré-deleção (qwen-A1, `/tmp/opencode/reviewer-015/probe_a_tombstone.py`): ANTES — `RESTORE PRE-DELECAO: restored; payload vivo no conjunto restaurado? True; CONTEUDO: PAGODO-SECRETO-DELETA-ME`; DEPOIS — recusa `INTERNAL_FAILURE`: "tombstone do domínio corrente violado no restore: event:...@1 (backup anterior à deleção não é restaurável)".
+  - API sem JSON (qwen-A2, `/tmp/opencode/reviewer-015/probe_b_api.py`): ANTES — `SEM RESPOSTA JSON — RemoteDisconnected`; DEPOIS — `HTTPError 500 {"status": "failed", "error": {"code": "INTERNAL_FAILURE", "message": "falha interna da API: ValueError: badly formed hexadecimal UUID string", ...}}`.
+  - Traversal (luna-A1, sonda criada em `/tmp/opencode/015a/probe_traversal.py` — não existia; manifesto adulterado com SHA-256 REAL): ANTES — `../vazou.txt` restaurado com arquivo escrito FORA da raiz de restore (`traversal/vazou.txt`, fora de `alvo-traversal/`); caminho absoluto resolvia fora do diretório (SameFileError mostrando `directory / relative` == caminho absoluto); DEPOIS — `[traversal] recusa tipada: SCHEMA_INVALID (componente '..')`, `[absoluto] recusa tipada: SCHEMA_INVALID (caminho ABSOLUTO)`, diretório alvo descartado nos dois casos.
+- **C1 (ownership)**: coberto pelos três comandos na CLI e na API — OWN-1 (B não resume gate de A via API, 403 TOOL_DENIED; A retoma), OWN-2 (B não cancela sessão de A; A cancela depois, estado intacto), OWN-3 (B não confirma deleção de A via CLI `resume --data`, exit 3; A confirma e o efeito é aplicado pelo dono), OWN-4 (B não aprova sessão de A, exit 3). Verificação no grafo (`run_turn` e `resume_turn`) cobre CLI e API de uma vez, ANTES de qualquer escrita no thread.
+- **C2 (restore/tombstones/traversal)**: TOM-1 (backup pré-deleção + delete + restore → `INTERNAL_FAILURE` com "domínio corrente" e diretório descartado), TOM-2 (teste negativo do verificador: ref tombstonado vivo no manifesto → `INTERNAL_FAILURE`, diretório descartado — item 6), PTH-1/PTH-2 (manifesto com `..` e caminho absoluto, com hash real → `SCHEMA_INVALID`, diretório descartado), PTH-3 (o verificador `verify_backup` recusa por código antes de qualquer cópia).
+- **C3 (API JSON + exit 3 + baixos)**: API-6 (exceção fora do contrato → JSON `status: failed`, `INTERNAL_FAILURE`, HTTP 500); item 5 resolvido por MAPEAMENTO (escolha local §12 documentada em `_require_service`, `EXIT_CODE_BY_ERROR` e no teste CLI-3 realinhado: recurso configurado ausente → `SOURCE_UNRESOLVED` → exit 3, classe "recurso/conector indisponível"; justificativa: o mapa §4 não tem código `SERVICE_UNAVAILABLE`, e ausência de recurso declarada não é falha interna); baixo (a) TEL-5 (falha de geração publica evento com `error` ao observador, mesma forma da recusa de fila); baixo (b) TEL-6 (span `queue` emitido por evento de geração com `active_s` medido e atributo com a razão dos instantes absolutos); baixo (c) docstring da API alinhada a 400 (recusa por código `SCHEMA_INVALID`; o mapa §4 não define status HTTP — escolha mantida, documentação corrigida); baixo (d) import futuro duplicado removido.
+- **C4 (intocabilidade e commits)**: `git status`/`git diff --stat` confirmando alteração somente em `eduagent/` e `tests/`; `fase2/` (mapa), `config/`, `docs/` e `uv.lock` sem diff; submódulo `docs/playground-llmagenticsystem` intocado; commit de entrega separado do registro.
+
+### Verificações executadas
+
+- Suíte integral ANTES: `.venv/bin/python -m pytest tests/ -q` → **521 passed** (baseline reproduzida).
+- Suíte integral DEPOIS: → **533 passed** (521 anteriores + 12 regressões da 015a), 2 warnings pré-existentes (fork em subprocesso da 006), sem regressões nas 490+31 anteriores.
+- Compilação dos módulos alterados: `py_compile` OK.
+
+### Escolhas documentadas (não são resultados medidos)
+
+- Recurso configurado ausente (serviço/embedder/modelo não configurado) é **classe 3 do §12** via `SOURCE_UNRESOLVED` (exit 3; HTTP 404 no mapa local da API): o conjunto de códigos do §4 é fechado e não possui `SERVICE_UNAVAILABLE`; ausência de recurso configurado é indisponibilidade declarada, não falha interna. Teste CLI-3 realinhado conforme a escolha (permitido pelo item 5 da task).
+- Recusa de ownership usa `TOOL_DENIED` (§4/§10: "ação proibida é negada por código, nunca interpretada"; mesmo precedente de ownership de paths da 014a) → exit 3 na CLI, HTTP 403 na API.
+- Confinamento do manifesto usa `SCHEMA_INVALID` (manifesto malicioso é entrada inválida) → exit 2 na CLI, HTTP 400.
+- Span de fila: emitido por evento de geração a partir do observador (opção "emitir" do item baixo b); instantes absolutos da janela de fila não são conhecidos no recorder — registrado como atributo com a razão, duração `active_s` medida pelo servidor loopback.
+
+### Limitações e pendências registradas
+
+- O confronto com tombstones do domínio corrente lê `data_root/domain.sqlite` somente-leitura no restore; sem banco corrente (raiz isolada), não há tombstones a confrontar (registrado no docstring).
+- `resume_turn` aceita `user_id=None` (chamadas internas/testes da 014 sem contexto); CLI e API sempre passam o usuário autenticado — a lacuna não é alcançável pelas interfaces do §12.
+
+### Dificuldade sentida
+3/10 — Correções pontuais com sondas que reproduziram de primeira; os únicos atritos foram calibrar a sonda de traversal (o manifesto precisa do SHA-256 REAL do arquivo plantado, senão a recusa vem do verificador de hash e não do confinamento) e construir o gate de espera para o teste de approve (practice exige tópico e evidência). A escolha do código de erro para ausência de recurso exigiu decisão explícita dentro do conjunto fechado do §4, documentada acima.
 
 ## Notas
 
