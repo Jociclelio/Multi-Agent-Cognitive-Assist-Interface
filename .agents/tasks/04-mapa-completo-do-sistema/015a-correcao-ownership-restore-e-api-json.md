@@ -63,7 +63,7 @@ Restrições: preservar o design e a entrega da 015; tocar apenas `eduagent/` e 
 
 ### Limitações e pendências registradas
 
-- O confronto com tombstones do domínio corrente lê `data_root/domain.sqlite` somente-leitura no restore; sem banco corrente (raiz isolada), não há tombstones a confrontar (registrado no docstring).
+- O confronto com tombstones do domínio corrente lê `data_root/domain.sqlite` somente-leitura no restore; sem banco corrente (raiz isolada), não há tombstones a confrontar (registrado no docstring). **Alinhado pela subtask 015b (fail-closed)**: banco corrente PRESENTE porém ilegível (corrompido/sem tabela) recusa o restore por código (`INTERNAL_FAILURE`) com o diretório alvo descartado — a lista vazia vale APENAS para a ausência documentada do banco (ver limitação residual da 015b: `resume_turn(user_id=None)` abaixo permanece da 015a).
 - `resume_turn` aceita `user_id=None` (chamadas internas/testes da 014 sem contexto); CLI e API sempre passam o usuário autenticado — a lacuna não é alcançável pelas interfaces do §12.
 
 ### Dificuldade sentida
