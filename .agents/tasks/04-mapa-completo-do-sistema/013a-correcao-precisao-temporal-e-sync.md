@@ -1,6 +1,6 @@
 # Task 013a: Correção — precisão temporal do ICS, fuso all-day no sync e robustez de confirmação/outbox
 
-Estado: aguardando revisão
+Estado: fechada (9/10, fechar)
 Depende de: 013
 Origem: 013 (correção — decisão do master `e177547`; entrega `f72440c` e registro `d1ecc58` preservados, sem reversão)
 
@@ -50,15 +50,19 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` INTOCADO ("deve"
 3/10 — correções pontuais e bem localizadas conforme previsto; a sonda reproduziu o achado A-01 de imediato e os critérios tinham caminho de teste direto. Único ajuste de rota: no caso "total" do R5 o lote continua após `NOT_APPLIED` reconciliado (decisão da 013 preservada — só CONFLICT/UNKNOWN interrompem), então o teste total precisou de dois updates perdidos para não aplicar efeito residual; a guarda de linha legada em `check_confirmation_current` (hash vazio) foi acrescentada para o caminho do parser G-A1 ficar coeso sem enfraquecer a invalidação por revisão de domínio.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: —
-- Nota final: —
-- Parecer: —
-- Decisão: pendente
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: master do ciclo (sd2/GLM-5.3-Flash, via `~/sd2-llm.sh`); rodada **sequencial** (suíte roda no venv compartilhado — mesmo motivo registrado nas rodadas da família 011/012/013).
+- Alvo: base real `dc00d79500015005641134789aa54003dacc21fa` (conferida por `git rev-parse`; o SHA completo `dc00d7993586…` registrado na Execução era erro de transcrição — corrigido aqui pelo master, sem alterar commits), entrega `8ddbaea` (calendar.py + testes), registro `4c13c45`. Árvore limpa; entrega e registro separados; mapa/config/submódulo intocados (confirmado por diff e pelos três revisores).
+- Avaliações (três modelos distintos, mesmas evidências alvo, sem compartilhamento de pareceres):
+  - GLM-5.3-Flash (`task_review`, sessão própria): 9/10, aprovado. Suíte integral 446 passed reproduzida no `.venv`. C1–C4 verificados por leitura de diff + execução. Achado F-1 (baixo, do alvo recebido, não da entrega): SHA de base transcrito errado — corrigido na ata. F-2 (baixo): linha legada com `dependencies_hash` vazio pula validação por dependência em `check_confirmation_current` (janela restrita a linhas pré-0007; invalidação por domínio preservada; documentado e testado em R6).
+  - GPT-6 Luna (`task_review`, sessão própria): 8/10, provisória/inconclusiva — não executou a suíte (python do sistema sem `rank_bm25`/`ortools`/`icalendar` em vez do `.venv`); sem correção de código identificada; pendência de execução coberta pela reprodução independente de GLM e Beam, conforme precedência já usada na família.
+  - Beam Free (`task_review`, sessão própria): 9/10, aprovado definitivo. Suíte integral 446 passed reproduzida no `.venv` (~20 s); sondas MicroClock reproduzidas. Residual baixo: comparações de DTSTART/DTEND em `verify_calendar` e `build_sync_ops` usam precisão original; ICS serializa em segundos — divergência só ocorreria com blocos construídos diretamente com microssegundos ≠ 0, não atingível pelo solver (instantes alinhados a minuto); hardening opcional, fora do escopo do A-01.
+- Síntese: as seis correções (A-01/A-02/L-A1/L-A2/G-A1/G-A2) implementadas e cobertas por R1–R7, confirmadas por dois revisores com execução independente (GLM e Beam, ambos 446 passed); §15.5 preservado (persistidos com micros, reexportação byte-idêntica R1, SEQUENCE intocada); revalidação §15.1 por efeito remoto com recusa tipada sem retry cego e efeitos enviados em reconciliação (R4/R5); divergência única entre revisores era de ambiente (Luna), não de mérito. Residuais baixos (F-2, DTSTART/DTEND com micros) documentados para correção pontual futura, sem reabrir a família.
+- Nota final: 9/10 — correção pontual completa e bem isolada, com regressão específica por achado e reprodução independente; dedução apenas pelos residuais baixos documentados.
+- Parecer: todos os critérios obrigatórios (C1–C4) comprovados com evidência de execução; sem achado alto/médio de mérito pendente.
+- Decisão: fechar
+- Reversão: não se aplica — entrega preservada (correção da 013 mantida; nenhum commit revertido).
+- Próximo passo: família 013 resolvida por subtasks (013 fechada com nota 7/10 pela revisão original + 013a fechada com 9/10); liberar a task 014 (grafo LangGraph — intenções, rotas e checkpoints), dependente de 013.
 
-<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/04-mapa-completo-do-sistema/013a-correcao-precisao-temporal-e-sync.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/04-mapa-completo-do-sistema/014-grafo-langgraph-intencoes-rotas-checkpoints.md","family":".agents/tasks/04-mapa-completo-do-sistema/011-demandas-atividades-e-politica-evidencia.md","plan":".agents/plans/04-mapa-completo-do-sistema/plan.md"} -->
 
 Plano: [plan.md](../../plans/04-mapa-completo-do-sistema/plan.md)
