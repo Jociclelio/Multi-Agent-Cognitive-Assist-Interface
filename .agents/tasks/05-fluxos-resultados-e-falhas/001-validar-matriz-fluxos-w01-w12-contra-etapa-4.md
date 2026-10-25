@@ -1,6 +1,6 @@
 # Task 001: Validar a matriz de fluxos W01–W12 contra a etapa 4 e a v0.1 implementada
 
-Estado: aguardando revisão
+Estado: fechada (decisão: fechar — revisão 9/10, quórum aprovado)
 Depende de: nenhuma
 Origem: nenhuma
 
@@ -57,13 +57,16 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 4/10 — A conferência em si é de baixo risco, mas exige leitura atenta e cruzada de três fontes (tabela do documento 05, §10/§15 do mapa e nós/arestas reais em `eduagent/graph.py`); o maior cuidado foi resistir à tentação de "melhorar" redações do documento 05 sem desvio de fidelidade que as justificasse, mantendo o dif zero.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — master do ciclo opt-in, sessão dedicada
+- Alvo: base `8bed49a50bb0f93fc444504970770ae9d6e4c79a`; entrega **sem commit de artefatos** (conferência sem desvio → dif zero no documento 05); registro `ac4222c0be065d2ff8d12c558482c8c74b7b486e` (commit único documental, apenas este task.md)
+- Modo da rodada: sequencial — reproduz o padrão dos ciclos anteriores do plano 04 (revisores executam o verificador documental e sondagens de leitura sobre o mesmo ambiente/venv compartilhado da raiz, evitando disputa de recursos); três sessões novas, um modelo por sessão
+- Avaliações: GLM-5.3-Flash (sd2): 9/10 — aprovada; qwen3-27b (sorgan-qwen): 9/10 — aprovada; gpt-6-luna (openai): 9/10 — aprovada
+- Nota final: 9/10
+- Parecer: convergência factual total entre os três revisores nos critérios C1–C3, cada um com sondagens independentes. C1: matriz W01–W12 confere rota a rota com o §10 do mapa e com `eduagent/graph.py` (nós/arestas citados presentes); saídas citadas restringem-se a O01–O18 existentes; variações cobrem sucesso, espera (W02/W03/W06), conflito (W06/W08/W10), abstinência (W02/W04), cancelamento (W11) e falha controlada (W01/W12); dif zero justificado — as sondagens negativas dos três revisores não encontraram desvio de fidelidade. C2: decomposição de pedidos compostos e regra de revisão da matriz presentes no parágrafo de abertura (linha 5); `[→outbox→sync]` no W08; gate de rede/cache no W09; zero ocorrências de `America/Sao_Paulo`, reranker adotado, resultado medido ou busca/Google como capacidade garantida; `MODEL_NOT_ADMITTED` não contradito (confirmado em `eduagent/contracts.py:302`, `CONNECTOR_DISABLED` em `graph.py:508,2429` e relatório linha 30). C3: verificador documental `passed` (12 fluxos, 18 saídas, 24 falhas, 39 links) reproduzido pelos três; `git diff 8bed49a..HEAD` afeta apenas o task.md — mapa 04, documento 05 e submódulo intocados; árvore limpa; commits entrega/registro trivialmente separados (não há commit de entrega). Divergências: apenas de profundidade de reprodução (GLM e qwen inspecionaram o grafo linha a linha; luna com sondagens mais enxutas), sem contradição essencial. Achados relevantes: dois de impacto baixo, do qwen (R1: `task.md:34` cita "§4/§8/§15.2" para "não produz nota oficial", expressão literal ausente do mapa — paráfrase fiel no documento 05 linha 12; R2: `task.md:37` cita "§15.1" para "overwrite silencioso", quando o §15.1 diz "nunca undo silencioso" — paráfrase fiel no documento 05 linha 15): imprecisões de citação de seção SOMENTE no registro, sem efeito no entregável; registradas como observação editorial, sem reabrir a task. GLM registrou observação menor análoga (abstinência em W04 apoiada em O08/indecidível, não no texto literal da linha) — leitura justificável. Limitações declaradas: conferência estática (sem execução de rotas nem suíte pytest), coerente com escopo documental da task e corretamente registrada em Evidências. Nenhum critério obrigatório pendente.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos
+- Próximo passo: task liberada — `.agents/tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md` (dependência 001 resolvida)
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md","family":".agents/tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md","plan":".agents/plans/05-fluxos-resultados-e-falhas/plan.md"} -->
 
 Plano: [plan.md](../../plans/05-fluxos-resultados-e-falhas/plan.md)
