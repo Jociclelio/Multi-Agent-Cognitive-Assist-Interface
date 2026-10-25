@@ -1,6 +1,6 @@
 # Task 001: Validar a matriz de fluxos W01–W12 contra a etapa 4 e a v0.1 implementada
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: nenhuma
 Origem: nenhuma
 
@@ -18,16 +18,35 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 - `fase2/scripts/verificar_documentos.py` — verificação documental (exige presença de W01–W12, O01–O18, F01–F24).
 
 ## Corretude
-- [ ] C1 — Cada um dos 12 fluxos conferido item a item contra a etapa 4 e a implementação (gatilho/sequência, saídas citadas, variações/término), com registro em Evidências; desvios corrigidos no documento 05 em dif mínimo ou justificados.
-- [ ] C2 — Decomposição de pedidos compostos sem capacidades ilimitadas e a regra de revisão da matriz por novos conectores/skills confirmadas no texto; nenhum fluxo contraria a v0.1 (CONNECTOR_DISABLED, sync opcional, timezone pendente, não-admitidos).
-- [ ] C3 — `python3 fase2/scripts/verificar_documentos.py` passa; mapa intocado; commits entrega/registro separados; nada como resultado medido.
+- [x] C1 — Cada um dos 12 fluxos conferido item a item contra a etapa 4 e a implementação (gatilho/sequência, saídas citadas, variações/término), com registro em Evidências; desvios corrigidos no documento 05 em dif mínimo ou justificados.
+- [x] C2 — Decomposição de pedidos compostos sem capacidades ilimitadas e a regra de revisão da matriz por novos conectores/skills confirmadas no texto; nenhum fluxo contraria a v0.1 (CONNECTOR_DISABLED, sync opcional, timezone pendente, não-admitidos).
+- [x] C3 — `python3 fase2/scripts/verificar_documentos.py` passa; mapa intocado; commits entrega/registro separados; nada como resultado medido.
 
 ## Execução
-- Modelo: <identificador real do executor>
-- Base: <SHA completo antes da implementação>
-- Entrega: <SHA(s) completos, sem commits de registro, ou sem alteração de artefatos>
-- Arquivos da entrega: <paths ou referência ao diff dos commits>
-- Evidências: <comandos/procedimentos, resultados e limitações>
+- Modelo: GLM-5.3-Flash (via ~/sd2-llm.sh; provider `sd2`, model `GLM-5.3-Flash`) — identidade informada pelo runtime
+- Base: 8bed49a50bb0f93fc444504970770ae9d6e4c79a
+- Entrega: sem alteração de artefatos — conferência de fidelidade não revelou desvio que exigisse correção no documento 05; nenhum diff necessário
+- Arquivos da entrega: nenhum modificado; conferência sobre `fase2/documentos/05_fluxos_resultados_e_falhas.md` (seção 1, linhas 3–20), `fase2/documentos/04_mapa_completo_do_sistema.md` (§§1–15), grafo implementado (`eduagent/graph.py`) e `eval/relatorio-testes-mvp.md`
+- Evidências: conferência item a item dos 12 fluxos contra o §10 do mapa e o grafo implementado (`eduagent/graph.py`, nós e arestas `classify`→rotas):
+  - **W01** = rota `ingest → extract → curator_facts → validate → confirm_if_needed → commit/index` (nós `ingest_extract, curator_facts, ingest_validate, confirm_if_needed, commit_index`); saídas O01/O02 existem; variações (digital, scan, tabela, duplicata, revisão; ilegível/oversized explícitos) batem com §6 itens 1–3. ✓
+  - **W02** = rota `ask/practice → snapshot → curator_retrieve + librarian_retrieve → context → tutor → validate → publish/wait`; O03/O04; abstinência e "geral rotulada" batem com §6 itens 7–8. ✓
+  - **W03** = mesma rota de `practice` com skills (`eduagent/skills/{explain,graduated_hint,quiz,flashcard,self_explain}`); O05–O07; "separar solução", recusa interrompe pistas e "espera não gera chamadas" batem com §8 e §10 (espera = fim da invocação). ✓
+  - **W04** = rota `submit_answer → resolve_pending_item → monitor → validate → commit → feedback → optional_review_request` (nós `resolve_pending_item, monitor_node, answer_validate, commit_assessment, feedback, optional_review_request`); O08/O09; corretude `correct/partial/incorrect/undecidable` e "não produz nota oficial" batem com §4/§8/§15.2. ✓
+  - **W05** = recuperação de memória (§7) via snapshot + `librarian_retrieve`; O10/O11; "não inventar continuidade" bate com §8 ("ausência de prática torna evidência antiga"). ✓
+  - **W06** = rota `plan/replan → snapshot → planner_demands → confirm_if_needed → solver → independent_check → preview → wait` (nós presentes); O12/O13; statuses viável/ótimo/inviável provado/inconclusivo/ambíguo batem com §9 (OPTIMAL/FEASIBLE/INFEASIBLE/UNKNOWN/MODEL_INVALID). ✓
+  - **W07** = replan com novo snapshot reusando W06; O13 (diff e déficit) e O09 (revisão); blocos fixos (§9), duração estimada transparente (§8/§15.3) e "nenhum overwrite silencioso" (§15.1) batem. ✓
+  - **W08** = rota `export_calendar → resolve_approved_plan → render_ics → validate → publish [→ confirmed_outbox]` (nós `resolve_approved_plan, render_ics, ics_validate, publish_ics`); sync fica **entre colchetes** `[→outbox→sync]`, opcional, coerente com §9 e com `calendar_sync_enabled=false`/`calendar.apply → CONNECTOR_DISABLED` na v0.1; O14; "sem rede exporta local; timeout→reconciliação, não duplicata" bate com §9/§11. ✓
+  - **W09** = rota `curate → network_gate → search/fetch → curator_rank → validate_access_claims` (nós presentes); mantém o fluxo **com gate de rede/cache** (mecanismo que produz `CONNECTOR_DISABLED` sem conector configurado — `eduagent/graph.py` nó `network_gate`; relatório de testes linha 30); O15; metadata-only sem resumo e "sem resumo fictício" batem com §6; busca não é apresentada como capacidade garantida. ✓
+  - **W10** = rotas `memory_query` e `correct_fact/delete_data → validate_scope → preview → confirm → commit/invalidate` (nós presentes); O10/O16; propagação a derivados e conflito→esclarecimento batem com §5/§15.1. ✓
+  - **W11** = rota `cancel → stop_dispatch → reconcile_started_effects → persist → cancelled` (nós presentes) + recuperação §11; O16/O17; retomada idempotente, `RESOURCE_LIMIT` e `UNKNOWN_EFFECT` presentes nos erros tipados (§4). ✓
+  - **W12** = CLI `doctor/backup/restore` (§12, `eduagent/cli.py`) + verificador de integridade/replay (§5); O18; "não anunciar sucesso sem check" explícito. ✓
+  - **Saídas citadas**: todos os IDs citados na matriz (O01–O18) existem na tabela da seção 2; nenhum ID fora da faixa ou inexistente. ✓
+  - **Variações/término**: sucesso, espera (W02/W03/W06), conflito (W06/W08/W10), abstinência (W02/W04), cancelamento (W11) e falha controlada (W01/W12) estão cobertos na coluna "Variações e término". ✓
+  - **Pedidos compostos e regra de revisão**: o parágrafo de abertura da seção 1 mantém "Pedidos compostos são decompostos em rotas existentes, sem criar capacidades ilimitadas" e "Novos conectores/skills exigem revisão desta matriz". ✓ (C2)
+  - **Alinhamentos obrigatórios com a v0.1**: nenhuma ocorrência de `America/Sao_Paulo` fixado, reranker adotado ou resultado medido no documento 05 (grep sem ocorrências); sync permanece opcional entre colchetes; `MODEL_NOT_ADMITTED` não é contradito (nenhum fluxo garante tutoria sem modelo validado); busca e Google não aparecem como capacidades garantidas. ✓ (C2)
+  - **Verificador**: `python3 fase2/scripts/verificar_documentos.py` → `status: passed`, 12 fluxos, 18 saídas, 24 falhas, 39 links locais. ✓ (C3)
+  - **Mapa intocado**: `git status` limpo antes e depois; nenhum diff em `fase2/documentos/04_mapa_completo_do_sistema.md`; submódulo não tocado. ✓ (C3)
+  - Limitação: conferência é documental/estática (leitura do grafo e das seções do mapa + grep); não reexecutei a suíte pytest (fora do escopo desta task documental), e o grafo implementado foi conferido por leitura de `eduagent/graph.py`, não por execução de rotas.
 
 ## Notas
 
@@ -35,7 +54,7 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 3/10 — Conferência de fidelidade tabela-a-especificação com documento já materializado; risco baixo de inflar resultado, mas exige leitura atenta do mapa §10 e do sistema implementado.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+4/10 — A conferência em si é de baixo risco, mas exige leitura atenta e cruzada de três fontes (tabela do documento 05, §10/§15 do mapa e nós/arestas reais em `eduagent/graph.py`); o maior cuidado foi resistir à tentação de "melhorar" redações do documento 05 sem desvio de fidelidade que as justificasse, mantendo o dif zero.
 
 ### Revisão
 - Orquestrador: —
