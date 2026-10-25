@@ -1,6 +1,6 @@
 # Task 005: Consolidar rastreabilidade e cobertura, índice da entrega e verificador
 
-Estado: aguardando revisão
+Estado: fechada (decisão: fechar, 9/10)
 Depende de: 004
 Origem: nenhuma
 
@@ -45,13 +45,15 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 2/10 — Consolidação final sobre quatro conferências fechadas com convergência factual total e dif zero acumulado; o universo de tarefas do §10 foi re-mapeado rota a rota e os IDs re-expandidos por script, sem desvio encontrado. O único ponto de juízo foi o destino dos achados não corretivos R004-REV-01/02 herdados da revisão da 004, resolvido como não corretivo com justificativa registrada.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: sd2/GLM-5.3-Flash (task-master, ciclo opt-in)
+- Alvo: base 41cf3db6e79be934f410280335a5818510841b79; entrega sem alteração de artefatos (dif zero entre base e HEAD em fase2/documentos/05_fluxos_resultados_e_falhas.md e fase2/documentos/11_indice_da_entrega.md — confirmado pelos três revisores via git diff --stat: único commit pós-base é o registro 97d23d65349696ca46116df223cfd4360a4ba259, tocando apenas este .md); versão do registro revisada: a do HEAD no momento da rodada.
+- Avaliações: sd2/GLM-5.3-Flash: 9/10; sorgan-qwen/qwen3-27b: 8/10; openai/gpt-6-luna: 9/10. Rodada sequencial (cada revisor em sessão nova), por ambiente compartilhado: os três podem rodar o verificador documental e inspecionar Git na mesma árvore de trabalho — mesmo critério das rodadas 001–004. Sem falhas ou substituições; quórum de três modelos distintos completo no primeiro envio.
+- Nota final: 9/10 — convergência factual total entre os três revisores em C1 e C2, reproduzida de forma independente (mapeamento rota a rota do §10 contra W01–W12 sem lacuna nem superafetação; re-expansão dos IDs com exatos 12 W, 18 O e 24 F; verificador passed com 11 etapas, 20 componentes, 39 links e delivery_pending vazio; índice correto; greps de alinhamento v0.1 nulos para America/Sao_Paulo, reranker e "medido"; W08 preservando [→outbox→sync] e W09 preservando o gate de rede/cache). A nota não é média automática: o único desvio é de completude do registro (achado A1/GLM, R005-REV-QW-01/Qwen, confirmado por Luna), sem efeito nos artefatos entregues, e o juízo pendente é registrado abaixo, fechando a lacuna.
+- Parecer: C1 e C2 verificados integralmente pelos três revisores. C3 verificado com uma omissão de completude: o resumo consolidado do executor julgou R004-REV-01 e R004-REV-02, mas omitiu os achados explicitamente encaminhados ao juízo desta task pelas revisões anteriores — R004-01 (revisão da 004: citação do §15.6 no cenário 6 como evidência mais estreita que a conclusão, qualificável como analogia), R003-QW-01 (revisão da 003: redação opcional de F19) e R003-QW-02 (fronteira S2 versus S3 em F22). Divergência entre revisores apenas na decisão: GLM e Luna recomendam fechar com registro do juízo faltante; Qwen recomenda corrigir via acréscimo de registro. Como os três convergem que os juízos são não corretivos e não exigem dif no documento 05, o quórum majoritário prevalece e o juízo consolidado fica registrado aqui: **R004-01 — não corretivo**: a revisão da 004 já qualificou o achado como "sem efeito no documento entregue", e o cenário 6 (linha 83 do documento 05) não cita o §15.6, de modo que nenhuma alteração no documento 05 se justifica sob a regra de dif mínimo. **R003-QW-01 — não corretivo**: a redação de F19 é opcional e defensável; alterá-la introduziria dif sem ganho de fidelidade. **R003-QW-02 — não corretivo**: a fronteira S2/S3 em F22 foi ratificada como defensível na revisão da 003; sem evidência nova nesta rodada que a desloque. Com esses registros, a cadeia de rastreabilidade das tasks 001–005 fica completa. Corretude pendente: nenhuma. A entrega do documento 05 acumula dif zero nas cinco conferências (001–005), com o mapa da etapa 4 e o submódulo intocados em todas.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos (dif zero entre base e HEAD nos documentos; nenhum commit de entrega a reverter)
+- Próximo passo: nenhuma subtask; família 001–005 integralmente fechada. Critérios de conclusão do plano com evidência nas tasks (tabelas completas 12/18/24 + 6 compostas, seção 5 consistente com a etapa 4 e sem contradição com etapas 6/7, nada como resultado medido, verificador passed) — plano 05-fluxos-resultados-e-falhas marcado concluído no índice. Pendências herdadas permanecem registradas como ausência: nada medido; severidades potenciais; catálogo não exaustivo; baselines/ablações e execução experimental fora do escopo (etapa 8, planos subsequentes).
+
+<!-- task-cycle: {"decision":"concluido","next_task":null,"family":".agents/tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md","plan":".agents/plans/05-fluxos-resultados-e-falhas/plan.md"} -->
 
 Plano: [plan.md](../../plans/05-fluxos-resultados-e-falhas/plan.md)

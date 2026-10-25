@@ -1,6 +1,6 @@
 # Plano: Materializar a Etapa 5 — fluxos, saídas esperadas e pontos de falha do EduAgent-OS
 
-Estado: aprovado — tasks derivadas (001–005, seções 1–5 do plano em ordem); ciclo em execução: 001–004 fechadas, 005 liberada (dependência 004 resolvida)
+Estado: concluído — família integralmente fechada (001–005, todas com decisão fechar e 9/10; dif zero acumulado no documento 05)
 
 ## Objetivo
 Consolidar `05_fluxos_resultados_e_falhas.md` como a referência de fluxos operacionais, qualidade de saídas e catálogo de falhas do EduAgent-OS, garantindo que o material esteja coerente com a especificação v0.1 (etapa 4), registrado no índice da entrega e rastreável (IDs W, O e F), sem apresentar nada como resultado medido.
@@ -43,6 +43,6 @@ O documento é normativo (especificação), portanto o plano descreve a implemen
 | 2 | [002-validar-qualidade-saidas-o01-o18.md](../../tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md) | Abordagem 2 (qualidade O01–O18) | 001 | fechada (decisão: fechar, 9/10) |
 | 3 | [003-validar-catalogo-falhas-f01-f24-severidades.md](../../tasks/05-fluxos-resultados-e-falhas/003-validar-catalogo-falhas-f01-f24-severidades.md) | Abordagem 3 (catálogo F01–F24, S1–S4) | 002 | fechada (decisão: fechar, 9/10) |
 | 4 | [004-validar-falhas-compostas-prioritarias.md](../../tasks/05-fluxos-resultados-e-falhas/004-validar-falhas-compostas-prioritarias.md) | Abordagem 4 (6 falhas compostas) | 003 | fechada — fechar (9/10, quórum GLM/Qwen/Luna; dif zero no documento 05, registro 2d25eeb) |
-| 5 | [005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md](../../tasks/05-fluxos-resultados-e-falhas/005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md) | Abordagem 5 + critérios de conclusão | 004 | liberada (dependência resolvida) |
+| 5 | [005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md](../../tasks/05-fluxos-resultados-e-falhas/005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md) | Abordagem 5 + critérios de conclusão | 004 | fechada — fechar (9/10, quórum GLM/Qwen/Luna; entrega sem alteração de artefatos, registro 97d23d6) |
 
 Notas: o documento `fase2/documentos/05_fluxos_resultados_e_falhas.md` já está materializado e registrado no índice da entrega — as tasks são de conferência de fidelidade contra a etapa 4 (e coerência com a v0.1 implementada no plano 04), com correção apenas em dif mínimo no próprio documento 05; `fase2/documentos/04_mapa_completo_do_sistema.md` permanece intocado. Nada é apresentado como resultado medido; severidades são potenciais. Métricas para os IDs W/O/F são da etapa 6 e métodos da etapa 7 — fora do escopo deste plano.
