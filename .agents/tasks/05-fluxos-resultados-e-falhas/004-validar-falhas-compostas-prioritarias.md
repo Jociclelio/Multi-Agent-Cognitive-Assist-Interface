@@ -1,6 +1,6 @@
 # Task 004: Validar as seis falhas compostas prioritárias e suas exigências
 
-Estado: aguardando revisão
+Estado: fechada (revisão aprovada por quórum; ver Revisão)
 Depende de: 003
 Origem: nenhuma
 
@@ -47,13 +47,16 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 3/10 — A conferência foi facilitada pelo padrão já consolidado nas tasks 001–003 e pela estrutura enxuta da seção 4 (seis enunciados de uma linha cada, todos ancorados no catálogo recém-validado pela 003): cada cenário exigiu apenas rastrear a cadeia até as linhas do catálogo F01–F24 e até as âncoras §9/§11/§15.1/§15.5/§15.6 do mapa, sem desvio encontrado. O único ponto que exigiu julgamento foi distinguir "confirma indevidamente" (cenário 1) da redação exata de F02 ("resolve ambiguidade sem confirmação") — mesma família de falha, redação diferente — e o mapeamento do cenário 6 simultaneamente a F22 (omissão de falhas na métrica) e F23 (conclusão inválida), resolvido pela leitura da propagação de cada linha do catálogo.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: task-master GLM-5.3-Flash (provider sd2), ciclo opt-in do plano 05
+- Alvo: entrega sem alteração de artefatos (dif zero no documento 05 entre base `92e3e2ccd87c3a8a3b80c94a254039dd9abb0f85` e HEAD); registro `2d25eebf6555f649107bb20fb7abaa8a81cdb9f7` (commit único, apenas o task.md, estado aguardando revisão), revisado nessa versão
+- Modo da rodada: sequencial — os três revisores rodam inspeções Git e o verificador documental no mesmo repositório compartilhado, e o modo sequencial preserva a estabilidade do alvo durante a rodada (critério mantido das rodadas 001–003); pool por arquivo global (`~/.config/opencode/task-reviewer-pool.md`), três primeiros, sem falhas nem substituições
+- Avaliações: GLM-5.3-Flash (sd2): 9/10; Qwen3.8 27B (sorgan-qwen/qwen3-27b): 10/10; GPT-6 Luna (openai/gpt-6-luna): 9/10
+- Nota final: 9/10
+- Parecer: quórum de três modelos distintos com convergência factual total nos critérios C1–C3 — encadeamentos dos seis cenários rederivados de forma independente contra o catálogo F01–F24 (cen.1 F01/F02; cen.2 F06/F09; cen.3 F14/F15; cen.4 F21; cen.5 F15+§11; cen.6 F22/F23), exigências sem contradição com §9/§11/§15.1/§15.5/§15.6 do mapa, ressalvas de honestidade confirmadas nas linhas 78/82/83 e rótulo de potencial na linha 47, verificador documental reproduzido (`passed`, 12/18/24/39), mapa 04 intocado, submódulo intocado e árvore limpa confirmados pelos três. Achados não corretivos: (i) R004-REV-01 [GLM, baixo] — "confirma indevidamente" (cen.1, l.78) versus redação literal de F02 ("resolve ambiguidade sem confirmação", l.52): mesma família de falha e propagação idêntica, mapeamento defensável, executor já documentou o julgamento; (ii) R004-REV-02 [GLM, informativo] — cen.1 não formula exigência de mitigação explícita, atribuição admitida pela leitura do Prompt (5 exigências para 6 cenários); (iii) R004-01 [Luna, baixo] — a citação ao §15.6 no registro do cen.6 é evidência mais estreita que a conclusão (a regra do denominador no §15.6, l.287 do mapa, está formulada para o sucesso de delegação), cabendo qualificar como analogia — sem efeito no documento entregue, cujo cenário 6 permanece coerente como risco potencial; (iv) Qwen sem achados, apenas observação informativa convergente com R004-REV-01. Divergência de nota (9/10/9) decorre do rigor de evidência, não de fato; C1–C3 verificados pelos três.
+- Decisão: fechar
+- Reversão: não se aplica — entrega sem alteração de artefatos
+- Próximo passo: task 005 (consolidação de rastreabilidade e cobertura) liberada com dependência resolvida; alinhamentos de redação R004-REV-01 (cen.1 vs F02) e a qualificação de evidência R004-01 (§15.6 como analogia) registrados para juízo da task 005, sem reabrir esta
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/05-fluxos-resultados-e-falhas/005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md","family":".agents/tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md","plan":".agents/plans/05-fluxos-resultados-e-falhas/plan.md"} -->
 
 Plano: [plan.md](../../plans/05-fluxos-resultados-e-falhas/plan.md)
