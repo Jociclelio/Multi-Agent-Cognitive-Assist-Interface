@@ -1,6 +1,6 @@
 # Plano: Materializar a Etapa 5 — fluxos, saídas esperadas e pontos de falha do EduAgent-OS
 
-Estado: aprovado — tasks derivadas (001–005, seções 1–5 do plano em ordem); execução pendente de início do ciclo
+Estado: aprovado — tasks derivadas (001–005, seções 1–5 do plano em ordem); ciclo em execução: 001–003 fechadas, 004 liberada (dependência 003 resolvida), 005 pendente
 
 ## Objetivo
 Consolidar `05_fluxos_resultados_e_falhas.md` como a referência de fluxos operacionais, qualidade de saídas e catálogo de falhas do EduAgent-OS, garantindo que o material esteja coerente com a especificação v0.1 (etapa 4), registrado no índice da entrega e rastreável (IDs W, O e F), sem apresentar nada como resultado medido.
@@ -41,7 +41,7 @@ O documento é normativo (especificação), portanto o plano descreve a implemen
 |---|---|---|---|---|
 | 1 | [001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md](../../tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md) | Abordagem 1 (matriz W01–W12) | nenhuma | fechada (decisão: fechar, 9/10) |
 | 2 | [002-validar-qualidade-saidas-o01-o18.md](../../tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md) | Abordagem 2 (qualidade O01–O18) | 001 | fechada (decisão: fechar, 9/10) |
-| 3 | [003-validar-catalogo-falhas-f01-f24-severidades.md](../../tasks/05-fluxos-resultados-e-falhas/003-validar-catalogo-falhas-f01-f24-severidades.md) | Abordagem 3 (catálogo F01–F24, S1–S4) | 002 | pendente |
+| 3 | [003-validar-catalogo-falhas-f01-f24-severidades.md](../../tasks/05-fluxos-resultados-e-falhas/003-validar-catalogo-falhas-f01-f24-severidades.md) | Abordagem 3 (catálogo F01–F24, S1–S4) | 002 | fechada (decisão: fechar, 9/10) |
 | 4 | [004-validar-falhas-compostas-prioritarias.md](../../tasks/05-fluxos-resultados-e-falhas/004-validar-falhas-compostas-prioritarias.md) | Abordagem 4 (6 falhas compostas) | 003 | pendente |
 | 5 | [005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md](../../tasks/05-fluxos-resultados-e-falhas/005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md) | Abordagem 5 + critérios de conclusão | 004 | pendente |
 

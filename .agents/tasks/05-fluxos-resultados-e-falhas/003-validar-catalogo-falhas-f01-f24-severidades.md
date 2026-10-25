@@ -1,6 +1,6 @@
 # Task 003: Validar o catálogo de falhas F01–F24 e as severidades S1–S4
 
-Estado: aguardando revisão
+Estado: fechada (decisão: fechar, 9/10)
 Depende de: 002
 Origem: nenhuma
 
@@ -40,13 +40,15 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 3/10 — A conferência foi facilitada pelo padrão já estabelecido nas tasks 001/002 (mesmos universos de IDs, mesmo verificador) e pelo fato de o documento 05 já estar materializado com alta fidelidade: os scripts de expansão de IDs e o cruzamento com §4/§11/§15.1 e com o código (`calendar.py`, `memory.py`, `manifest.json`) não revelaram desvio. O único ponto que exigiu julgamento foi a ausência de uso do nível S1 na tabela (registrado como observação, sem correção) e a atribuição fina entre S2/S3 nas falhas de validade da avaliação (F22/F23), resolvida pela ordenação interna da própria escala.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: sd2/GLM-5.3-Flash (master do ciclo; rodada de revisão SEQUENCIAL — cada revisor roda o verificador documental da raiz, inspeciona git e usa a mesma árvore de trabalho, recurso compartilhado; mesmo padrão das rodadas 001 e 002)
+- Alvo: entrega sem alteração de artefatos (dif zero no `fase2/documentos/05_fluxos_resultados_e_falhas.md` confirmado pelos três); registro revisado `e96c4afedf95d988a09b946504363853ce8cf0de` (commit único, apenas o task.md); base `5d3818de23609d405665b1b4c444bf82531f03f6`
+- Avaliações: GLM-5.3-Flash (sd2): 9/10; Qwen3.8 27B (sorgan-qwen/qwen3-27b): 9/10; GPT-6 Luna (openai/gpt-6-luna): 9/10
+- Nota final: 9/10
+- Parecer: quórum de três modelos distintos com convergência factual total em C1–C3 — os três reproduziram o verificador documental (passed: 12 fluxos, 18 saídas, 24 falhas, 39 links), confirmaram dif zero no documento 05 e mapa 04 intocado entre base e HEAD, validaram a tabela F01–F24 por leitura própria contra o mapa da etapa 4 e contra o código (`calendar.py` UNKNOWN_EFFECT/reconciliação sem retry cego para F15; `memory.py` correção/invalidação para F21), reproduziram a distribuição de severidades (S2×6, S3×14, S4×4) e o rótulo "potencial, não frequência observada" (única ocorrência dos termos proibidos é o rótulo negativo da linha 47), e confirmaram os alinhamentos v0.1 (zero America/Sao_Paulo, zero Google/reranker/resultado medido; W08 preserva `[→outbox→sync]`). Achados convergentes, todos de esclarecimento sem caráter corretivo: (1) F19 "núcleo bloqueado" (linha 69) pode sugerir indisponibilidade do núcleo quando o mapa 04 garante que ausência de rede/credenciais não bloqueia o núcleo — GLM (A003-R1) e qwen (R003-QW-01) sugerem redação futura opcional ("fluxo de curadoria bloqueado"); (2) fronteira S2/S3 em F22 — qwen (R003-QW-02) considera S3 encaixe mais estrito (dado experimental comprometido, análogo a F23/S3), defensível mas pouco fundamentada; (3) S1 definido mas não usado na tabela — registrado pelo executor e ratificado pelos três como coerente com catálogo de falhas de fronteira. Limitação isolada da Luna (não localizou `eduagent/manifest.json`) decorre de path presumido: o manifesto congelado da 017 está na raiz (`./manifest.json`), confirmando F24 sem efeito na entrega. Nenhuma divergência essencial entre revisores; nenhum critério pendente.
+- Decisão: fechar
+- Reversão: não se aplica — entrega sem alteração de artefatos
+- Próximo passo: liberar a task 004 (`.agents/tasks/05-fluxos-resultados-e-falhas/004-validar-falhas-compostas-prioritarias.md`, dependência resolvida); os alinhamentos de redação opcionais (F19) e a fronteira S2/S3 (F22) ficam registrados para o juízo da task 005 (consolidação), sem reabrir esta.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/05-fluxos-resultados-e-falhas/004-validar-falhas-compostas-prioritarias.md","family":".agents/tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md","plan":".agents/plans/05-fluxos-resultados-e-falhas/plan.md"} -->
 
 Plano: [plan.md](../../plans/05-fluxos-resultados-e-falhas/plan.md)
