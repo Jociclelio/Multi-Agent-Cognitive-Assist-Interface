@@ -1,6 +1,6 @@
 # Task 002: Validar a qualidade por saída O01–O18
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 001
 Origem: nenhuma
 
@@ -16,16 +16,23 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 - `fase2/scripts/verificar_documentos.py` — verificação documental.
 
 ## Corretude
-- [ ] C1 — As 18 saídas conferidas item a item contra o contrato §4 e os artefatos reais (conteúdo necessário e perdas típicas), com registro em Evidências; desvios corrigidos em dif mínimo ou justificados.
-- [ ] C2 — Consistência interna matriz×tabela confirmada: todo O citado em W01–W12 existe; toda O é alcançável por algum fluxo; nenhuma perda típica descrita como ocorrência medida.
-- [ ] C3 — `python3 fase2/scripts/verificar_documentos.py` passa; mapa intocado; commits entrega/registro separados.
+- [x] C1 — As 18 saídas conferidas item a item contra o contrato §4 e os artefatos reais (conteúdo necessário e perdas típicas), com registro em Evidências; desvios corrigidos em dif mínimo ou justificados. **Sem desvio: dif zero justificado.**
+- [x] C2 — Consistência interna matriz×tabela confirmada: todo O citado em W01–W12 existe; toda O é alcançável por algum fluxo; nenhuma perda típica descrita como ocorrência medida.
+- [x] C3 — `python3 fase2/scripts/verificar_documentos.py` passa; mapa intocado; commits entrega/registro separados (entrega: sem alteração de artefatos; só commit de registro).
 
 ## Execução
-- Modelo: <identificador real do executor>
-- Base: <SHA completo antes da implementação>
-- Entrega: <SHA(s) completos, sem commits de registro, ou sem alteração de artefatos>
-- Arquivos da entrega: <paths ou referência ao diff dos commits>
-- Evidências: <comandos/procedimentos, resultados e limitações>
+- Modelo: GLM-5.3-Flash (via `~/sd2-llm.sh`, provider `sd2`) — identidade informada pelo runtime
+- Base: cd4e91129ce99ab13bd6abe66973039e4fa03c94
+- Entrega: sem alteração de artefatos (conferência item a item sem desvio; dif zero no documento 05)
+- Arquivos da entrega: nenhum (somente este registro)
+- Evidências:
+  - Procedimento: leitura integral da seção 2 (tabela O01–O18, linhas 24–43) de `fase2/documentos/05_fluxos_resultados_e_falhas.md` e conferência linha a linha contra a tabela de artefatos do §4 do mapa (SourceRef, AcademicFact, EvidencePack, MemoryPack, LearningItem, TutorTurn, Assessment, TopicState, StudyDemand, ScheduleProposal, Operation), os parágrafos de detalhe (§5–§12, §15.1–15.5) e os artefatos reais da v0.1.
+  - (a) Cobertura: O01–O02/O12–O13/O16–O18 cobrem artefatos internos e operacionais (manifesto/blocos, fatos, demandas, planos, operações, traces, empacotamento); O03–O11 cobrem as saídas ao estudante (pacote, explicação, item, flashcard, turno, avaliação, estado, memória, síntese); nenhuma lacuna encontrada — cada artefato obrigatório do §4 tem linha correspondente (SourceRef→O01/O03; AcademicFact→O02; EvidencePack→O03; LearningItem→O05; TutorTurn→O07; Assessment→O08; TopicState→O09; StudyDemand→O12; ScheduleProposal→O13; Operation→O16; MemoryPack→O10/O11).
+  - (b) Fidelidade, exemplos verificados no código: O14 (ICS) — `eduagent/services/calendar.py` produz UID (UUID estável por bloco lógico), DTSTAMP/CREATED/LAST-MODIFIED/SEQUENCE (versão) e outbox/recibo (`EVENT_CALENDAR_OUTBOX`, `receipt⇔committed`), coerente com "UID/versão/recibo" e RFC5545; O16 — `eduagent/services/effects.py` verifica operation_id primeiro e reutiliza recibo (idempotência), coerente com "operação identificável/efeito conferido"; O17 — traces/spans do mapa §12 com falhas no denominador, sem alegação de medição; O18 — `manifest.json` com SHA-256 de modelo/runtime/skills e `eduagent/services/backup.py` com `wal_checkpoint(TRUNCATE)`, manifesto SHA-256 por arquivo e restore verificado, coerente com "hashes/instalação/restore verificáveis" e perda "DB copiado sem WAL".
+  - Alinhamentos v0.1 obrigatórios: zero ocorrências de "America/Sao_Paulo", de reranker adotado e de resultado medido no documento 05 (grep); O15/W09 coerentes com `CONNECTOR_DISABLED` em `eduagent/services/web.py` (sem conector de busca, rota `curate` desabilitada via network_gate) — busca/Google não aparecem como capacidade garantida; W08 mantém sync opcional entre colchetes; severidade rotulada como potencial (linha 47), perdas típicas formuladas como riscos.
+  - (c) Consistência matriz×tabela: extração de todos os IDs O citados em W01–W12 (linhas 9–20) e da tabela O01–O18 via grep — ambos os conjuntos são exatamente {O01..O18}; toda saída é alcançável por algum fluxo.
+  - Verificador: `python3 fase2/scripts/verificar_documentos.py` → status "passed" (flows 12, outputs 18, failures 24, local_links_checked 39, exit 0); `git status` limpo antes e depois; mapa 04 intocado (nenhuma alteração em árvore limpa sobre a base); submódulo intocado.
+  - Limitações: conferência documental/estática de fidelidade (leitura de contratos e código), sem execução do sistema; nenhuma métrica de qualidade foi medida nem inferida — ausência de resultado quantitativo permanece declarada como ausência (etapas 6/7 e mapa de testagem fora do escopo).
 
 ## Notas
 
@@ -33,7 +40,7 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 3/10 — Conferência de tabela de qualidade contra contratos e artefatos reais; exige cruzar 18 linhas com o mapa §4 e o código entregue.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+3/10 — Conferência de tabela contra contratos e artefatos reais foi direta: a tabela O01–O18 do documento 05 está alinhada ao contrato §4 e ao código entregue, sem desvios; o esforço principal foi cruzar 18 linhas com o mapa §4, os parágrafos de detalhe e os serviços implementados (calendar/effects/backup/web/manifesto).
 
 ### Revisão
 - Orquestrador: —
