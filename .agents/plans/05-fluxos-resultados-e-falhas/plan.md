@@ -39,8 +39,8 @@ O documento é normativo (especificação), portanto o plano descreve a implemen
 ## Tasks
 | Ordem | Task | Cobertura (plano) | Depende de | Estado |
 |---|---|---|---|---|
-| 1 | [001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md](../../tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md) | Abordagem 1 (matriz W01–W12) | nenhuma | pendente |
-| 2 | [002-validar-qualidade-saidas-o01-o18.md](../../tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md) | Abordagem 2 (qualidade O01–O18) | 001 | pendente |
+| 1 | [001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md](../../tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md) | Abordagem 1 (matriz W01–W12) | nenhuma | fechada (decisão: fechar, 9/10) |
+| 2 | [002-validar-qualidade-saidas-o01-o18.md](../../tasks/05-fluxos-resultados-e-falhas/002-validar-qualidade-saidas-o01-o18.md) | Abordagem 2 (qualidade O01–O18) | 001 | fechada (decisão: fechar, 9/10) |
 | 3 | [003-validar-catalogo-falhas-f01-f24-severidades.md](../../tasks/05-fluxos-resultados-e-falhas/003-validar-catalogo-falhas-f01-f24-severidades.md) | Abordagem 3 (catálogo F01–F24, S1–S4) | 002 | pendente |
 | 4 | [004-validar-falhas-compostas-prioritarias.md](../../tasks/05-fluxos-resultados-e-falhas/004-validar-falhas-compostas-prioritarias.md) | Abordagem 4 (6 falhas compostas) | 003 | pendente |
 | 5 | [005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md](../../tasks/05-fluxos-resultados-e-falhas/005-consolidar-rastreabilidade-cobertura-indice-e-verificador.md) | Abordagem 5 + critérios de conclusão | 004 | pendente |

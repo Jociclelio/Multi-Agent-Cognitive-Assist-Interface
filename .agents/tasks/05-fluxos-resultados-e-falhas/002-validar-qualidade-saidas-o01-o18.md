@@ -1,6 +1,6 @@
 # Task 002: Validar a qualidade por saída O01–O18
 
-Estado: aguardando revisão
+Estado: fechada (decisão: fechar — revisão 9/10, quórum aprovado)
 Depende de: 001
 Origem: nenhuma
 
@@ -43,13 +43,15 @@ Restrições: `fase2/documentos/04_mapa_completo_do_sistema.md` é INTOCADO ("de
 3/10 — Conferência de tabela contra contratos e artefatos reais foi direta: a tabela O01–O18 do documento 05 está alinhada ao contrato §4 e ao código entregue, sem desvios; o esforço principal foi cruzar 18 linhas com o mapa §4, os parágrafos de detalhe e os serviços implementados (calendar/effects/backup/web/manifesto).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: <SHAs da entrega e versão do registro revisado>
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: <síntese dos achados, evidências, divergências e Corretude pendente>
-- Decisão: <fechar | corrigir | reiniciar | repartir; pendente se bloqueada>
-- Reversão: <SHA ou não se aplica>
-- Próximo passo: <subtasks em ordem ou próxima task liberada>
+- Orquestrador: sd2/GLM-5.3-Flash (master do ciclo; rodada de revisão SEQUENCIAL — os revisores inspecionam a mesma árvore de trabalho e rodam o verificador documental na raiz, recurso compartilhado; modo idêntico ao da revisão da 001; pool lido no início da rodada em ~/.config/opencode/task-reviewer-pool.md, sem arquivo de projeto)
+- Alvo: entrega sem alteração de artefatos (dif zero no documento 05, confirmado pelos três revisores sobre a base cd4e91129ce99ab13bd6abe66973039e4fa03c94); registro revisado 814494340c581ce88a206fdb0489390a22f86c63 (HEAD, árvore limpa)
+- Avaliações: sd2/GLM-5.3-Flash: 9/10; sorgan-qwen/qwen3-27b: 9/10; openai/gpt-6-luna: 9/10 (nenhuma falha de revisor; sem substituição)
+- Nota final: 9/10
+- Parecer: convergência factual total entre os três revisores nos critérios C1–C3, cada um com verificação própria a partir das fontes: (C1) as 18 linhas O01–O18 conferidas item a item contra a tabela de artefatos obrigatórios do §4 do mapa (11 tipos: SourceRef→O01/O03; AcademicFact→O02; EvidencePack→O03; LearningItem→O05; TutorTurn→O07; Assessment→O08; TopicState→O09; StudyDemand→O12; ScheduleProposal→O13; Operation→O16; MemoryPack→O10/O11 — sem lacuna de cobertura) e contra o código real (GLM e qwen reproduziram as evidências de calendar.py UID/DTSTAMP/SEQUENCE+outbox/recibo para O14, effects.py com idempotência por operation_id para O16, backup.py com wal_checkpoint(TRUNCATE) e manifesto SHA-256, e manifest.json com hashes, para O18); (C2) consistência matriz×tabela provada independentemente por GLM e qwen com extração própria dos IDs: ambos os conjuntos (citados em W01–W12 e listados na tabela) são exatamente {O01..O18}, toda saída alcançável, e nenhuma perda típica formulada como ocorrência medida (riscos potenciais; severidade rotulada como potencial na linha 47); (C3) verificador documental reproduzido pelos três (passed; 12 fluxos, 18 saídas, 24 falhas, 39 links), mapa 04 e documento 05 intocados desde a base (git diff confinado ao arquivo da task), árvore limpa, único commit de registro coerente com o dif zero. Alinhamentos v0.1 confirmados com verificação negativa: zero ocorrências de "America/Sao_Paulo", reranker adotado, resultado medido, e busca/Google como capacidade garantida; W08 preserva [→outbox→sync]; O15/W09 coerentes com CONNECTOR_DISABLED (web.py network_gate). Decisão de dif zero julgada correta pelos três: nenhum desvio encontrado que exigisse correção no documento 05. Achados — todos baixos, sem efeito no entregável e sem exigir correção: GLM (imprecisão cosmética de citação de linha da tabela no registro: "linhas 24–43" no Evidências vs. "linhas 22–43" no Contexto da task, ambas defensáveis); qwen R002-QW-01 (a message do commit de registro diz "dez artefatos obrigatórios" quando a tabela do §4 define 11 tipos — imprecisão de contagem apenas na message, restrita ao registro; o mapeamento nas Evidências da task lista corretamente os 11); luna A1 (pede esclarecimento sobre a sequência temporal do "git status limpo antes e depois" no Evidências — a leitura do master é que a frase descreve o estado em torno do commit de registro e a árvore atual está limpa; observação esclarecedora, não corretiva). Divergência interpretativa isolada: luna leu "dif zero" como afirmação sobre a árvore inteira, quando o registro o afirma apenas para o documento 05 — sem contradição factual. Registro íntegro: SHAs corretos, Evidências condizentes com o apurado, dificuldade sentida 3/10 plausível, limitação de conferência estática declarada. Corretude C1–C3 comprovada sem pendências.
+- Decisão: fechar
+- Reversão: não se aplica — sem artefatos
+- Próximo passo: subtasks não necessárias; próxima task liberada: 003-validar-catalogo-falhas-f01-f24-severidades.md (dependência 002 resolvida)
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/05-fluxos-resultados-e-falhas/003-validar-catalogo-falhas-f01-f24-severidades.md","family":".agents/tasks/05-fluxos-resultados-e-falhas/001-validar-matriz-fluxos-w01-w12-contra-etapa-4.md","plan":".agents/plans/05-fluxos-resultados-e-falhas/plan.md"} -->
 
 Plano: [plan.md](../../plans/05-fluxos-resultados-e-falhas/plan.md)
