@@ -1,6 +1,6 @@
 # Task 001-1: Emendar a D4 — materiais suplementares opcionais e registro do novo depósito
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 001
 Origem: 001 (correção — decisão do usuário de 2026-10-29: professores não costumam fornecer scans, resoluções de exercícios nem notas de monitoria; o sistema não pode depender desses materiais)
 
@@ -48,13 +48,17 @@ Restrições: a emenda é decisão do usuário registrada antes de qualquer cole
 3/10 — Igual à dificuldade esperada: as edições documentais foram delimitadas (uma linha no normativo) e o maior cuidado foi a disciplina de dif mínimo no texto normativo, a preservação integral do texto original da D4 na emenda (acréscimo datado, sem reescrita) e a conferência dos 19 SHA-256 contra os arquivos em disco. A maior parte do volume foi de bookkeeping de hashes e metadados; nenhuma decisão de fundo foi tomada nesta task — a emenda apenas registra a decisão do usuário.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: —
-- Decisão: —
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: sd2/GLM-5.3-Flash (task-master, ciclo opt-in do plano 06)
+- Alvo: entrega `e14b63e5194c385d5c2070bad35a6a02d660f2e8` sobre base `aa7318f`, registro `548f294bdb7ef8adaf101d4a72413265caebecaa` (HEAD, árvore limpa); executor declarado GLM-5.3-Flash (`sd2`), dificuldade sentida 3/10 — identidade e SHAs conferidos pelo master antes da rodada.
+- Modo da rodada: sequencial (um revisor por vez, sessões novas) — os revisores reexecutam o verificador documental e recomputeiam hashes sobre a mesma árvore, recurso compartilhado do sistema.
+- Avaliações: GLM-5.3-Flash (`sd2/GLM-5.3-Flash`): 9/10; Qwen3.8 27B (`sorgan-qwen/qwen3-27b`): 9,5/10; GPT-6 Luna (`openai/gpt-6-luna`): 9/10. Quórum de três modelos distintos atendido, sem substituições nem falhas de revisor.
+- Nota final: 9/10 — convergência factual total dos três revisores em C1–C3 (emenda E1 verificada como acréscimo puro de 4 linhas com zero remoções; dif do documento 06 restrito à linha 11 com verificador `passed` reexecutado pelos três; 19/19 hashes recomputados idênticos ao registro; originais fora do Git e commits de entrega/registro separados confirmados por diff e cadeia de pais). Nota desconta os limites de evidência abaixo, todos declarados no próprio registro.
+- Achados relevantes: (1) [baixo, informativo; convergente GLM e Qwen] a identidade byte a byte do PDD do Classroom com `mat-redes-001` não é re-verificável ex post — a cópia baixada não foi preservada (corretamente, para não criar duplicata); o verificável foi conferido (um único PDD em disco, hash `d9c2355f…` idêntico a `mat-redes-001`, sem entrada duplicada) e o campo `conferencia_de_identidade` declara o método; sem correção. (2) [baixo, informativo; Luna] o registro comprova igualdade do arquivo depositado, não a procedência externa (Classroom/página do docente), que repousa na declaração de fonte — limitação inerente à revisão documental, sem correção. (3) [informativo; GLM] a conta institucional `j231722@dac.unicamp.br` consta no registro versionado por exigência da task — para ciência do master quanto a dados pessoais commitados. (4) [informativo; Qwen] o título de `eval/datasets/contagens-vs-metas.md` ainda cita "task 002"; não é exigência desta task e não justifica dif adicional no normativo — pendência cosmética para a próxima task que tocar `eval/`.
+- Parecer: entrega integral, delimitada e honesta; nada apresentado como resultado medido; IDs permanentes preservados; documentos 04, 05, 07, 08 e submódulo intocados (confirmado pelos três).
+- Decisão: fechar.
+- Reversão: não se aplica — entrega aprovada sem reversão.
+- Próximo passo: família 001 (mãe fechada; subtask 001-1 fechada) resolvida por completo; liberar a task 003 (anotação ouro e congelamento), nova raiz de família, cuja precondition material ficou desbloqueada pela emenda E1 — o executor da 003 deve ler esta seção e considerar o achado (1) como contexto de auditoria do registro por material.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md","family":".agents/tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/06-protocolo-de-avaliacao/plan.md)
