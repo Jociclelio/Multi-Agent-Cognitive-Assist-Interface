@@ -358,11 +358,29 @@ def casos_borda() -> list[dict]:
             "fundamento": "protocolo secao 4 (F13: prazo meio-slot)",
             "verificacao": "estrutural por construcao da grade de slots"},
         "duracao-nao-multipla-de-slot": {
-            "esperado": {"reserva_min": 30, "observacao": "duracao 17 min e "
-                         "arredondada para cima para o slot de 30 min (mapa 08 "
-                         "secao 12: minutos reservados arredondados)"},
-            "fundamento": "protocolo secao 4 (F13: duracao 17 min); mapa 08 secao 12",
-            "verificacao": "estrutural por regra citada (nao multipla de 30 min)"},
+            "esperado": {"viavel": True, "reserva_min": 30,
+                         "cronograma_referencia": [{"atividade": "a1", "dia": 1,
+                                                    "inicio_min": 600,
+                                                    "fim_min": 630}],
+                         "observacao": "duracao 17 min reserva ceil(17/30) = 1 "
+                                       "slot de 30 min: 30 minutos "
+                                       "efetivamente reservados, sem reduzir "
+                                       "minutos (mapa 04 secoes 9 e 15.5: "
+                                       "duracao ocupa ceil(duracao/slot) slots "
+                                       "e capacidade diaria mede minutos "
+                                       "efetivamente reservados; mapa 08 "
+                                       "secao 12: limite diario conta minutos "
+                                       "reservados arredondados); cronograma "
+                                       "de referencia EDF no slot mais cedo "
+                                       "da janela 10:00-13:00; plano que "
+                                       "reduza minutos (fim 617) ou "
+                                       "contabilize 17 min no limite diario "
+                                       "viola a regra"},
+            "fundamento": "protocolo secao 4 (F13: duracao 17 min); mapa 04 "
+                          "secoes 9 e 15.5; mapa 08 secao 12",
+            "verificacao": "estrutural por regra normativa citada (reserva = "
+                           "ceil(duracao/slot) * slot, em minutos originais); "
+                           "asserto pelo gerador na geracao"},
         "ciclo-de-dependencias": {
             "esperado": {"viavel": False, "diagnostico": "ciclo a1->a2->a1",
                          "observacao": "instancia estruturalmente invalida; "
@@ -427,6 +445,29 @@ def main() -> None:
     for familia, split in FAMILIAS.items():
         splits_da_familia = {i["split"] for i in pequenas if i["familia_parametros"] == familia}
         assert splits_da_familia == {split}, f"familia {familia} repartida entre splits"
+
+    # borda de duracao nao multipla: a reserva minima citada e regra normativa
+    # (mapa 04 secoes 9 e 15.5; mapa 08 secao 12) e precisa estar codificada no
+    # esperado com cronograma que a aplique (correcao 002-1 do oraculo ambiguo).
+    for c in borda:
+        if c["categoria"] != "duracao-nao-multipla-de-slot":
+            continue
+        atividade = c["instancia"]["atividades"][0]
+        esperado = c["esperado"]
+        janela = c["instancia"]["janelas"][0]
+        reserva_regra = -(-atividade["duracao_min"] // SLOT) * SLOT
+        assert esperado["reserva_min"] == reserva_regra, \
+            "reserva_min != ceil(duracao/slot) * slot"
+        cron = esperado["cronograma_referencia"][0]
+        assert cron["fim_min"] - cron["inicio_min"] == esperado["reserva_min"], \
+            "cronograma de referencia nao aplica a reserva integral"
+        assert cron["dia"] == janela["dia"], "cronograma em dia sem janela"
+        assert janela["inicio_min"] <= cron["inicio_min"] \
+            and cron["fim_min"] <= janela["fim_min"], "cronograma fora da janela"
+        prazo_abs = atividade["prazo"]["dia"] * 1440 + atividade["prazo"]["minuto"]
+        assert cron["dia"] * 1440 + cron["fim_min"] <= prazo_abs, \
+            "cronograma de referencia excede o prazo"
+        assert esperado["viavel"] is True
 
     ids = [i["id"] for i in pequenas] + [c["id"] for c in borda]
     assert len(ids) == len(set(ids)), "IDs duplicados"

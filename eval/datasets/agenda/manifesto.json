@@ -2,6 +2,7 @@
   "conjunto": "agenda",
   "referencias_normativas": [
     "fase2/documentos/06_protocolo_de_avaliacao.md, secoes 2 e 4 (F13)",
+    "fase2/documentos/04_mapa_completo_do_sistema.md, secoes 9 e 15.5 (regra de reserva: duracao ocupa ceil(duracao/slot) slots, sem reduzir minutos; capacidade diaria mede minutos efetivamente reservados)",
     "fase2/documentos/08_mapa_completo_da_testagem.md, secoes 4, 12 e 12.1",
     ".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md (decisoes D1-D4)"
   ],
@@ -35,7 +36,7 @@
   },
   "hashes_sha256": {
     "pequenas.jsonl": "ba15a8677a9d63198643954c7ff7264af22907a8c2f40000462edf5e94abda35",
-    "borda.jsonl": "3a59d4a2612d33afdd7046437d71668128cb7dce776b0be71cb4e9d1f396c478"
+    "borda.jsonl": "ebbd9fc4cae0fb3ca32ba6576050b3e4d00b74a6c6eb3ae69d50d39c41e8b8b5"
   },
   "seeds": {
     "seed_mestre": 0,
@@ -53,7 +54,7 @@
     "zona": "null com nota — timezone da v0.1 pendente de confirmacao (plano 04); janelas em horario local de parede",
     "atividades": "id, duracao_min, prazo {dia, minuto}, prioridade, depende_de (vazio nas pequenas)",
     "limite_diario_min": "ativo apenas na familia f07; 480 nas demais",
-    "esperado": "viavel (exato por EDF), cronograma_referencia, makespan_minimo (somente quando otimo por construcao), otimo_por_construcao"
+    "esperado": "viavel (exato por EDF), cronograma_referencia, makespan_minimo (somente quando otimo por construcao), otimo_por_construcao; na borda de duracao nao multipla, reserva_min = ceil(duracao/slot)*slot com cronograma_referencia que aplica a reserva integral (mapa 04 secoes 9 e 15.5; mapa 08 secao 12)"
   },
   "procedimento_de_coleta_das_realistas": [
     "1. Concluir o deposito do corpus (cronogramas de avaliacao, grades de horario e documentos de disponibilidade das duas disciplinas) ate os minimos da D4.",
