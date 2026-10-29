@@ -1,6 +1,6 @@
 # Task 003: Anotação, ouro e congelamento do teste
 
-Estado: pendente
+Estado: bloqueada
 Depende de: 002
 Origem: nenhuma
 
@@ -29,20 +29,54 @@ Restrições: anotadores cegos à arquitetura e à condição; o ouro nunca deri
 
 ## Notas
 
+### Bloqueio registrado (2026-10-29)
+
+A task não foi executada: o impedimento é a **precondition pré-fixada na decisão
+D4 da task 001** — "abaixo dos mínimos: não iniciar anotação; registrar
+indisponibilidade". Conferido nesta sessão:
+
+- **Corpus depositado:** apenas 2 materiais, ambos PDFs digitais (um por
+  disciplina) — `mat-redes-001` (programa MC832-A) e `mat-ans-001` (PDD MC847),
+  depositados em 2026-10-29 na sessão da task 002
+  (`eval/corpus/registro-materiais.json`); **nenhum novo depósito** desde então
+  (diretórios `eval/corpus/originais/` inalterados, conferidos por timestamp).
+- **Mínimos da D4 não atingidos:** famílias documentais 0 derivadas (mínimo ≥18
+  no total; dev ≥6, val ≥3, test ≥9; ≥5 por disciplina); scans 0 (mínimo ≥2),
+  tabelas 0 (mínimo ≥2), versões conflitantes 0 — ver
+  `eval/datasets/contagens-vs-metas.md`.
+- **Consequência pela regra da D4:** a anotação (rubricas com piloto, dois
+  avaliadores cegos, adjudicação, kappa) **não inicia**, pois não há split de
+  desenvolvimento povoado para o piloto nem corpus para derivar itens; o
+  congelamento do split de teste (C3) também não ocorre, pois não há itens de
+  teste para congelar. Critérios C1–C3 permanecem desmarcados, sem evidência.
+- **Dependência de usuário:** a coleta completa exige o depósito de scans,
+  tabelas, versões conflitantes e material didático das duas disciplinas em
+  `eval/corpus/originais/` (fora do Git), conforme registrado na task 002 e em
+  `contagens-vs-metas.md`. A pendência de autorização de redistribuição (D2)
+  permanece condicional e registrada.
+- **Nada foi fabricado** para contornar o bloqueio: nenhuma rubrica "preparada"
+  sem piloto, nenhuma anotação simulada, nenhum hash de congelamento fictício.
+  A ausência é declarada como ausência; nada aqui é resultado medido.
+
+As sucessoras da família (004, 005 e 006) declaram dependência da 003 e
+permanecem pendentes até o desbloqueio pelo depósito do corpus.
+
 ### Dificuldade esperada
 6/10 — Coordenar anotação cega com adjudicação e congelamento auditável; o risco é vazamento de condição para os anotadores ou congelamento incompleto (hash faltante).
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+não se aplica — task não executada (bloqueio anterior à execução).
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: —
-- Decisão: —
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provedor `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime; master do ciclo opt-in.
+- Alvo: nenhum — não houve execução nem entrega desta task; bloqueio registrado antes da delegação, sem commit de entrega e sem commit de registro de execução.
+- Avaliações: nenhuma — sem entrega, não há alvo para rodada de revisão; quórum não se aplica.
+- Nota final: n/a — bloqueio, não fechamento (estado `bloqueada`, não `fechada`).
+- Parecer: a precondition da D4 (regra pré-fixada antes de qualquer coleta na task 001) não é atendida pelos depósitos atuais: 0 famílias derivadas, 0 scans, 0 tabelas, 0 versões conflitantes contra mínimos ≥18 famílias/dev ≥6/val ≥3/test ≥9/≥5 por disciplina/≥2 scans/≥2 tabelas. Sem split de desenvolvimento povoado, C1 (piloto de rubricas) não é executável; sem corpus, C2 (anotação cega com ouro por IDs) e C3 (congelamento com hashes) não são executáveis. O encaminhamento correto é o bloqueio documentável, sem inventar solução nem fabricar insumos.
+- Decisão: **bloqueada** — impedimento documentável dependente de usuário (depósito de corpus até os mínimos da D4); sem sucessora; o ciclo encerra com o estado preservado para retomada.
+- Reversão: não se aplica — sem artefatos a reverter (nenhum commit de entrega desta task).
+- Próximo passo: usuário deposita os materiais restantes em `eval/corpus/originais/` com registro por material; retomar a task 003 (nova execução pela task 001 da família `001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md`, que permanece raiz da família), atualizando `contagens-vs-metas.md` antes de iniciar a anotação.
+
+<!-- task-cycle: {"decision":"bloqueada","next_task":null,"family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/06-protocolo-de-avaliacao/plan.md)
