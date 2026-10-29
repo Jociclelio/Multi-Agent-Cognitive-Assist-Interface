@@ -1,7 +1,7 @@
 # Task 003: Anotação, ouro e congelamento do teste
 
-Estado: aguardando subtasks (001-1 — emenda da D4, pendente)
-Depende de: 002, 001-1
+Estado: aguardando revisão (execução parcial honesta de 2026-10-29 — ver seção Execução e notas; anotação e congelamento pendentes de avaliadores humanos)
+Depende de: 002, 001-1 (ambas resolvidas)
 Origem: nenhuma
 
 ## Prompt
@@ -16,20 +16,90 @@ Restrições: anotadores cegos à arquitetura e à condição; o ouro nunca deri
 - `fase2/documentos/08_mapa_completo_da_testagem.md` — §3 schema `AnnotationRecord` e §4 auditoria de parentesco (consultar para alinhar formato de anotação).
 
 ## Corretude
-- [ ] C1 — Rubricas testadas em piloto no split de desenvolvimento antes do uso; ajustes de rubrica registrados.
-- [ ] C2 — Anotação com dois avaliadores independentes cegos à arquitetura/condição, com adjudicação e kappa registrados; ouro com IDs de fonte/claim, critérios/erros, fatos temporais e restrições originais, sem nenhuma resposta do sistema avaliado.
-- [ ] C3 — Split de teste congelado antes de qualquer ajuste sobre ele: hashes registrados, acessos e data registrados; desvios de quantidade documentados com as justificativas da 001.
+- [ ] C1 — **Não atendido integralmente.** Rubricas 0–4 para saídas semênticas foram preparadas como rascunho versionado (`eval/annotation/rubricas-v0.1-rascunho.md`: RUB-O04 com quatro dimensões, RUB-O07 contingência, RUB-O08 julgamento formativo, anotação categórica de níveis de ajuda em tentativas). O **piloto no split de desenvolvimento não foi executado** — exige dois avaliadores humanos independentes cegos, indisponíveis nesta sessão (ausência registrada em `eval/annotation/README.md`); nenhum ajuste de rubrica foi registrado porque nenhum piloto ocorreu, e as rubricas estão marcadas como não utilizáveis no teste antes do piloto.
+- [ ] C2 — **Não executado.** A anotação com dois avaliadores independentes cegos à arquitetura/condição, a adjudicação e o kappa dependem de avaliadores humanos, inexistentes nesta sessão — anotadores cegos inexistentes **não foram simulados**: nenhum kappa, nenhuma adjudicação e nenhum número de acordo foi inventado. O ouro humano (IDs de fonte/claim, critérios/erros, fatos temporais, restrições originais, nunca respostas do sistema) **não foi produzido** — nenhum `GoldRecord` existe (decisão D5: humanos são ouro de conteúdo; juiz LLM nunca gera ouro). A estrutura/forma do registro está especificada em `eval/annotation/README.md` (mapa 08, §3.2) como insumo para a retomada.
+- [ ] C3 — **Não executado.** O congelamento do split de teste não ocorreu: a auditoria de duplicatas/parentesco que o precede (mapa 08, §4) foi executada com resultado `passed` sobre as 19 famílias documentais, mas o split de teste está incompleto (consultas, tentativas, trajetórias e casos de falha pendentes); congelar conjunto parcial forçaria reabertura do manifesto. O congelamento ocorrerá com o conjunto completo, antes de qualquer ajuste da etapa 8, com hashes, acessos e data. Os desvios de quantidade foram atualizados em `eval/datasets/contagens-vs-metas.md` com as justificativas herdadas da task 001 (D4 com emenda E1): famílias 19 ≥ mínimo 18 (meta 24 não alcançada, desvio registrado); consultas/tentativas/trajetórias/falhas 0 com ausência declarada como ausência.
 
 ## Execução
-- Modelo: —
-- Base: —
-- Entrega: —
-- Arquivos da entrega: —
-- Evidências: —
+- Modelo: GLM-5.3-Flash (provedor `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime.
+- Base: 5629b23 (árvore limpa)
+- Entrega: c8a926c59fb1d36d1e79bfa20be43a8e6d05e94c (derivação de famílias, auditoria, rubricas-rascunho, registro de ausências)
+- Arquivos da entrega: `eval/datasets/familias/registro-familias.json` (novo), `eval/annotation/README.md` (novo), `eval/annotation/rubricas-v0.1-rascunho.md` (novo), `eval/datasets/splits.json`, `eval/datasets/familias/manifesto.json`, `eval/datasets/contagens-vs-metas.md`, `eval/datasets/README.md`
+- Evidências: ver seção Evidências de verificação abaixo.
+
+### Evidências de verificação
+- `python3 fase2/scripts/verificar_documentos.py` (da raiz, após as alterações): `"status": "passed"` — 11 etapas, 20 componentes, 18 saídas, 24 falhas, 39 links locais, `delivery_pending` vazio; fase2 sem dif (`git diff --numstat -- fase2/ docs/` vazio), submódulo intocado.
+- Conferência material do corpus: script JSON↔disco reproduz 19/19 SHA-256 idênticos aos arquivos em `eval/corpus/originais/`, nenhum hash duplicado (identidade com `mat-redes-001` já registrada; não há segundo arquivo no depósito).
+- Conferência cruzada da entrega (script): 19 famílias com IDs únicos, mapeamento 1:1 com os materiais do registro, hashes idênticos ao registro e ao disco, splits coerentes entre `registro-familias.json` e `splits.json`, família inteira em um único split, mínimos da D4+E1 atendidos (total 19 ≥ 18; dev 6 ≥ 6; val 3 ≥ 3; test 10 ≥ 9; por disciplina 9 e 10 ≥ 5) e manifesto coerente com as contagens — `CONFERENCIA COMPLETA: passed`.
+- JSON válidos: `splits.json`, `familias/manifesto.json`, `familias/registro-familias.json`, `registro-materiais.json`.
+- Originais fora do Git: `git check-ignore -v` confirma a regra `.gitignore:46` (`eval/corpus/originais/`); nenhum arquivo de `originais/` adicionado.
+- Nada medido do EduAgent-OS: contagens de famílias/materiais são insumo de disponibilidade de dados; kappa, adjudicação, piloto e congelamento não existem e não foram simulados.
 
 ## Notas
 
-### Bloqueio registrado (2026-10-29)
+### Execução parcial (2026-10-29, sessão do executor)
+
+A precondition material da D4 foi verificada como **atendida**: os 19 materiais
+depositados (registro conferido, 19/19 hashes idênticos ao disco, nenhum
+duplicado) sustentam a derivação de 19 famílias documentais, acima do mínimo de
+18 e dos mínimos por split/disciplina da D4 com a emenda E1. A execução
+proceedeu então pelo que é genuinamente executável sem avaliadores humanos,
+registrando como ausência tudo o que depende deles — nada foi fabricado:
+
+- **Executado (insumo):**
+  1. **Derivação de famílias documentais** — 19 famílias, uma por material,
+     tipo documento-base (`eval/datasets/familias/registro-familias.json`); itens
+     derivados futuros (paráfrases, variantes de ataque, perturbações) devem
+     ingressar na família de origem, no mesmo split. Scans 0, tabelas 0 e
+     versões conflitantes 0 são suplementos opcionais pela emenda E1 — ausência
+     registrada como ausência, sem bloqueio.
+  2. **Atribuição de splits por parentesco** — 6 desenvolvimento / 3 validação /
+     10 teste (redes 9, aprendizado não supervisionado 10), regra determinística
+     por posição curricular fixada por escrito **antes de qualquer anotação e
+     sem observação de escores**; registrada em `eval/datasets/splits.json`.
+  3. **Auditoria de duplicatas/parentesco** (mapa 08, §4), precondition do
+     congelamento — resultado `passed`: hashes todos distintos, sem candidato a
+     duplicata, sem referência de ouro no corpus, sem parentes entre famílias
+     (nenhum item derivado existe ainda).
+  4. **Rubricas 0–4 preparadas como rascunho** (`eval/annotation/rubricas-v0.1-rascunho.md`,
+     versão `v0.1-rascunho`): RUB-O04 (corretude/pertinência/clareza/limites),
+     RUB-O07 (contingência), RUB-O08 (julgamento formativo) e anotação
+     categórica de níveis de ajuda em tentativas — alinhadas à forma de item de
+     rubrica do mapa 08 (§3.2) e marcadas como **não pilotadas**.
+- **Ausências registradas (não simuladas), documentadas em
+  `eval/annotation/README.md`:**
+  1. **Piloto de rubricas no split de desenvolvimento** — não executado; exige
+     dois avaliadores humanos independentes cegos à arquitetura/condição,
+     indisponíveis nesta sessão. Consequentemente, nenhum ajuste de rubrica foi
+     registrado (nada a ajustar sem piloto) e as rubricas não podem ser usadas
+     no teste antes do piloto (C1 não atendido integralmente).
+  2. **Dois avaliadores cegos, adjudicação e kappa** — não produzidos; qualquer
+     número de acordo seria invenção (C2 não executado).
+  3. **Ouro humano** — nenhum `GoldRecord` criado: por D5, humanos são ouro de
+     conteúdo e o juiz LLM nunca gera ouro; sem avaliadores, não há ouro. A
+     forma do registro (mapa 08, §3.2) ficou especificada como insumo.
+  4. **Congelamento do teste** — não realizado: a auditoria que o precede está
+     `passed`, mas o split de teste está incompleto (consultas, tentativas,
+     trajetórias e casos de falha pendentes); congelar conjunto parcial forçaria
+     reabertura do manifesto. O congelamento ocorrerá com o conjunto completo,
+     **antes de qualquer ajuste da etapa 8**, com hashes, acessos e data (C3 não
+     executado).
+- **Desvios de quantidade** atualizados em `eval/datasets/contagens-vs-metas.md`
+  com as justificativas herdadas da task 001: famílias 19 contra meta 24 (dentro
+  da faixa aceitável; mínimos atendidos), demais conjuntos 0 com ausência
+  declarada como ausência. Nada é resultado medido.
+- **Pendência de retomada:** a sessão de retomada precisa de dois avaliadores
+  humanos independentes cegos (pseudônimos, mapa blind→run oculto), execuções do
+  piloto em dev, adjudicação/kappa, autoria do ouro e dos itens pendentes e, por
+  fim, o congelamento — a lista completa está em `eval/annotation/README.md`.
+- **Pendência cosmética encerrada:** o título de `contagens-vs-metas.md` citava
+  apenas a task 002 (achado informativo da revisão da 001-1); estendido às tasks
+  002 e 003, que de fato produziram contagens ali.
+
+O bloqueio e o encaminhamento anteriores permanecem preservados no histórico
+desta seção, sem reescrita.
+
+### Bloqueio registrado (2026-10-29, sessão anterior — histórico preservado)
 
 A task não foi executada: o impedimento é a **precondition pré-fixada na decisão
 D4 da task 001** — "abaixo dos mínimos: não iniciar anotação; registrar
@@ -65,7 +135,16 @@ permanecem pendentes até o desbloqueio pelo depósito do corpus.
 6/10 — Coordenar anotação cega com adjudicação e congelamento auditável; o risco é vazamento de condição para os anotadores ou congelamento incompleto (hash faltante).
 
 ### Dificuldade sentida
-não se aplica — task não executada (bloqueio anterior à execução).
+7/10 — A execução parcial exigiu calibrar continuamente o que é genuinamente
+executável sem avaliadores humanos: a derivação de famílias, a regra de split e
+a auditoria de parentesco são mecânicas e verificáveis, mas cada passo da
+anotação (piloto, kappa, adjudicação, ouro) dependia de pessoas indisponíveis, e
+a tentação estrutural de "preencher" com simulação precisou ser explicitamente
+recusada e documentada como ausência em três lugares (task, README de anotação e
+contagens). O maior cuidado foi não deixar a entrega parecer mais completa do
+que é: critérios C1–C3 permanecem desmarcados mesmo com insumos reais entregues
+(rubricas-rascunho, auditoria passed), e o congelamento foi adiado com
+justificativa em vez de executado de forma vazia sobre um conjunto parcial.
 
 ### Revisão
 - Orquestrador: GLM-5.3-Flash (provedor `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime; master do ciclo opt-in.
