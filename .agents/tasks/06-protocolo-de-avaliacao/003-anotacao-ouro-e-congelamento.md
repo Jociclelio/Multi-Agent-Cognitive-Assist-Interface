@@ -23,7 +23,7 @@ Restrições: anotadores cegos à arquitetura e à condição; o ouro nunca deri
 ## Execução
 - Modelo: GLM-5.3-Flash (provedor `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime.
 - Base: 5629b23 (árvore limpa)
-- Entrega: c8a926c59fb1d36d1e79bfa20be43a8e6d05e94c (derivação de famílias, auditoria, rubricas-rascunho, registro de ausências)
+- Entrega: c8a926cb40798b5cdb7744bf69306bd70aff33bc (derivação de famílias, auditoria, rubricas-rascunho, registro de ausências)
 - Arquivos da entrega: `eval/datasets/familias/registro-familias.json` (novo), `eval/annotation/README.md` (novo), `eval/annotation/rubricas-v0.1-rascunho.md` (novo), `eval/datasets/splits.json`, `eval/datasets/familias/manifesto.json`, `eval/datasets/contagens-vs-metas.md`, `eval/datasets/README.md`
 - Evidências: ver seção Evidências de verificação abaixo.
 
