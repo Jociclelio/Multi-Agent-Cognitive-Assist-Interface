@@ -1,6 +1,6 @@
 # Plano: Manutenção do índice e pacote de entrega da fase 2
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: tasks criadas (001–002) — execução pendente de início do ciclo; conferência de índice/verificações e decisão de regeneração do pacote com validação final
 
 ## Objetivo
 Manter o pacote de entrega da fase 2 íntegro e sincronizado: o índice (`11_indice_da_entrega.md`) refletindo os documentos atuais, a entrega regenerável/empacotável de forma reprodutível e os checksums conferíveis.
@@ -34,4 +34,9 @@ Manter o pacote de entrega da fase 2 íntegro e sincronizado: o índice (`11_ind
 - Nenhuma essencial. Observação: a verificação mecânica (`verificacao_documental.json`) não substitui leitura científica, já realizada na elaboração/auditoria; pendências de conteúdo científico estariam fora do escopo deste plano.
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Cobertura (plano) | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-conferir-indice-e-verificacoes-documentais.md](../../tasks/11-indice-da-entrega/001-conferir-indice-e-verificacoes-documentais.md) | Abordagens 1–4 (índice, verificador, --check-delivery, checksums) | nenhuma | pendente |
+| 2 | [002-regenerar-entrega-e-validar-pacote-final.md](../../tasks/11-indice-da-entrega/002-regenerar-entrega-e-validar-pacote-final.md) | Abordagens 5–6 (regeneração quando necessário, índice) + critérios de conclusão | 001 | pendente |
+
+Notas: sincronização e integridade do pacote — sem alteração de conteúdo científico; `--check-delivery` só confirma existência dos arquivos linkados (PDFs e ZIP), não checa `verificacao_documental.json` nem checksums; reconstrução via `gerar_entrega.py` somente com mudança pendente de publicação (dispensa registrada com evidência quando nada mudou). Regra de kebab-case sem prefixos vale só para `docs/`, não para os documentos numerados de `fase2/documentos/`.

@@ -1,6 +1,6 @@
 # Plano: Síntese da pesquisa metodológica de testes (Etapa 7)
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: tasks criadas (001–004) — execução pendente de início do ciclo; conferência de fidelidade do documento 07 contra os relatórios 07a/07b (documento-fonte não modificado por padrão)
 
 ## Objetivo
 Consolidar a pesquisa metodológica de testagem (documentos 07a/07b) em um documento de síntese (`fase2/documentos/07_metodologias_de_testagem.md`) que registre os métodos selecionados para cada família de saída/falha (O01–O18, F01–F24, C18/C19), as correções que a pesquisa exige em etapas anteriores e as decisões de implementação do testbed — mantendo o caráter de especificação (pesquisa dirigida), sem apresentá-lo como revisão sistemática ou resultado experimental medido.
@@ -35,4 +35,11 @@ Os itens abaixo descrevem o conteúdo já existente nos artefatos acordados, a s
 - Nenhuma essencial no documento-fonte. Nota: o documento indica que decisões operacionais (contratos, registro, comandos, execução) pertencem à etapa 8 — não reproduzi-las aqui.
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Cobertura (plano) | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-validar-tabela-de-metodos-por-familia.md](../../tasks/07-metodologias-de-testagem/001-validar-tabela-de-metodos-por-familia.md) | Abordagem 1 (tabela de métodos por família, 07a/07b) | nenhuma | pendente |
+| 2 | [002-validar-bibliografias-e-deduplicacao.md](../../tasks/07-metodologias-de-testagem/002-validar-bibliografias-e-deduplicacao.md) | Abordagem 2 (bibliografias novas, reuso, `zheng2023judge`) | 001 | pendente |
+| 3 | [003-validar-seis-correcoes-em-etapas-anteriores.md](../../tasks/07-metodologias-de-testagem/003-validar-seis-correcoes-em-etapas-anteriores.md) | Abordagem 3 (seis correções exigidas) | 002 | pendente |
+| 4 | [004-validar-decisoes-do-testbed-indice-e-verificador.md](../../tasks/07-metodologias-de-testagem/004-validar-decisoes-do-testbed-indice-e-verificador.md) | Abordagens 4–5 (decisões do testbed, remissão à etapa 8) + critérios de conclusão | 003 | pendente |
+
+Notas: o documento `fase2/documentos/07_metodologias_de_testagem.md`, os relatórios `07a`/`07b` e as bibliografias novas já existem e fazem parte da entrega — todas as tasks são de conferência de fidelidade, com correção apenas em dif mínimo e justificativa; documentos-fonte intocados. Pesquisa dirigida (30/09/2026) não é revisão sistemática nem resultado medido; contratos, registro, comandos e execução do testbed pertencem à etapa 8 (plano 08).

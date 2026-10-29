@@ -1,6 +1,6 @@
 # Plano: Relatório técnico da fase 2 — manutenção, compilação e entrega
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: tasks criadas (001–002) — execução pendente de início do ciclo; conferência do fonte LaTeX e compilação/publicação via gerar_entrega.py
 
 ## Objetivo
 Manter, compilar e entregar o relatório científico da fase 2 (`fase2/fase2_metodologia.tex` → `fase2_metodologia.pdf`), garantindo que o texto siga o template, as convenções de citação e que a entrega publicada (PDFs, verificação documental, SHA256, ZIP) esteja íntegra e sincronizada com o fonte.
@@ -38,4 +38,9 @@ Manter, compilar e entregar o relatório científico da fase 2 (`fase2/fase2_met
 Nenhuma essencial. Observação: o estilo `aasjournal` pode não estar disponível no ambiente; nesse caso o fallback documentado é `plainnat` (autor–ano).
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Cobertura (plano) | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-conferir-fonte-latex-e-verificador.md](../../tasks/09-relatorio-tecnico/001-conferir-fonte-latex-e-verificador.md) | Abordagens 1–3, 5–6 (estrutura, citações, fidelidade, verificador) | nenhuma | pendente |
+| 2 | [002-compilar-e-publicar-entrega.md](../../tasks/09-relatorio-tecnico/002-compilar-e-publicar-entrega.md) | Abordagem 4 (compilação/publicação) + critérios de conclusão | 001 | pendente |
+
+Notas: manutenção/conferência do `.tex` em dif mínimo (documento-fonte `09_relatorio_tecnico.md` é o índice, não objeto de reescrita); a auditoria fina das referências pertence à etapa 10 (plano 10) — não duplicar. Compilação exige `/tmp/opencode/`, `pdflatex`, `bibtex` e os pacotes TeX de `fase2/README-entrega.md`, sem LangChain; fallback `plainnat` se `aasjournal` indisponível. Parâmetros/gates permanecem propostas metodológicas, nunca resultados medidos.

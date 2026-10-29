@@ -1,6 +1,6 @@
 # Plano: Auditoria de referências da metodologia (fase 2)
 
-Estado: aprovado — aguardando escrita de tasks pelo task-master (ao iniciar este plano, o task-master deve derivar as tasks antes de executar)
+Estado: tasks criadas (001–003) — execução pendente de início do ciclo; auditoria das 44 chaves citadas, consolidação do references.bib e fechamento com compilação
 
 ## Objetivo
 Auditar as citações de `fase2/fase2_metodologia.tex` contra as fontes registradas nas pesquisas, produzindo `fase2/references.bib` consolidado e o relatório `fase2/documentos/10_auditoria_de_referencias.md`, com zero chaves citadas sem entrada e zero divergências de identidade bibliográfica (autor/título/ano/DOI/URL).
@@ -49,4 +49,10 @@ Regras do LaTeX (`fase2_metodologia.tex`):
 - O recálculo do SHA-256 do modelo Bonsai (publicado, não recalculado na auditoria) e a execução de setups/demos citados permanecem pendências fora do escopo desta auditoria.
 
 ## Tasks
-<A preencher pelo task-writer.>
+| Ordem | Task | Cobertura (plano) | Depende de | Estado |
+|---|---|---|---|---|
+| 1 | [001-auditar-chaves-citadas-contra-registros-de-pesquisa.md](../../tasks/10-auditoria-de-referencias/001-auditar-chaves-citadas-contra-registros-de-pesquisa.md) | Abordagens 1–3 (inventário, confronto, classificação Correto/Limitado) | nenhuma | pendente |
+| 2 | [002-validar-consolidacao-do-references-bib.md](../../tasks/10-auditoria-de-referencias/002-validar-consolidacao-do-references-bib.md) | Abordagem 4 (regras de consolidação do `references.bib`) | 001 | pendente |
+| 3 | [003-validar-regras-latex-e-compilacao.md](../../tasks/10-auditoria-de-referencias/003-validar-regras-latex-e-compilacao.md) | Regras do LaTeX + critérios de conclusão | 002 | pendente |
+
+Notas: a auditoria confere registros de pesquisa e sua utilização no texto — não é nova leitura remota dos artigos (única exceção: prefácio primário de Lakens); edição restrita a `fase2/references.bib` e ao relatório 10 em dif mínimo; `.tex`, pesquisas e documentos 1–9 intocados. Limitações de leitura (metadados/resumo/truncamento) não são erros de identidade e não viram resultados do sistema. Questões abertas herdadas: fallback `plainnat` vs. providenciar `aasjournal.bst`; SHA-256 do Bonsai e setups/demos citados fora do escopo.
