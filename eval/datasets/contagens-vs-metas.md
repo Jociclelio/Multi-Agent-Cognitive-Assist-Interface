@@ -29,7 +29,7 @@ documentado nos manifestos; nenhum corpus, item ou caso foi fabricado.
 2. **Nenhum split de teste é congelado** nesta task: o congelamento pertence à
    task 003 e precede-o a auditoria de duplicatas/parentesco (mapa 08,
    seção 4).
-3. **Depêndencia de usuário**: a coleta completa exige o depósito de scans,
+3. **Dependência de usuário**: a coleta completa exige o depósito de scans,
    tabelas, versões conflitantes e material didático das duas disciplinas em
    `eval/corpus/originais/` (fora do Git), conforme o registro em
    `../corpus/registro-materiais.json`. A pendência de autorização de
