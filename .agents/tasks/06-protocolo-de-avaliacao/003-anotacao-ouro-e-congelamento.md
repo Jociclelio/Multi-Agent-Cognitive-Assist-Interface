@@ -1,7 +1,7 @@
 # Task 003: Anotação, ouro e congelamento do teste
 
-Estado: bloqueada
-Depende de: 002
+Estado: aguardando subtasks (001-1 — emenda da D4, pendente)
+Depende de: 002, 001-1
 Origem: nenhuma
 
 ## Prompt
@@ -77,6 +77,30 @@ não se aplica — task não executada (bloqueio anterior à execução).
 - Reversão: não se aplica — sem artefatos a reverter (nenhum commit de entrega desta task).
 - Próximo passo: usuário deposita os materiais restantes em `eval/corpus/originais/` com registro por material; retomar a task 003 (nova execução pela task 001 da família `001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md`, que permanece raiz da família), atualizando `contagens-vs-metas.md` antes de iniciar a anotação.
 
-<!-- task-cycle: {"decision":"bloqueada","next_task":null,"family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
+### Atualização do encaminhamento (2026-10-29, sessão master posterior)
+
+O impedimento registrado acima evoluiu por decisão do usuário; nenhum novo
+parecer técnico é emitido aqui (não houve entrega desta task) e a decisão de
+bloqueio original permanece preservada no histórico desta seção:
+
+- **Decisão do usuário (2026-10-29):** scans, tabelas, versões conflitantes,
+  resoluções de exercícios e notas de monitoria são suplementares opcionais,
+  fornecidos pelo aluno quando existirem — professores não costumam fornecê-los
+  e o sistema não pode depender deles; o corpus autorizado é construído com o
+  que os professores de fato disponibilizam. Isso emenda a regra da D4 que
+  bloqueava esta task.
+- **Depósito novo:** 17 materiais adicionais registrados em 2026-10-29 (tarde) —
+  8 PDFs de Redes do Google Classroom (G_MC832A_2026S2) e 9 notas de aula em
+  HTML de MC847 (fonte pública do docente) — totalizando 19 materiais das duas
+  disciplinas, fora do Git; o registro por material é escopo da subtask 001-1.
+- **Subtask criada:** `001-1-corrigir-variedade-documental-opcional-aluno.md`
+  (commit `d964597`) — emenda da D4 na task 001, dif mínimo na linha 11 do
+  documento 06 e registro por material; origem 001, mesma família.
+- **Encaminhamento atualizado:** de `bloqueada` para `corrigir`, com próxima
+  task 001-1 (subtask da família 001 tem prioridade sobre esta task); a 003
+  volta a ser retomável após 001-1 fechar. O contrato desta task (prompt,
+  contexto e critérios C1–C3) permanece inalterado.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/06-protocolo-de-avaliacao/001-1-corrigir-variedade-documental-opcional-aluno.md","family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/06-protocolo-de-avaliacao/plan.md)
