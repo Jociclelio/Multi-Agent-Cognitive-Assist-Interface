@@ -19,21 +19,24 @@
     "regra_abaixo_do_minimo": "nao iniciar anotacao; registrar indisponibilidade (task 001, D4)"
   },
   "contagem_real": {
-    "data": "2026-10-29",
-    "materiais_depositados": 2,
-    "familias_derivadas": 0,
-    "por_split": {"desenvolvimento": 0, "validacao": 0, "teste": 0},
-    "variedade": {"pdf_digital": 2, "scan": 0, "tabela_como_material": 0, "versao_conflitante": 0},
-    "detalhe_por_material": "ver eval/corpus/registro-materiais.json"
+    "data": "2026-10-29 (derivacao executada na task 003 do plano 06)",
+    "materiais_depositados": 19,
+    "familias_derivadas": 19,
+    "por_split": {"desenvolvimento": 6, "validacao": 3, "teste": 10},
+    "por_disciplina": {"redes-de-computadores": 9, "aprendizado-nao-supervisionado": 10},
+    "variedade": {"pdf_digital": 9, "html_notas_de_aula": 10, "scan": 0, "tabela_como_material": 0, "versao_conflitante": 0},
+    "detalhe_por_material": "ver eval/corpus/registro-materiais.json",
+    "detalhe_por_familia": "ver eval/datasets/familias/registro-familias.json",
+    "nota": "Contagens de familias sao insumo de disponibilidade de dados, nao resultado experimental."
   },
-  "status": "aguardando-coleta",
-  "desvio_justificativa": "Apenas dois PDDs em PDF digital (um por disciplina) foram depositados nesta sessao. Os minimos pre-fixados na D4 (>= 18 familias no total; desenvolvimento >= 6; >= 5 por disciplina; >= 2 scans e >= 2 tabelas) nao sao atendidos; pela regra definida antes de qualquer coleta, a derivacao de familias e a anotacao nao foram iniciadas e a indisponibilidade fica registrada. A ausencia e declarada como ausencia; nenhum material foi fabricado nem simulacro apresentado como real.",
+  "status": "familias-derivadas-aguardando-anotacao",
+  "desvio_justificativa": "19 familias derivadas (uma por material depositado, tipo documento-base; itens derivados futuros ingressam na familia de origem, no mesmo split). Os minimos da D4 com a emenda E1 sao atendidos: total 19 >= 18; desenvolvimento 6 >= 6; validacao 3 >= 3; teste 10 >= 9; por disciplina 9 e 10 >= 5. A meta proposta de 24 familias (8/4/12) nao foi alcancada — desvio registrado, dentro da faixa de desvio aceitavel fixada antes de qualquer coleta (task 001, D4). Scans 0, tabelas 0 e versoes conflitantes 0: suplementos opcionais pela emenda E1 da D4 — a ausencia de cada um e registrada como ausencia e nao bloqueia a anotacao nem a avaliacao. Nenhum material foi fabricado nem simulacro apresentado como real; a auditoria de duplicatas/parentesco (mapa 08, secao 4) foi executada com resultado passed (registro-familias.json, campo auditoria_parentesco).",
   "procedimento_de_coleta": [
-    "1. Completar o deposito em eval/corpus/originais/ (fora do Git) com os materiais faltantes das duas disciplinas: scans de apostilas/listas, tabelas (cronogramas e especificacoes como material) e versoes conflitantes de documentos (duas revisoes de um mesmo programa/plano), ate superar os minimos da D4.",
-    "2. Registrar cada material novo em eval/corpus/registro-materiais.json com fonte, data de obtensao, tipo, SHA-256 e vinculo de versao, mantendo os originais imutaveis apos o deposito.",
-    "3. Derivar as familias documentais por tipo (documento-base, traduzido, scan, revisao posterior, parafraase, variante de ataque, item derivado — mapa 08, secao 4), mantendo cada familia inteira em um unico split.",
-    "4. Atribuir splits respeitando a regra de parentesco (nunca repartir parentes) em eval/datasets/splits.json e rodar a auditoria de duplicatas/parentesco e de referencias de ouro no corpus (mapa 08, secao 4) antes do congelamento.",
-    "5. Somente apos esses passos a task 003 (anotacao e congelamento) pode iniciar; abaixo dos minimos da D4 ela permanece bloqueada por regra pre-fixada."
+    "1. Completar o deposito em eval/corpus/originais/ (fora do Git) com os materiais faltantes das duas disciplinas: scans de apostilas/listas, tabelas (cronogramas e especificacoes como material) e versoes conflitantes de documentos (duas revisoes de um mesmo programa/plano), ate superar os minimos da D4. [EXECUTADO — depósito de 2026-10-29 (tarde), 19 materiais; scans/tabelas/versões conflitantes permanecem suplementos opcionais pela emenda E1, ausência registrada]",
+    "2. Registrar cada material novo em eval/corpus/registro-materiais.json com fonte, data de obtensao, tipo, SHA-256 e vinculo de versao, mantendo os originais imutaveis apos o deposito. [EXECUTADO — registro com 19 materiais, hashes conferidos]",
+    "3. Derivar as familias documentais por tipo (documento-base, traduzido, scan, revisao posterior, parafraase, variante de ataque, item derivado — mapa 08, secao 4), mantendo cada familia inteira em um unico split. [EXECUTADO NA TASK 003 — 19 familias tipo documento-base em eval/datasets/familias/registro-familias.json; itens derivados futuros ingressam na família de origem]",
+    "4. Atribuir splits respeitando a regra de parentesco (nunca repartir parentes) em eval/datasets/splits.json e rodar a auditoria de duplicatas/parentesco e de referencias de ouro no corpus (mapa 08, secao 4) antes do congelamento. [EXECUTADO NA TASK 003 — atribuição 6/3/10 registrada; auditoria passed]",
+    "5. Somente apos esses passos a task 003 (anotacao e congelamento) pode iniciar; abaixo dos minimos da D4 ela permanece bloqueada por regra pre-fixada. [PRECONDITION ATENDIDA — a anotação não iniciou por outro motivo: ausência de dois avaliadores humanos independentes nesta sessão, registrada em eval/annotation/README.md]"
   ],
   "regra_de_split": "familia inteira em um unico split; parentes nunca repartidos entre desenvolvimento/validacao/teste (protocolo, secao 2; mapa 08, secao 4)",
   "ids_permanentes": "F01-F24 e O01-O18 mantem origem em fase2/documentos/05_fluxos_resultados_e_falhas.md e nao sao renumerados por este conjunto"

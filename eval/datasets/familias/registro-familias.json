@@ -1,0 +1,275 @@
+{
+  "conjunto": "familias-documentais",
+  "registro": "Derivação das famílias documentais a partir do corpus depositado (19 materiais registrados em eval/corpus/registro-materiais.json). Executada na task 003 do plano 06 (2026-10-29), conforme o procedimento de coleta de eval/datasets/familias/manifesto.json e a regra de split por parentesco de eval/datasets/splits.json.",
+  "data": "2026-10-29",
+  "task": ".agents/tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md",
+  "regra_de_derivacao": {
+    "principio": "uma família documental por material depositado, do tipo documento-base (mapa 08, seção 4: famílias incluem tradução, scan, revisão, paráfrase, variantes de ataque e itens derivados)",
+    "justificativa": "O corpus depositado contém 19 materiais distintos, todos do tipo documento-base, sem suplementos opcionais (scans, tabelas como material, versões conflitantes — ausência registrada pela emenda E1 da D4) e sem itens derivados ainda produzidos. Cada família possui, neste momento, um único membro; itens derivados futuros (paráfrases, variantes de ataque, perturbações) devem ingressar na família do material de origem, no mesmo split.",
+    "ids": "fam-<disciplina-abrev>-NNN, espelhando o ID do material de origem (fam-redes-NNN <- mat-redes-NNN; fam-ans-NNN <- mat-ans-NNN) para rastreabilidade direta",
+    "nota": "Contagens de famílias são insumo de disponibilidade de dados, não resultado experimental; nada aqui é apresentado como resultado medido."
+  },
+  "regra_de_atribuicao_de_split": {
+    "principio": "família inteira em um único split; parentes nunca repartidos (protocolo, seção 2; mapa 08, seção 4)",
+    "regra_aplicada": "Atribuição determinística por posição do material na sequência curricular, fixada por escrito antes de qualquer anotação e sem observação de escores: (a) PDDs (programa/plano, com cronogramas e prazos que ancoram ajuste de parâmetros) e os primeiros capítulos/aulas em desenvolvimento; (b) material do meio do curso em validação; (c) capítulos finais e listas de exercícios (fatos exatos densos) em teste; (d) balanceamento por disciplina dentro de cada split.",
+    "resultado": {
+      "desenvolvimento": 6,
+      "validacao": 3,
+      "teste": 10
+    },
+    "por_disciplina_por_split": {
+      "desenvolvimento": {
+        "redes-de-computadores": 3,
+        "aprendizado-nao-supervisionado": 3
+      },
+      "validacao": {
+        "redes-de-computadores": 1,
+        "aprendizado-nao-supervisionado": 2
+      },
+      "teste": {
+        "redes-de-computadores": 5,
+        "aprendizado-nao-supervisionado": 5
+      }
+    },
+    "conferencia_d4": "mínimos da D4 (com emenda E1) atendidos: total 19 >= 18; desenvolvimento 6 >= 6; validacao 3 >= 3; teste 10 >= 9; por disciplina 9 e 10 >= 5; scans 0 e tabelas 0 são suplementos opcionais pela emenda E1 — ausência registrada como ausência, sem bloqueio"
+  },
+  "auditoria_parentesco": {
+    "referencia": "fase2/documentos/08_mapa_completo_da_testagem.md, seção 4",
+    "data": "2026-10-29",
+    "hashes_duplicados": "nenhum — 19/19 SHA-256 conferidos por script contra os arquivos em eval/corpus/originais/ e todos distintos (o PDD do Classroom não constitui duplicata: não há segundo arquivo no depósito; a identidade com mat-redes-001 já está registrada em eval/corpus/registro-materiais.json, campo conferencia_de_identidade)",
+    "referencias_de_ouro_no_corpus": "nenhuma — não existe ouro produzido (a anotação não iniciou; ver eval/annotation/README.md)",
+    "similaridade_parentesco": "sem itens derivados ainda produzidos, não há parentes entre famílias; cada família é um cluster de análise próprio (o grafo documento<->item<->trajetória será preenchido quando itens existirem)",
+    "revisao_humana_de_candidatos_a_duplicata": "não se aplica nesta derivação — nenhum candidato a duplicata foi detectado pela auditoria de hashes",
+    "resultado": "passed — precondition do congelamento atendida; o congelamento em si permanece pendente (split de teste incompleto; ver eval/annotation/README.md)"
+  },
+  "familias": [
+    {
+      "familia_id": "fam-ans-001",
+      "material_id": "mat-ans-001",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "desenvolvimento",
+      "tipo": "PDF digital (texto extraível via pdftotext; não é scan)",
+      "papel": "plano de desenvolvimento da disciplina",
+      "sha256": "e3cd8d6a5a8e7e2adfab7d685dca8d70c8396b95d62aa7ba244fede5e729e4f7",
+      "arquivo": "originais/aprendizado-nao-supervisionado/2S2026.pdf",
+      "membros_derivados": [],
+      "observacao": "PDD âncora de prazos/cronograma; atribuído a desenvolvimento por ancorar ajuste de parâmetros"
+    },
+    {
+      "familia_id": "fam-ans-002",
+      "material_id": "mat-ans-002",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "desenvolvimento",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 1",
+      "sha256": "53ef238c85dec50032c519ac2bc61656648ac420f5e03ec4b4fd42f8b7a52342",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula01-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-003",
+      "material_id": "mat-ans-003",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "desenvolvimento",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 2",
+      "sha256": "ce0f3e47f6809d76e4900aa88c277cab04962d105cab85baa1a9c474bec7ccf2",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula02-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-001",
+      "material_id": "mat-redes-001",
+      "disciplina": "redes-de-computadores",
+      "split": "desenvolvimento",
+      "tipo": "PDF digital (texto extraível via pdftotext; não é scan)",
+      "papel": "programa oficial da disciplina",
+      "sha256": "d9c2355f7b125c06499e8ccfcca85e95cf0c9320f82779c0496396718ec1d14c",
+      "arquivo": "originais/redes-de-computadores/ProgramaMC8322s26-1.pdf",
+      "membros_derivados": [],
+      "observacao": "PDD âncora de prazos/cronograma; atribuído a desenvolvimento por ancorar ajuste de parâmetros"
+    },
+    {
+      "familia_id": "fam-redes-002",
+      "material_id": "mat-redes-002",
+      "disciplina": "redes-de-computadores",
+      "split": "desenvolvimento",
+      "tipo": "PDF digital — slides de capítulo (título do capítulo: Introduction)",
+      "papel": "capítulo 1 (Introdução)",
+      "sha256": "aa37cf9bbcc86aea1ca985f1e5ade073d4b106af83ef902ee0dbb4303cf0fca9",
+      "arquivo": "originais/redes-de-computadores/Chapter_1_v9.0.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-003",
+      "material_id": "mat-redes-003",
+      "disciplina": "redes-de-computadores",
+      "split": "desenvolvimento",
+      "tipo": "PDF digital — slides de capítulo (título do capítulo: Application Layer)",
+      "papel": "capítulo 2 (Application Layer)",
+      "sha256": "251b12bab053302754fbd7a3856c6c9e45e9534e45feb404845522ed9f2159ce",
+      "arquivo": "originais/redes-de-computadores/Chapter_2_v9.0.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-006",
+      "material_id": "mat-ans-006",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "teste",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 5",
+      "sha256": "77b687ce6cc309d7447bc3877f57b50442e35375758e2bda12b3c8e22e441eca",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula05-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-007",
+      "material_id": "mat-ans-007",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "teste",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 6",
+      "sha256": "a52be0dac88ea995e7b34277244f39a522b007a3f659c125b6d2bef5a7407b9d",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula06-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-008",
+      "material_id": "mat-ans-008",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "teste",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 7",
+      "sha256": "bb4d659f1f190ab6f9be971383f046e7093a15ae08a7cedddba2d40aa3476835",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula07-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-009",
+      "material_id": "mat-ans-009",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "teste",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 8",
+      "sha256": "53f3b5ba1a8dca3f7fc9eea753c1dfe96d7dd0d1dc13207cc79729fec8d9a0f3",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula08-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-010",
+      "material_id": "mat-ans-010",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "teste",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 9",
+      "sha256": "4a8c1d53162beb87342cc67fe0d64ce42b657dce20581d8c992bf2eaa80c676f",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula09-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-005",
+      "material_id": "mat-redes-005",
+      "disciplina": "redes-de-computadores",
+      "split": "teste",
+      "tipo": "PDF digital — slides de capítulo (título do capítulo: Network Layer: Data Plane)",
+      "papel": "capítulo 4 (Network Layer)",
+      "sha256": "c5c913ba38a0b70a14f0de902ccdfa8d20633f69a2b806608da50eed16f27ae5",
+      "arquivo": "originais/redes-de-computadores/Chapter_4_v9.0.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-006",
+      "material_id": "mat-redes-006",
+      "disciplina": "redes-de-computadores",
+      "split": "teste",
+      "tipo": "PDF digital — slides de capítulo (título do capítulo: Network Layer: Control Plane)",
+      "papel": "capítulo 5 (Network Layer: Control Plane)",
+      "sha256": "74e4267d114d6b138299da96b1f36400e7919b7116f089bbdfdeedea18c0069d",
+      "arquivo": "originais/redes-de-computadores/Chapter_5_v9.0.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-007",
+      "material_id": "mat-redes-007",
+      "disciplina": "redes-de-computadores",
+      "split": "teste",
+      "tipo": "PDF digital — slides de capítulo (título do capítulo: The Link Layer and LANs)",
+      "papel": "capítulo 6 (The Link Layer)",
+      "sha256": "71ca96f654cd267401819eb1d589d3cc6dc4ee8895fc6f4797b56cfacab9b45a",
+      "arquivo": "originais/redes-de-computadores/Chapter_6_v9.0.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-008",
+      "material_id": "mat-redes-008",
+      "disciplina": "redes-de-computadores",
+      "split": "teste",
+      "tipo": "PDF digital (enunciados de exercícios; texto extraível; não é resolução — resoluções de exercícios são suplementos opcionais da emenda E1, fornecidos pelo aluno quando existirem)",
+      "papel": "lista de exercícios 1",
+      "sha256": "09d4deedab2c6a7101efcd0d8849d84911913062f580287b2affe257839a6ccc",
+      "arquivo": "originais/redes-de-computadores/ListaExercicio1-2026.pdf",
+      "membros_derivados": [],
+      "observacao": "fonte densa de itens de exercício (O05) e claims exatas"
+    },
+    {
+      "familia_id": "fam-redes-009",
+      "material_id": "mat-redes-009",
+      "disciplina": "redes-de-computadores",
+      "split": "teste",
+      "tipo": "PDF digital (enunciados de exercícios; texto extraível; não é resolução — resoluções de exercícios são suplementos opcionais da emenda E1, fornecidos pelo aluno quando existirem)",
+      "papel": "lista de exercícios 2",
+      "sha256": "9fb72612dd58c0406ce65e0206ba1178dc5ab574690c8fe2204d7831df6095bd",
+      "arquivo": "originais/redes-de-computadores/ListaExercicio2-2026-final.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-004",
+      "material_id": "mat-ans-004",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "validacao",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 3",
+      "sha256": "4fcbf85e339c68028cf20cadf2fb79540131aab2cff40d1ae495d787a319bdb8",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula03-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-ans-005",
+      "material_id": "mat-ans-005",
+      "disciplina": "aprendizado-nao-supervisionado",
+      "split": "validacao",
+      "tipo": "HTML — notas de aula em página web (geradas com Quarto 1.10.18; autor no documento: Marcos M. Raimundo — Instituto de Computação, UNICAMP)",
+      "papel": "notas de aula 4",
+      "sha256": "ccd1dce93548f65ba04af1fb5f1f6e76f298829173bd202d3ed021fcdf663b23",
+      "arquivo": "originais/aprendizado-nao-supervisionado/aula04-notas.html",
+      "membros_derivados": [],
+      "observacao": null
+    },
+    {
+      "familia_id": "fam-redes-004",
+      "material_id": "mat-redes-004",
+      "disciplina": "redes-de-computadores",
+      "split": "validacao",
+      "tipo": "PDF digital — slides de capítulo (título do capítulo: Transport Layer)",
+      "papel": "capítulo 3 (Transport Layer)",
+      "sha256": "316702003b58613e68b340833edc662134c790a0e9a2b044e519098a9b46249e",
+      "arquivo": "originais/redes-de-computadores/Chapter_3_v9.0.pdf",
+      "membros_derivados": [],
+      "observacao": null
+    }
+  ]
+}

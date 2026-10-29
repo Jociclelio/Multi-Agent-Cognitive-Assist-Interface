@@ -34,12 +34,32 @@
       "agenda-borda-test-01": "teste",
       "agenda-borda-test-02": "teste"
     },
-    "familias_documentais": {},
+    "familias_documentais": {
+      "fam-redes-001": "desenvolvimento",
+      "fam-redes-002": "desenvolvimento",
+      "fam-redes-003": "desenvolvimento",
+      "fam-ans-001": "desenvolvimento",
+      "fam-ans-002": "desenvolvimento",
+      "fam-ans-003": "desenvolvimento",
+      "fam-redes-004": "validacao",
+      "fam-ans-004": "validacao",
+      "fam-ans-005": "validacao",
+      "fam-redes-005": "teste",
+      "fam-redes-006": "teste",
+      "fam-redes-007": "teste",
+      "fam-redes-008": "teste",
+      "fam-redes-009": "teste",
+      "fam-ans-006": "teste",
+      "fam-ans-007": "teste",
+      "fam-ans-008": "teste",
+      "fam-ans-009": "teste",
+      "fam-ans-010": "teste"
+    },
     "consultas": {},
     "tentativas": {},
     "trajetorias": {},
     "casos_de_falha": {},
-    "nota": "atribuicoes vazias = coleta ainda nao iniciada; ausencias registradas em eval/datasets/contagens-vs-metas.md"
+    "nota": "familias_documentais atribuidas na task 003 do plano 06 (2026-10-29), uma familia por material depositado; regra e justificativa em eval/datasets/familias/registro-familias.json. Demais atribuicoes vazias = coleta ainda nao iniciada; ausencias registradas em eval/datasets/contagens-vs-metas.md"
   },
-  "auditoria_pendente_antes_do_congelamento": "auditoria de duplicatas/parentesco e de referencias de ouro no corpus (mapa 08, secao 4); nenhum split de teste pode ser congelado antes dela"
+  "auditoria_pendente_antes_do_congelamento": "auditoria de duplicatas/parentesco e de referencias de ouro no corpus (mapa 08, secao 4) EXECUTADA em 2026-10-29 (task 003) sobre as 19 familias documentais, resultado passed (eval/datasets/familias/registro-familias.json, campo auditoria_parentesco); o congelamento do teste permanece NAO realizado: o split de teste esta incompleto (consultas, tentativas, trajetorias e casos de falha pendentes de coleta/anotacao) e o congelamento ocorrera com o conjunto completo, antes de qualquer ajuste do sistema sobre ele"
 }

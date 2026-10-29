@@ -7,18 +7,18 @@ longitudinais, agenda e casos de falha F01–F24). O corpus restrito que
 alimenta os conjuntos fica em `../corpus/` (originais fora do Git; registro
 por material em `../corpus/registro-materiais.json`).
 
-## Estado atual (task 002 do plano 06, 2026-10-29)
+## Estado atual (tasks 002 e 003 do plano 06, 2026-10-29)
 
 | Conjunto | Real | Meta proposta | Estado |
 |---|---|---|---|
-| Famílias documentais | 2 materiais (PDF digital; 0 famílias derivadas) | 24 famílias (8/4/12) | aguardando coleta |
-| Consultas | 0 por split | 120 por split | aguardando coleta |
-| Tentativas | 0 por split | 120 por split | aguardando coleta |
-| Trajetórias (8 sessões) | 0 | 30 teste + 6 dev + 4 val | aguardando coleta |
+| Famílias documentais | 19 famílias derivadas (6/3/10; redes 9, ans 10) | 24 famílias (8/4/12) | derivadas (task 003; auditoria de parentesco passed) |
+| Consultas | 0 por split | 120 por split | aguardando anotação/autoria (ausência de avaliadores registrada) |
+| Tentativas | 0 por split | 120 por split | aguardando piloto de rubricas e ouro (ausência de avaliadores registrada) |
+| Trajetórias (8 sessões) | 0 | 30 teste + 6 dev + 4 val | aguardando itens com ouro |
 | Agenda pequenas | 100 sintéticas (40/20/40) | 100 | completo (sintético) |
 | Agenda realistas | 0 | 100 | aguardando coleta |
 | Agenda bordas | 6 estruturais (2 por split) | presentes em todos os splits | completo (estrutural) |
-| Casos de falha F01–F24 | 0 por falha | ≥10 por falha | aguardando coleta |
+| Casos de falha F01–F24 | 0 por falha | ≥10 por falha | aguardando coleta (famílias-fonte já derivadas) |
 
 As metas são propostas, não requisitos fechados nem resultados medidos. As
 contagens reais, os desvios e suas justificativas estão consolidados em
@@ -34,6 +34,7 @@ eval/datasets/
   contagens-vs-metas.md   contagens reais versus metas, desvios e consequências
   splits.json             regra de split e atribuição atual por família
   familias/manifesto.json
+  familias/registro-familias.json   19 famílias derivadas + auditoria (task 003)
   consultas/manifesto.json
   tentativas/manifesto.json
   trajetorias/manifesto.json
@@ -43,6 +44,9 @@ eval/datasets/
   falhas/manifesto.json
   scripts/gerar_agenda.py gerador determinístico + verificador EDF
 ```
+
+O estado da anotação (rubricas rascunho, ausência de avaliadores, ouro e
+congelamento pendentes) está registrado em `../annotation/README.md`.
 
 ## Regra de split (resumo)
 
