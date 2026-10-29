@@ -1,0 +1,40 @@
+{
+  "conjunto": "casos-de-falha",
+  "referencias_normativas": [
+    "fase2/documentos/06_protocolo_de_avaliacao.md, secao 4 (matriz F01-F24)",
+    "fase2/documentos/05_fluxos_resultados_e_falhas.md (origem dos IDs F01-F24)",
+    "fase2/documentos/08_mapa_completo_da_testagem.md, secoes 4, 7 e 12.1",
+    ".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md (decisoes D4)"
+  ],
+  "meta_proposta": {
+    "casos_base_por_falha": 10,
+    "seeds_com_geracao": 3,
+    "crashpoints": "deterministicos",
+    "par_de_execucao": "limpo/perturbado com mesmo caso e seed (protocolo, secao 4)",
+    "rotulo": "meta proposta, nao requisito fechado nem resultado medido"
+  },
+  "desvio_aceitavel": {
+    "minimo_por_falha": 6,
+    "regras": "manter 3 seeds quando ha geracao e crashpoints deterministicos sem reducao; nenhuma F01-F24 sem caso base — falha inaplicavel a v0.1 vira N/A com motivo, nunca omissao (task 001, D4)"
+  },
+  "contagem_real": {
+    "data": "2026-10-29",
+    "casos_por_falha": {
+      "F01": 0, "F02": 0, "F03": 0, "F04": 0, "F05": 0, "F06": 0, "F07": 0, "F08": 0,
+      "F09": 0, "F10": 0, "F11": 0, "F12": 0, "F13": 0, "F14": 0, "F15": 0, "F16": 0,
+      "F17": 0, "F18": 0, "F19": 0, "F20": 0, "F21": 0, "F22": 0, "F23": 0, "F24": 0
+    },
+    "na_aplicavel_declarado": []
+  },
+  "status": "aguardando-coleta",
+  "desvio_justificativa": "Nenhum caso base foi construido nesta sessao para nenhuma das 24 falhas. Casos ancorados em documentos (F01-F04, F16, F19, F24, entre outras) exigem o corpus completo, ainda abaixo dos minimos da D4; casos de mecanismo (F10-F15, F17, F18, F20-F22) dependem dos controladores e schemas do testbed, cuja implementacao pertence a etapa 8 (plano 08). Nenhuma falha foi declarada N/A nesta task: a decisao de inaplicabilidade, se ocorrer, exige motivo registrado caso a caso apos a conferencia da v0.1. A ausencia e registrada como ausencia; nenhum caso simulado foi apresentado como caso real.",
+  "procedimento_de_coleta": [
+    "1. Para falhas ancoradas em documento (F01-F04, F16, F19, F24): derivar o caso base de um documento registrado no corpus e produzir o par limpo/perturbado do mesmo caso, com mesmo seed.",
+    "2. Para falhas de mecanismo (F05-F15, F17, F18, F20-F23): especificar o caso base contra os schemas do testbed (etapa 8, plano 08) e fixar os crashpoints deterministicos CP0-CP6 quando aplicavel (mapa 08, secao 7).",
+    "3. Registrar cada caso com: ID, falha (F01-F24 permanente), par limpo/perturbado, seeds (3 quando houver geracao), crashpoints, efeito esperado e medida de impacto alvo (delta-qualidade, delta-sucesso, delta-latencia, delta-tokens, efeitos indevidos, tempo ate detectar/recuperar).",
+    "4. Distribuir os casos pelos splits respeitando a regra de parentesco (par limpo/perturbado nunca repartido entre splits).",
+    "5. Execucao e medicao pertencem a etapa 8; este dataset apenas armazena os casos e seus metadados."
+  ],
+  "regra_de_split": "par limpo/perturbado e variantes de um mesmo caso no mesmo split; casos derivados de documentos parentes no mesmo split",
+  "ids_permanentes": "F01-F24 mantem origem em fase2/documentos/05_fluxos_resultados_e_falhas.md e a definicao da matriz de perturbacao em fase2/documentos/06_protocolo_de_avaliacao.md, secao 4; nenhuma renumeracao e permitida"
+}

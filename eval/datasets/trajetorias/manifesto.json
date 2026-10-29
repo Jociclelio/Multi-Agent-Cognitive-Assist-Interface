@@ -1,0 +1,45 @@
+{
+  "conjunto": "trajetorias-longitudinais",
+  "referencias_normativas": [
+    "fase2/documentos/06_protocolo_de_avaliacao.md, secoes 1 e 2",
+    "fase2/documentos/08_mapa_completo_da_testagem.md, secoes 4 e 12.1",
+    ".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md (decisoes D1-D4)"
+  ],
+  "meta_proposta": {
+    "teste": 30,
+    "desenvolvimento": 6,
+    "validacao": 4,
+    "sessoes_por_trajetoria": 8,
+    "rotulo": "meta proposta, nao requisito fechado nem resultado medido"
+  },
+  "desvio_aceitavel": {
+    "minimos": {"teste": 24, "desenvolvimento": 4, "validacao": 3},
+    "sessoes": "numero de sessoes mantido em 8 (a estrutura do roteiro e fixa); se insuficiente, reduzir o numero de trajetorias e declarar potencia limitada — nunca encurtar o roteiro silenciosamente (task 001, D4)"
+  },
+  "contagem_real": {
+    "data": "2026-10-29",
+    "por_split": {"desenvolvimento": 0, "validacao": 0, "teste": 0},
+    "sessoes_por_trajetoria": null
+  },
+  "status": "aguardando-coleta",
+  "desvio_justificativa": "Nenhuma trajetoria foi roteirizada nesta sessao. O roteiro de 8 sessoes exige mudanca de disponibilidade, dois erros recorrentes, correcao temporal, revisao tardia e solicitacao de replanejamento (protocolo, secao 2) — elementos que ancoram em itens e prazos do corpus ainda ausente conforme os minimos da D4. Os scripts fixos de aluno simulado sao mecanismo de testagem (etapa 7) e implementacao (etapa 8); aqui permanece apenas o template de roteiro. A ausencia e registrada como ausencia.",
+  "template_de_roteiro_8_sessoes": {
+    "elementos_fixos_do_protocolo": [
+      "mudanca de disponibilidade do aluno entre sessoes",
+      "dois erros recorrentes persistindo ate a correcao",
+      "correcao temporal de fato/prazo ao longo das sessoes",
+      "revisao tardia de topico em sessao posterior (marcada como revisao)",
+      "solicitacao de replanejamento ao Planejador"
+    ],
+    "regra_de_analise": "turnos de uma mesma trajetoria nao sao amostras independentes; comparacoes reamostram por trajetoria (protocolo, secoes 1 e 6)",
+    "fonte_do_conteudo": "cada trajetoria ancora em familias documentais e itens de um unico cluster de parentesco; preferir trajetorias sem fontes compartilhadas entre clusters (mapa 08, secao 4)"
+  },
+  "procedimento_de_coleta": [
+    "1. Concluir a coleta de familias, consultas e tentativas (pre-requisitos do conteudo das sessoes).",
+    "2. Escrever o roteiro fixo de 8 sessoes por trajetoria a partir do template acima, com eventos de sessao datados e ancorados em itens com IDs de fonte.",
+    "3. Atribuir cada trajetoria inteira a um unico split (desenvolvimento, validacao e teste usam trajetorias diferentes) e registrar em eval/datasets/splits.json.",
+    "4. Os scripts fixos de aluno simulado que executam o roteiro sao definidos na etapa 7 e implementados na etapa 8; sua definicao nao pertence a este dataset.",
+    "5. Registrar o grafo documento<->item<->trajetoria e a separacao de clusters antes do congelamento."
+  ],
+  "regra_de_split": "trajetoria inteira em um unico split; desenvolvimento/validacao/teste com trajetorias distintas; sem fontes compartilhadas entre clusters de splits diferentes quando possivel (mapa 08, secao 4)"
+}

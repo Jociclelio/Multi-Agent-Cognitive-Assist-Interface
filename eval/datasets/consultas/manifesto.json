@@ -1,0 +1,37 @@
+{
+  "conjunto": "consultas",
+  "referencias_normativas": [
+    "fase2/documentos/06_protocolo_de_avaliacao.md, secoes 1 e 2",
+    "fase2/documentos/08_mapa_completo_da_testagem.md, secoes 4 e 12.1",
+    ".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md (decisoes D1-D4)"
+  ],
+  "meta_proposta": {
+    "por_split": 120,
+    "composicao": {"com_suporte": 80, "sem_suporte": 40},
+    "tipos": ["com suporte", "sem suporte", "codigos", "temporalidade"],
+    "rotulo": "meta proposta, nao requisito fechado nem resultado medido"
+  },
+  "desvio_aceitavel": {
+    "minimo_por_split": 96,
+    "proporcao_com_suporte": "entre 60% e 70% por conjunto",
+    "minimo_por_disciplina_por_split": 40,
+    "regra_abaixo_do_minimo": "registrar indisponibilidade antes do congelamento (task 001, D4)"
+  },
+  "contagem_real": {
+    "data": "2026-10-29",
+    "por_split": {"desenvolvimento": 0, "validacao": 0, "teste": 0},
+    "por_disciplina": {"redes-de-computadores": 0, "aprendizado-nao-supervisionado": 0}
+  },
+  "status": "aguardando-coleta",
+  "desvio_justificativa": "Nenhuma consulta foi redigida nesta sessao. As consultas apoiadas exigem o corpus documental completo (claims com IDs de fonte/pagina), e o corpus depositado tem apenas dois PDDs — abaixo dos minimos de familias da D4. Redigir consultas sobre esse subconjunto produziria um conjunto nao representativo e arriscaria vazamento entre splits na rederivacao; portanto a coleta foi adiada e registrada como ausencia, sem fabricacao de itens.",
+  "procedimento_de_coleta": [
+    "1. Concluir a coleta de familias documentais (ver eval/datasets/familias/manifesto.json) — pre-requisito para claims com IDs de fonte/pagina.",
+    "2. Redigir consultas com suporte ancoradas em claims especificas dos documentos, registrando ID de fonte e claim no ouro (protocolo, secao 2: ouro com IDs de fonte/claim, nunca respostas do sistema avaliado).",
+    "3. Redigir consultas sem suporte por remocao/contradicao de fato (perturbacoes afins a F03/F04), marcando o tipo no manifesto do item.",
+    "4. Cobrir os quatro tipos exigidos (com suporte, sem suporte, codigos, temporalidade) em ambas as disciplinas, com itens distintos por split — nao variacoes vazadas do mesmo enunciado (protocolo, secao 2).",
+    "5. Registrar cada consulta no grafo documento<->item<->trajetoria (mapa 08, secao 4) e submeter a auditoria de duplicatas/parentesco antes do congelamento.",
+    "6. Verificar a proporcao de 60-70% com suporte e o minimo de 40 consultas por disciplina por split antes de congelar."
+  ],
+  "regra_de_split": "itens distintos por split; consulta e seus parentes (parafraases, variantes) no mesmo split; auditoria de similaridade antes do congelamento (mapa 08, secao 4)",
+  "ids_permanentes": "as metricas alimentadas por estas consultas usam os IDs O01-O18 permanentes (origem: fase2/documentos/05_fluxos_resultados_e_falhas.md); nenhum threshold da secao 3 do protocolo e alterado por este conjunto"
+}

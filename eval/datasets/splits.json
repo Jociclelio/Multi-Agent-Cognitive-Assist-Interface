@@ -1,0 +1,45 @@
+{
+  "descricao": "Regra e atribuicao atual de splits do desenho experimental da etapa 6 (protocolo de avaliacao, secao 2). Congelamento do teste ocorre apenas na task 003, apos a auditoria de duplicatas/parentesco (mapa 08, secao 4).",
+  "splits": ["desenvolvimento", "validacao", "teste"],
+  "regra_de_split": {
+    "principio": "splits por familia documental, por familia de parametros e por trajetoria; parentes nunca sao repartidos entre splits",
+    "aplicacao": [
+      "familia documental inteira em um unico split (inclui traducoes, scans, revisoes, parafrases, variantes de ataque e itens derivados dela)",
+      "par limpo/perturbado de caso de falha inteiro em um unico split",
+      "trajetoria longitudinal inteira em um unico split; desenvolvimento/validacao/teste usam trajetorias diferentes",
+      "familia de parametros de agenda inteira em um unico split, sem duplicatas entre splits"
+    ],
+    "vazamento": "itens distintos por split; nao sao permitidas variacoes vazadas do mesmo enunciado; auditoria de hashes duplicados, similaridade/parentesco e referencias de ouro no corpus antes do congelamento (mapa 08, secao 4); humanos revisam candidatos a duplicata sem limiar universal suposto",
+    "ajuste_de_parametros": "parametros, thresholds e juiz sao ajustados apenas em desenvolvimento/validacao; teste permanece congelado antes de qualquer ajuste (protocolo, secao 2)"
+  },
+  "atribuicao_atual": {
+    "data": "2026-10-29",
+    "agenda_pequenas": {
+      "f01-janela-unica": "desenvolvimento",
+      "f02-duas-janelas": "desenvolvimento",
+      "f03-densidade-baixa": "desenvolvimento",
+      "f04-densidade-alta": "desenvolvimento",
+      "f05-demanda-total": "validacao",
+      "f06-prazos-justos": "validacao",
+      "f07-limite-diario-ativo": "teste",
+      "f08-inviavel-marginal": "teste",
+      "f09-multi-atividade": "teste",
+      "f10-janelas-esparsas": "teste"
+    },
+    "agenda_borda": {
+      "agenda-borda-dev-01": "desenvolvimento",
+      "agenda-borda-dev-02": "desenvolvimento",
+      "agenda-borda-val-01": "validacao",
+      "agenda-borda-val-02": "validacao",
+      "agenda-borda-test-01": "teste",
+      "agenda-borda-test-02": "teste"
+    },
+    "familias_documentais": {},
+    "consultas": {},
+    "tentativas": {},
+    "trajetorias": {},
+    "casos_de_falha": {},
+    "nota": "atribuicoes vazias = coleta ainda nao iniciada; ausencias registradas em eval/datasets/contagens-vs-metas.md"
+  },
+  "auditoria_pendente_antes_do_congelamento": "auditoria de duplicatas/parentesco e de referencias de ouro no corpus (mapa 08, secao 4); nenhum split de teste pode ser congelado antes dela"
+}

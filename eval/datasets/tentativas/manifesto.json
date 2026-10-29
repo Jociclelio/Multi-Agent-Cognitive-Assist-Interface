@@ -1,0 +1,35 @@
+{
+  "conjunto": "tentativas",
+  "referencias_normativas": [
+    "fase2/documentos/06_protocolo_de_avaliacao.md, secoes 1 e 2",
+    "fase2/documentos/08_mapa_completo_da_testagem.md, secoes 4, 12 e 12.1",
+    ".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md (decisoes D1-D4)"
+  ],
+  "meta_proposta": {
+    "por_split": 120,
+    "por_disciplina_por_split": 60,
+    "anotacao_obrigatoria": "nivel de ajuda e erros anotados em todas as tentativas",
+    "rotulo": "meta proposta, nao requisito fechado nem resultado medido"
+  },
+  "desvio_aceitavel": {
+    "minimo_por_split": 90,
+    "minimo_por_disciplina_por_split": 40,
+    "regra": "niveis de ajuda e erros anotados em todas as tentativas mesmo com volume reduzido (task 001, D4)"
+  },
+  "contagem_real": {
+    "data": "2026-10-29",
+    "por_split": {"desenvolvimento": 0, "validacao": 0, "teste": 0},
+    "por_disciplina": {"redes-de-computadores": 0, "aprendizado-nao-supervisionado": 0}
+  },
+  "status": "aguardando-coleta",
+  "desvio_justificativa": "Nenhuma tentativa foi construida nesta sessao. Tentativas dependem de itens de exercicio validos (O05) e da rubrica testada em piloto de desenvolvimento (task 003), e ambos dependem do corpus completo, ainda ausente conforme os minimos da D4. A ausencia e registrada como ausencia; nenhum dialogo simulado foi apresentado como tentativa real.",
+  "procedimento_de_coleta": [
+    "1. Concluir familias documentais e consultas (pre-requisitos) e validar os itens de exercicio com especialista e solucao deterministica quando possivel (O05).",
+    "2. Para cada item, registrar a tentativa com: enunciado, resposta do aluno simulado, nivel de ajuda recebido (hint/reveal conforme mapa 08, secao 12) e erros anotados — anotacao completa em todas as tentativas, mesmo em volume reduzido.",
+    "3. Distribuir 60 tentativas por disciplina por split (meta), respeitando itens distintos por split e a regra de parentesco.",
+    "4. Manter as tentativas cegas a arquitetura (sem rótulo MA/SA) para a anotacao da task 003.",
+    "5. Registrar cada tentativa no grafo documento<->item<->trajetoria antes do congelamento."
+  ],
+  "regra_de_split": "tentativas de itens parentes no mesmo split; nenhuma tentativa do mesmo item em splits distintos",
+  "ids_permanentes": "as rubricas 0-4 e o julgamento formativo associados as tentativas usam os IDs O04, O07 e O08 permanentes; turnos de uma mesma trajetoria nao sao amostras independentes (protocolo, secao 1)"
+}

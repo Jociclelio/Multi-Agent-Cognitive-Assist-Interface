@@ -1,0 +1,65 @@
+{
+  "conjunto": "agenda",
+  "referencias_normativas": [
+    "fase2/documentos/06_protocolo_de_avaliacao.md, secoes 2 e 4 (F13)",
+    "fase2/documentos/08_mapa_completo_da_testagem.md, secoes 4, 12 e 12.1",
+    ".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md (decisoes D1-D4)"
+  ],
+  "meta_proposta": {
+    "pequenas": 100,
+    "realistas": 100,
+    "bordas": "casos de zona/bordas presentes em todos os splits",
+    "split": {"desenvolvimento": 40, "validacao": 20, "teste": 40},
+    "propriedades": "pequenas com otimo/viabilidade conhecidos; sem duplicatas; separacao por familia/parametros",
+    "rotulo": "meta proposta, nao requisito fechado nem resultado medido"
+  },
+  "desvio_aceitavel": {
+    "minimos": {"pequenas": 60, "realistas": 60},
+    "proporcao_split": "40/20/40 aproximada (+/-5 p.p.)",
+    "bordas": "casos de zona/bordas presentes em todos os splits — sem borda, F13 fica sem casos (task 001, D4)"
+  },
+  "contagem_real": {
+    "data": "2026-10-29",
+    "pequenas_sinteticas": 100,
+    "bordas_estruturais": 6,
+    "realistas": 0,
+    "por_split_pequenas": {"desenvolvimento": 40, "validacao": 20, "teste": 40},
+    "arquivos": ["eval/datasets/agenda/pequenas.jsonl", "eval/datasets/agenda/borda.jsonl"]
+  },
+  "status": "parcial (sintetico completo; realistas aguardando corpus)",
+  "desvio_justificativa": "As 100 instancias pequenas e as 6 bordas sao SINTETICAS, geradas com seed mestre 0 por eval/datasets/scripts/gerar_agenda.py, e atingem a meta numerica do subconjunto pequeno com split 40/20/40 exato por familia inteira (4 familias em desenvolvimento, 2 em validacao, 4 em teste; 10 instancias por familia). Elas nao substituem as 100 instancias realistas, que derivam de restricoes reais das disciplinas (cronogramas de avaliacao, grade, disponibilidade declarada) e por isso seguem em 0 — o corpus depositado tem apenas dois PDDs e os minimos de familias da D4 nao foram alcancados. A ausencia das realistas e registrada como ausencia, com procedimento de coleta abaixo. Nenhum valor e apresentado como resultado medido: as pequenas sao casos de entrada construidos, nao execucoes do sistema.",
+  "metodo_de_verificacao": {
+    "viabilidade": "exata, por verificador EDF para tarefas unitarias (chunks de 30 min, liberacao 0, perfil arbitrario de capacidade: janelas + limite diario), implementado no proprio gerador e re-executado sobre cada instancia serializada na geracao",
+    "otimo": "afirmado apenas por forca de construcao na familia f05-demanda-total (demanda igual a capacidade forcara todo slot usavel, logo o makespan e forcado); nas demais familias registra-se cronograma de referencia EDF sem alegar minimo global",
+    "reprodutibilidade": "python3 eval/datasets/scripts/gerar_agenda.py recria os arquivos byte a byte (seed mestre 0, somente biblioteca padrao)"
+  },
+  "hashes_sha256": {
+    "pequenas.jsonl": "ba15a8677a9d63198643954c7ff7264af22907a8c2f40000462edf5e94abda35",
+    "borda.jsonl": "3a59d4a2612d33afdd7046437d71668128cb7dce776b0be71cb4e9d1f396c478"
+  },
+  "seeds": {
+    "seed_mestre": 0,
+    "seed_instancia": "SEED_MESTRE*1000000 + indice_da_familia*1000 + indice_da_instancia",
+    "regra_de_seeds_em_casos_de_falha": "3 seeds quando houver geracao, com crashpoints deterministicos (task 001, D4); os seeds das instancias de agenda sao independentes dos seeds de execucao 0-4 do protocolo (secao 2)"
+  },
+  "bordas": {
+    "categorias": ["prazo-meio-slot", "duracao-nao-multipla-de-slot", "ciclo-de-dependencias", "incumbent-unknown", "zona-dst", "prazo-na-borda-demanda-exata"],
+    "por_split": {"desenvolvimento": 2, "validacao": 2, "teste": 2},
+    "ancora": "perturbacoes de F13 (protocolo, secao 4) e regras do mapa 08, secao 12",
+    "aviso": "os campos 'esperado' das bordas sao especificacoes estruturais por construcao ou regra citada; a execucao do mecanismo por celula pertence a etapa 7 e a implementacao do verificador a etapa 8"
+  },
+  "campos_de_instancia": {
+    "grade": "7 dias, slots de 30 min, 00:00-24:00, sem cruzar meia-noite (mapa 08, secao 12)",
+    "zona": "null com nota — timezone da v0.1 pendente de confirmacao (plano 04); janelas em horario local de parede",
+    "atividades": "id, duracao_min, prazo {dia, minuto}, prioridade, depende_de (vazio nas pequenas)",
+    "limite_diario_min": "ativo apenas na familia f07; 480 nas demais",
+    "esperado": "viavel (exato por EDF), cronograma_referencia, makespan_minimo (somente quando otimo por construcao), otimo_por_construcao"
+  },
+  "procedimento_de_coleta_das_realistas": [
+    "1. Concluir o deposito do corpus (cronogramas de avaliacao, grades de horario e documentos de disponibilidade das duas disciplinas) ate os minimos da D4.",
+    "2. Derivar instancias realistas das restricoes reais registradas (prazos de avaliacoes confirmadas, duracoes, janelas do aluno), com fonte e versao de cada restricao.",
+    "3. Aplicar o mesmo split 40/20/40 por familia/parametros, sem duplicatas e sem repartir familias entre splits.",
+    "4. Verificar viabilidade das realistas com o mesmo verificador EDF quando o modelo de instancia for compativel, e registrar otimo apenas quando forcado por construcao."
+  ],
+  "regra_de_split": "familia de parametros inteira em um unico split (f01-f04 desenvolvimento; f05-f06 validacao; f07-f10 teste); sem duplicatas entre splits; auditoria de duplicatas antes do congelamento"
+}

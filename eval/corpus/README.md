@@ -42,3 +42,10 @@ bytes e vínculo de versão. O modelo de uso registrado é o seguinte:
 
 Alterações no material original depois da coleta geram novo registro (novo
 hash); nada é substituído silenciosamente após o congelamento dos splits.
+
+O registro por material executado na task 002 do plano 06 está em
+`registro-materiais.json` (2026-10-29): dois PDFs digitais registrados
+(um por disciplina), com fonte, tipo, SHA-256, vínculo de versão, modelo de
+uso e referência de acesso. Scans, tabelas como material e versões
+conflitantes seguem não depositados — a ausência está registrada como
+ausência, com procedimento de coleta em `../datasets/contagens-vs-metas.md`.
