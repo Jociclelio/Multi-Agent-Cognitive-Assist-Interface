@@ -1,6 +1,6 @@
 # Task 001: Definir corpus, autorizações e desvios aceitáveis das metas
 
-Estado: aguardando revisão
+Estado: fechada (revisão 9/10, decisão fechar — ver seção Revisão)
 Depende de: nenhuma
 Origem: nenhuma
 
@@ -90,13 +90,19 @@ Nenhuma das decisões contradiz o texto normativo: D1/D2 cabem no §2 (corpus de
 3/10 — As quatro decisões exigiram conciliar restrições já normativas (protocolo, mapa 08, relatório técnico) sem inventar thresholds, e a dependência externa (autorização/disciplinas) foi resolvida por consulta direta ao usuário em duas rodadas. A parte de maior cuidado foi desenhar faixas de desvio por conjunto que preservem a análise estatística do plano (splits, clusters, ICs) sem ampliar metas nem criar números novos para calibração do juiz — o valor-alvo de acordo ficou deliberadamente para o piloto.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: —
-- Decisão: —
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`) — master do ciclo opt-in, sessão `ses_e78363d44ffekGET4xFnxfBoRD`.
+- Alvo: base `d816a38`; entrega `fb6afd94f2078cf6b3ab30daf7013598e0b4ed2f` (`.gitignore`, `eval/corpus/README.md`); registro `17c22d5` (esta task; HEAD). Árvore limpa confirmada antes e durante a rodada.
+- Modo da rodada: **sequencial** — os revisores reproduzem o verificador documental e inspecionam Git na mesma árvore (ambiente compartilhado), precedentes das revisões do plano 05; pool lido do arquivo global `~/.config/opencode/task-reviewer-pool.md` (sem pool no projeto).
+- Avaliações:
+  - GLM-5.3-Flash (`sd2/GLM-5.3-Flash`, sessão `ses_e7835d3c0ffedHe3HghmOLj1qM`): 9/10, fechar. Reproduziu verificador `passed`, entrega isolada, docs 04/06 e submódulo intocados, regra `.gitignore:46` ativa, contadores RAPL/NVML conferidos. Achados: R001-REV-GLM-01 (baixo) — C1 foi reinterpretado para fechar a camada de decisão e adiar o registro por material à task 002; defensável, mas é reescrita do critério, não satisfação literal; carregar a conferência da herança para a revisão da 002. R001-REV-GLM-02 (informativo) — disponibilidade dos materiais é declaração do usuário em sessão, honestamente registrada como confirmação + pendência de depósito.
+  - Qwen3.8 27B (`sorgan-qwen/qwen3-27b`, sessão `ses_e7835601fffeHYPdvtzxaB8KNw`): 9/10, fechar. Reproduziu verificador `passed`, dif vazio nos normativos e submódulo, gitlink inalterado. Achados: R001-REV-001 (baixo) — registro cita "mapa 08 §8" para as metas, mas o texto está em §4 (imprecisão de citação só no registro); R001-REV-002 (baixo) — documento 06 não possui seção "Questões abertas" (o prompt falava em "ambos"); R001-REV-003 (baixo) — verificação material de C1 condicionada à execução da 002, rastrear no quórum; R001-REV-004 (informativo) — pino do juiz no congelamento, coerente.
+  - GPT-6 Luna (`openai/gpt-6-luna`, sessão `ses_e782cc036ffei9IYx8CyTFImIX`): 9/10, fechar. Confiu `git show/diff --quiet/check`, verificador `passed`; nenhum achado; pendências de depósito/redistribuição explicitamente reservadas a etapas futuras, sem presunção.
+- Nota final: 9/10 — os três revisores convergem na aprovação com evidência reproduzida de forma independente (verificador `passed` três vezes, entrega isolada, dif zero no documento 06 justificado). O ponto não pleno reflete a ressalva comum de que C1 fecha a camada de decisão, ficando a materialização (depósito e registro por material) herdados pela task 002 — pendência legítima de usuário, registrada e não presumida. Os achados são baixos/informativos e não corretivos: a imprecisão de citação ao mapa 08 (§8 vs §4) e a ausência de seção "Questões abertas" no documento 06 residem no texto do registro/prompt, não na entrega, e não justificam dif mínimo no documento normativo; nenhum threshold novo foi inventado e nenhuma quantidade foi apresentada como medida.
+- Parecer: fechamento válido das quatro questões abertas antes de qualquer coleta, com metas preservadas como propostas, pendência condicional de autorização registrada em dois lugares, juiz LLM restrito a triagem/secundária com calibração adiada ao piloto, e energia com medidores identificados e `N/A` como exceção justificada.
+- Decisão: fechar.
+- Reversão: não se aplica — sem artefatos a desfazer.
+- Próximo passo: liberar a task 002 (`002-montar-corpus-e-conjuntos-por-split.md`), que herda as decisões D1–D7 e deve executar o registro por material (fonte, data, tipo, SHA-256, vínculo de versão); conferir na revisão da 002 os itens R001-REV-GLM-01 e R001-REV-003 (herança do registro por material).
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/06-protocolo-de-avaliacao/002-montar-corpus-e-conjuntos-por-split.md","family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/06-protocolo-de-avaliacao/plan.md)

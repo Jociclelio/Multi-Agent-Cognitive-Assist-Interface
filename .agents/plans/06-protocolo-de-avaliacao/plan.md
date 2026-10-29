@@ -1,6 +1,6 @@
 # Plano: Protocolo de avaliação de saídas e fragilidades (Etapa 6)
 
-Estado: tasks criadas (001–006) — execução pendente de início do ciclo; iniciar pela 001 (fecha as questões abertas antes de qualquer coleta)
+Estado: tasks criadas (001–006) — 001 fechada; próxima: 002 (montar corpus e conjuntos, herda decisões D1–D7 da 001 e executa o registro por material)
 
 ## Objetivo
 Materializar o protocolo de avaliação definido em `fase2/documentos/06_protocolo_de_avaliacao.md`: preparar dados e desenho experimental, construir a matriz de avaliação por saída (O01–O18), o catálogo de testes de falha (F01–F24) e os produtos de avaliação (manifesto congelado, datasets/anotações, logs, métricas com denominadores, relatório de limitações), respondendo às questões Q1–Q3 (integração MA vs. agente único; custo/qualidade da compactação e seleção de skills; contenção de falhas por contratos/validação/limites).
@@ -44,8 +44,8 @@ O documento é normativo: define o que a avaliação futura deve executar. A exe
 ## Tasks
 | Ordem | Task | Cobertura (plano) | Depende de | Estado |
 |---|---|---|---|---|
-| 1 | [001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md](../../tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md) | Questões abertas (disciplinas, autorizações, desvios, juiz LLM, energia) | nenhuma | pendente |
-| 2 | [002-montar-corpus-e-conjuntos-por-split.md](../../tasks/06-protocolo-de-avaliacao/002-montar-corpus-e-conjuntos-por-split.md) | Abordagem 1 (dados e desenho, seção 2) | 001 | pendente |
+| 1 | [001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md](../../tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md) | Questões abertas (disciplinas, autorizações, desvios, juiz LLM, energia) | nenhuma | fechada (9/10) |
+| 2 | [002-montar-corpus-e-conjuntos-por-split.md](../../tasks/06-protocolo-de-avaliacao/002-montar-corpus-e-conjuntos-por-split.md) | Abordagem 1 (dados e desenho, seção 2) | 001 | liberada (dependência resolvida) |
 | 3 | [003-anotacao-ouro-e-congelamento.md](../../tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md) | Abordagem 2 (anotação e congelamento) | 002 | pendente |
 | 4 | [004-validar-matriz-o01-o18-do-protocolo.md](../../tasks/06-protocolo-de-avaliacao/004-validar-matriz-o01-o18-do-protocolo.md) | Abordagem 4 (matriz por saída, seção 3) | 003 | pendente |
 | 5 | [005-validar-testes-de-falha-sucesso-eficiencia-e-validade.md](../../tasks/06-protocolo-de-avaliacao/005-validar-testes-de-falha-sucesso-eficiencia-e-validade.md) | Abordagens 5–7 (seções 4, 5 e 6) | 004 | pendente |
