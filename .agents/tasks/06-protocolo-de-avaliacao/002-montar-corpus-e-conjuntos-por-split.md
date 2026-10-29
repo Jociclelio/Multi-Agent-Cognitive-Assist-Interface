@@ -1,6 +1,6 @@
 # Task 002: Montar o corpus autorizado e os conjuntos por split
 
-Estado: aguardando revisão
+Estado: aguardando subtasks (correção delimitada 002a)
 Depende de: 001
 Origem: nenhuma
 
@@ -103,17 +103,18 @@ Restrições: as metas de quantidade são propostas — registrar contagens reai
 ### Dificuldade sentida
 6/10 — A parte manual foi dominada pela disciplina de honestidade das ausências: distinguir, conjunto a conjunto, o que é meta proposta, o que é dado sintético publicável e o que é ausência registrada, sem nunca apresentar uns pelos outros. O desenho do verificador EDF exato exigiu cuidado com o argumento de troca (limitado a chunks unitários sem dependências, com ótimo restrito à força de construção) e dois defeitos de geração foram pegos pelas validações embutidas (sobreposição de janelas inflando capacidade; teto de prazo referenciando dia sem janela). A dependência externa de coleta (depósito dos materiais pelo usuário) permanece como bloqueio estrutural dos conjuntos dependentes de corpus — tratada como pendência documentada, não contornada.
 
-### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
-
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: —
-- Decisão: —
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provider `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime do master.
+- Alvo: base `680834d`; entrega `76b8c7a` (esqueleto `eval/datasets` + registro por material em `eval/corpus`) e `73723cf` (correção cosmética de acentuação); registro `4f6dfa5` (task.md + índice do plano). Isolamento confirmado: `git diff --stat 680834d..HEAD -- fase2/ docs/` vazio (documento 04, documento 06 e submódulo intocados), commits de entrega e registro separados, árvore limpa durante toda a rodada.
+- Modo da rodada: **sequencial** — os três revisores rodam verificador documental, checagens Git e reexecução do gerador na mesma árvore de trabalho compartilhada (mesmo motivo das rodadas anteriores do repositório); um revisor por vez, cada um em sessão nova, sem acesso aos pareceres dos demais.
+- Avaliações: GLM-5.3-Flash (sd2): 9/10 — aprovado; Qwen3.8 27B (sorgan-qwen/qwen3-27b): 8/10 — aprovado; GPT-6 Luna (openai/gpt-6-luna): 7/10 — requer correção. Quórum de três modelos distintos cumprido, sem falhas nem substituições.
+- Síntese: convergência factual total nos pontos reproduzíveis — os três recomputaram os SHA-256 dos dois originais (idênticos a `registro-materiais.json`), confirmaram os originais fora do Git (`.gitignore:46`), reproduziram byte a byte a geração de agenda (hashes `ba15a867…` e `3a59d4a2…` conferindo com o manifesto e o registro), confirmaram o split 40/20/40 sem família repartida e a ausência de vazamento, e o verificador documental `passed` com dif zero em `fase2/` e `docs/`. GLM reimplementou o EDF do zero e Qwen confirmou a exatidão do verificador por fluxo máximo independente (100/100 de concordância) — o verificador é exato no escopo declarado (chunks unitários, liberação 0, sem dependências). A honestidade das ausências foi confirmada pelos três: contagens reais em zero para conjuntos dependentes de corpus declaradas como ausência, metas preservadas como propostas, nada fabricado, nada apresentado como medido, e anotação não iniciada em estrita observância à regra pré-fixada D4 da task 001. Achados: (i) **baixo** (GLM A1; convergente com Qwen R002-REV-QW-01): bloco de template `### Dificuldade sentida` duplicado com placeholder no registro — removido nesta consolidação, sem efeito sobre dados; (ii) **informativo** (Qwen R002-REV-QW-02): bloqueio de depósito do usuário já propagado ao índice para a 003; (iii) **médio** (Luna A1, divergência de juízo com GLM/Qwen que recomendaram fechar): `eval/datasets/agenda/borda.jsonl:2` — o caso de duração não múltipla (17 min) cita `reserva_min: 30` sem codificar a reserva nem um `esperado` que a aplique, deixando a borda como declaração textual com oráculo ambíguo. A divergência não é factual (GLM e Qwen verificaram as bordas como especificações estruturais coerentes com o escopo declarado no manifesto; Luna aponta defeito concreto neste caso específico) e não exigiu esclarecimento adicional: prevalece o tratamento conservador — oráculo ambíguo em dataset commitado não pode ser congelado pela task 003.
+- Nota final: 8/10 — a parte executável da entrega é excelente e verificada por reprodução independente dos três revisores (hashes, determinismo, exatidão do EDF, integridade Git e documental), com honestidade de ausências impecável; a nota desconta o achado médio de oráculo ambíguo na borda F13 e a parcialidade estrutural de C1/C2 (governada pela regra D4 e por dependência externa legítima, não por omissão do executor).
+- Parecer: C1 e C2 parciais por natureza, com parcialidade declarada e correta; C3 atendida na parte executável. A pendência material (depósito do corpus completo pelo usuário) é dependência legítima já registrada e não contornada.
+- Decisão: **corrigir** — preserva a entrega (`76b8c7a` + `73723cf` + `4f6dfa5`); cria correção delimitada na subtask `002a` para codificar o `esperado` do caso de borda F13 de duração não múltipla (aplicando a regra de `reserva_min` citada ou justificando sua não aplicação) e sanar a ambiguidade de oráculo antes do congelamento; o placeholder de template duplicado já foi removido nesta consolidação.
+- Reversão: não se aplica — entrega preservada.
+- Próximo passo: subtask pendente `002a-corrigir-oraculo-borda-f13` (a criar); task 003 segue bloqueada pelos mínimos da D4 até novo depósito do usuário.
+
+<!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/06-protocolo-de-avaliacao/002a-corrigir-oraculo-borda-f13.md","family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/06-protocolo-de-avaliacao/plan.md)

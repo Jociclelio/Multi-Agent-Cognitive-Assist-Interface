@@ -1,6 +1,6 @@
 # Plano: Protocolo de avaliação de saídas e fragilidades (Etapa 6)
 
-Estado: tasks criadas (001–006) — 001 fechada; 002 executada (aguardando revisão; coleta real parcial — ausências registradas); próxima: 003 (anotação e congelamento, bloqueada pelos mínimos de famílias da D4 até novo depósito de corpus)
+Estado: tasks criadas (001–006) — 001 fechada; 002 revisada (decisão: corrigir via subtask 002a; entrega preservada); próxima: 002a (correção do oráculo da borda F13) e depois 003 (anotação e congelamento, bloqueada pelos mínimos de famílias da D4 até novo depósito de corpus)
 
 ## Objetivo
 Materializar o protocolo de avaliação definido em `fase2/documentos/06_protocolo_de_avaliacao.md`: preparar dados e desenho experimental, construir a matriz de avaliação por saída (O01–O18), o catálogo de testes de falha (F01–F24) e os produtos de avaliação (manifesto congelado, datasets/anotações, logs, métricas com denominadores, relatório de limitações), respondendo às questões Q1–Q3 (integração MA vs. agente único; custo/qualidade da compactação e seleção de skills; contenção de falhas por contratos/validação/limites).
@@ -45,7 +45,8 @@ O documento é normativo: define o que a avaliação futura deve executar. A exe
 | Ordem | Task | Cobertura (plano) | Depende de | Estado |
 |---|---|---|---|---|
 | 1 | [001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md](../../tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md) | Questões abertas (disciplinas, autorizações, desvios, juiz LLM, energia) | nenhuma | fechada (9/10) |
-| 2 | [002-montar-corpus-e-conjuntos-por-split.md](../../tasks/06-protocolo-de-avaliacao/002-montar-corpus-e-conjuntos-por-split.md) | Abordagem 1 (dados e desenho, seção 2) | 001 | aguardando revisão (registro por material executado: 2 PDFs; agenda sintética completa; demais conjuntos em ausência registrada com procedimento) |
+| 2 | [002-montar-corpus-e-conjuntos-por-split.md](../../tasks/06-protocolo-de-avaliacao/002-montar-corpus-e-conjuntos-por-split.md) | Abordagem 1 (dados e desenho, seção 2) | 001 | aguardando subtasks (8/10; registro por material executado: 2 PDFs; agenda sintética completa; demais conjuntos em ausência registrada; correção delimitada 002a para o oráculo da borda F13) |
+| 2a | [002a-corrigir-oraculo-borda-f13.md](../../tasks/06-protocolo-de-avaliacao/002a-corrigir-oraculo-borda-f13.md) | Correção da abordagem 1 (oráculo ambíguo na borda F13 apontado na revisão) | 002 | pendente (subtask de correção; entrega 76b8c7a/73723cf preservada) |
 | 3 | [003-anotacao-ouro-e-congelamento.md](../../tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md) | Abordagem 2 (anotação e congelamento) | 002 | pendente |
 | 4 | [004-validar-matriz-o01-o18-do-protocolo.md](../../tasks/06-protocolo-de-avaliacao/004-validar-matriz-o01-o18-do-protocolo.md) | Abordagem 4 (matriz por saída, seção 3) | 003 | pendente |
 | 5 | [005-validar-testes-de-falha-sucesso-eficiencia-e-validade.md](../../tasks/06-protocolo-de-avaliacao/005-validar-testes-de-falha-sucesso-eficiencia-e-validade.md) | Abordagens 5–7 (seções 4, 5 e 6) | 004 | pendente |
