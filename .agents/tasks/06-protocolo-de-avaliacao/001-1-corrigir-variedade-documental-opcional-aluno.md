@@ -1,6 +1,6 @@
 # Task 001-1: Emendar a D4 — materiais suplementares opcionais e registro do novo depósito
 
-Estado: pendente
+Estado: aguardando revisão
 Depende de: 001
 Origem: 001 (correção — decisão do usuário de 2026-10-29: professores não costumam fornecer scans, resoluções de exercícios nem notas de monitoria; o sistema não pode depender desses materiais)
 
@@ -19,16 +19,25 @@ Restrições: a emenda é decisão do usuário registrada antes de qualquer cole
 - `.agents/tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md` — task bloqueada cuja precondition (mínimos da D4) é afetada pela emenda; não alterar seu contrato nesta task.
 
 ## Corretude
-- [ ] C1 — A emenda da D4 está registrada na task 001 como acréscimo datado com a justificativa do usuário (suplementos opcionais fornecidos pelo aluno; corpus não depende deles; professores não os fornecem usualmente), preservando integralmente o texto original da D4; a nota de que F01 permanece testável por perturbação sintética na etapa 8 consta na emenda; nenhuma quantidade é apresentada como resultado medido.
-- [ ] C2 — O documento 06 tem dif restrito à linha 11, com o novo texto declarando os suplementos (scans, tabelas, versões conflitantes) como opcionais/condicionais e a ausência como não bloqueante, com justificativa no commit; documentos 04, 05, 07 e 08, submódulo e demais seções do 06 sem dif; `verificar_documentos.py` com `passed` reproduzido após a alteração.
-- [ ] C3 — O registro por material cobre os 17 novos materiais (8 PDFs de Redes do Classroom + 9 notas HTML de MC847), cada um com fonte, tipo, SHA-256 conferido contra o arquivo em `eval/corpus/originais/`, vínculo de versão e autorização (modelo D2); a identidade byte a byte do PDD do Classroom com `mat-redes-001` está registrada (sem duplicata no depósito); `contagens-vs-metas.md` atualizada com contagens reais e a regra emendada; originais fora do Git confirmados por `git check-ignore`; commits de entrega e de registro separados e árvore limpa.
+- [x] C1 — A emenda da D4 está registrada na task 001 como acréscimo datado com a justificativa do usuário (suplementos opcionais fornecidos pelo aluno; corpus não depende deles; professores não os fornecem usualmente), preservando integralmente o texto original da D4; a nota de que F01 permanece testável por perturbação sintética na etapa 8 consta na emenda; nenhuma quantidade é apresentada como resultado medido. Emenda E1 inserida após a seção D4 da task 001 com declaração explícita de acréscimo; texto original da tabela e do parágrafo da D4 sem dif.
+- [x] C2 — O documento 06 tem dif restrito à linha 11, com o novo texto declarando os suplementos (scans, tabelas, versões conflitantes) como opcionais/condicionais e a ausência como não bloqueante, com justificativa no commit; documentos 04, 05, 07 e 08, submódulo e demais seções do 06 sem dif; `verificar_documentos.py` com `passed` reproduzido após a alteração. `git diff --numstat` no documento 06: 1 inserção, 1 remoção (apenas a linha 11); `git diff --stat` vazio nos documentos 04, 05, 07 e 08 e no submódulo; verificador `passed` antes e depois da alteração.
+- [x] C3 — O registro por material cobre os 17 novos materiais (8 PDFs de Redes do Classroom + 9 notas HTML de MC847), cada um com fonte, tipo, SHA-256 conferido contra o arquivo em `eval/corpus/originais/`, vínculo de versão e autorização (modelo D2); a identidade byte a byte do PDD do Classroom com `mat-redes-001` está registrada (sem duplicata no depósito); `contagens-vs-metas.md` atualizada com contagens reais e a regra emendada; originais fora do Git confirmados por `git check-ignore`; commits de entrega e de registro separados e árvore limpa. Registro com 19 entradas (9 redes, 10 aprendizado não supervisionado), IDs únicos, hashes conferidos por script contra os arquivos em disco (19/19 idênticos); PDD do Classroom byte a byte idêntico a `mat-redes-001` (hash `d9c2355f…` reproduzido em disco, campo `conferencia_de_identidade`, sem entrada duplicada).
 
 ## Execução
-- Modelo: —
-- Base: —
-- Entrega: —
-- Arquivos da entrega: —
-- Evidências: —
+- Modelo: GLM-5.3-Flash (provedor `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime.
+- Base: aa7318f
+- Entrega: e14b63e5194c385d5c2070bad35a6a02d660f2e8 (documento 06 linha 11 + `eval/corpus/registro-materiais.json` + `eval/datasets/contagens-vs-metas.md`)
+- Arquivos da entrega: `fase2/documentos/06_protocolo_de_avaliacao.md`, `eval/corpus/registro-materiais.json`, `eval/datasets/contagens-vs-metas.md`
+- Evidências: ver seção Evidências de verificação abaixo.
+
+### Evidências de verificação
+- `python3 fase2/scripts/verificar_documentos.py` (da raiz): `passed` antes da alteração (baseline) e `passed` após (11 etapas, 18 saídas, 24 falhas, `delivery_pending` vazio).
+- `git diff --numstat fase2/documentos/06_protocolo_de_avaliacao.md` → `1  1` (dif restrito à linha 11, seção 2); `git diff --stat` vazio nos documentos 04, 05, 07 e 08 e no submódulo `docs/playground-llmagenticsystem`.
+- SHA-256 conferidos contra os arquivos depositados (não contra os registros): `sha256sum eval/corpus/originais/redes-de-computadores/*.pdf eval/corpus/originais/aprendizado-nao-supervisionado/*`; script de conferência JSON↔disco reproduz 19/19 hashes idênticos, IDs únicos, 9 materiais de redes e 10 de aprendizado não supervisionado.
+- Identidade do PDD do Classroom: `d9c2355f7b125c06499e8ccfcca85e95cf0c9320f82779c0496396718ec1d14c` recalculado sobre `ProgramaMC8322s26-1.pdf` em disco, idêntico ao registrado em `mat-redes-001` — sem duplicata nem versão conflitante (campo `conferencia_de_identidade` do registro).
+- `git check-ignore -v eval/corpus/originais/redes-de-computadores/Chapter_1_v9.0.pdf eval/corpus/originais/aprendizado-nao-supervisionado/aula01-notas.html` → regra `.gitignore:46` (`eval/corpus/originais/`) ativa para ambos; nenhum arquivo de `originais/` adicionado ao Git.
+- Metadados dos materiais obtidos nesta sessão com `pdfinfo`/`pdftotext` (páginas, datas de criação, produtores) e `grep` de `<title>` dos HTML; onde o metadado não existe (datas de criação dos HTML), o registro declara "não exposto nos metadados do arquivo".
+- Nada medido do EduAgent-OS nesta task: a emenda e o registro são pré-experimentais; contagens de materiais são de disponibilidade de dados de entrada, não resultados.
 
 ## Notas
 
@@ -36,7 +45,7 @@ Restrições: a emenda é decisão do usuário registrada antes de qualquer cole
 3/10 — Edições documentais delimitadas e bookkeeping de hashes; os cuidados são a disciplina de dif mínimo no texto normativo (apenas a linha 11), a preservação do texto original da D4 na emenda e a conferência dos SHA-256 contra os arquivos depositados.
 
 ### Dificuldade sentida
-_/10 — <Justificativa do executor, na mesma escala.>
+3/10 — Igual à dificuldade esperada: as edições documentais foram delimitadas (uma linha no normativo) e o maior cuidado foi a disciplina de dif mínimo no texto normativo, a preservação integral do texto original da D4 na emenda (acréscimo datado, sem reescrita) e a conferência dos 19 SHA-256 contra os arquivos em disco. A maior parte do volume foi de bookkeeping de hashes e metadados; nenhuma decisão de fundo foi tomada nesta task — a emenda apenas registra a decisão do usuário.
 
 ### Revisão
 - Orquestrador: —
