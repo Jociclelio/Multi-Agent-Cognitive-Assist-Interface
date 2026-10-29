@@ -40,3 +40,7 @@ runner-llm/models/bge-m3/
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+
+# Etapa 6 (task 001 do plano 06): corpus restrito nunca versionado nem
+# redistribuído (protocolo §2/§7; registro em eval/corpus/README.md)
+eval/corpus/originais/
