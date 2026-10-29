@@ -1,6 +1,6 @@
 # Task 002-1: Corrigir o oráculo ambíguo da borda F13 de duração não múltipla
 
-Estado: aguardando revisão
+Estado: fechada
 Depende de: 002
 Origem: 002 (correção — achado médio da revisão; entrega preservada)
 
@@ -98,13 +98,15 @@ mínimos da D4, precondition da 003).
 3/10 — Na escala esperada. O esforço real concentrou-se na verificação normativa: a regra citada pela instância original estava imprecisa ("mapa 08 seção 12: minutos reservados arredondados" descreve o cômputo do limite diário, não uma regra autônoma de arredondamento) e foi necessário cruzar mapa 04 §9/§15.5, mapa 08 §12 e as formulações de F13 nos documentos 05 e 06 antes de decidir entre aplicar e descartar — decisão que, uma vez localizada a regra, foi direta (caminho aplicar, sem threshold novo). A preservação byte a byte das pequenas e a restrição do dif à linha 2 exigiram disciplina de regeneração, mas o gerador determinístico já a garantia.
 
 ### Revisão
-- Orquestrador: —
-- Alvo: —
-- Avaliações: <modelo A: _/10; modelo B: _/10; modelo C: _/10>
-- Nota final: _/10
-- Parecer: —
-- Decisão: —
-- Reversão: —
-- Próximo passo: —
+- Orquestrador: GLM-5.3-Flash (provedor `sd2`, via `~/sd2-llm.sh`) — identidade informada pelo runtime; master do ciclo opt-in.
+- Alvo: base `e704d5ca0a6817f520b83fc7f14fdcaae7e3d7ad`; entrega `4a8b0aebcb86044116af743c1a3b7573eea0d960`; registro `eef91d5571583c6cbaa347929b082cdb3ebffefd` — SHAs confirmados no Git; árvore limpa e inalterada durante toda a rodada.
+- Avaliações (rodada **sequencial** — motivo: cada revisor reexecuta o gerador determinístico e recompute hashes SHA-256 na mesma árvore de trabalho compartilhada, como na rodada da task 002): sd2/GLM-5.3-Flash: 9/10 (aprovada; achado baixo A1); sorgan-qwen/qwen3-27b: 9/10 (aprovada; achado baixo R-0021-QW-01); openai/gpt-6-luna: 10/10 (aprovada; sem achados). Quórum de três modelos distintos, sem falhas nem substituições.
+- Nota final: 9/10 — correção delimitada e fiel ao prompt, verificada por evidência independente dos três revisores; o desconto reflete o par de achados baixos documentais abaixo, nenhum bloqueante.
+- Parecer: convergência factual total em C1–C3. Os três confirmaram, por leitura direta das fontes, que a regra de reserva mínima existe nas seções exatas citadas (mapa 04 §9, linha 162; §15.5, linha 277; mapa 08 §12, linha 226) e que o `esperado` de `agenda-borda-dev-02` é executável e correto (`reserva_min = ceil(17/30)·30 = 30`; cronograma EDF 600–630 dentro da janela e do prazo; observação delimitando a violação); reimplementaram/checaram o oráculo por script próprio e reproduziram a regeneração 2× em cópia isolada sob `/tmp/opencode` com hashes idênticos (`pequenas.jsonl` `ba15a867…` byte a byte contra a base `e704d5c`; `borda.jsonl` `ebbd9fc4…`; split 40/20/40 preservado; manifesto conferido); confirmaram integridade (`fase2/` e `docs/` sem dif base→HEAD, submódulo intocado, verificador `passed`, árvore limpa, commits de entrega e registro separados, IDs F01–F24/O01–O18 preservados, nada apresentado como medido) e a preservação integral da entrega da 002 (`76b8c7a`/`73723cf`/`4f6dfa5`). Divergências: nenhuma factual. Achados, nenhum bloqueante: (i) **baixo** (GLM A1): a regra do mapa 04 §9 é definida sobre grade de 15 min enquanto o dataset usa grade de 30 min — a equivalência `ceil(17/30)·30 = ceil(17/15)·15` é contingencial, não derivada; sem efeito no valor atual, já registrada pelo próprio executor e mitigada pelo asserto do gerador ancorado na grade do dataset (fonte operativa); recomendação dos revisores: não alterar. (ii) **baixo** (Qwen R-0021-QW-01): `eval/datasets/contagens-vs-metas.md:50` lista o hash antigo de `borda.jsonl` (`3a59d4a2…`) como hash "na emissão" — a seção é registro point-in-time da task 002 e o passo (5) do prompt condicionava sua atualização a mudança de contagem/descrição (ambas inalteradas); o manifesto canônico está correto; registrado como pendência cosmética (uma linha) para a próxima task que tocar `eval/`, sem reabrir esta subtask. Luna não encontrou achados. Pendências essenciais: nenhuma nova; a dependência externa de depósito do corpus (mínimos da D4) permanece como pendência da 002, já propagada ao índice para a 003.
+- Decisão: **fechar** — todos os critérios obrigatórios C1–C3 comprovados com evidência de quórum; libera a sucessora.
+- Reversão: não se aplica — sem artefatos a reverter (entrega da 002 preservada; nenhum commit revertido).
+- Próximo passo: família da 002 resolvida por subtasks — a mãe `002-montar-corpus-e-conjuntos-por-split` é marcada `resolvida por subtasks`, preservando nota 8/10 e decisão `corrigir` originais; próxima task principal `003-anotacao-ouro-e-congelamento` segue pendente, bloqueada pelos mínimos da D4 até novo depósito de corpus pelo usuário.
+
+<!-- task-cycle: {"decision":"fechar","next_task":".agents/tasks/06-protocolo-de-avaliacao/003-anotacao-ouro-e-congelamento.md","family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
 Plano: [plan.md](../../plans/06-protocolo-de-avaliacao/plan.md)

@@ -1,6 +1,6 @@
 # Task 002: Montar o corpus autorizado e os conjuntos por split
 
-Estado: aguardando subtasks (correção delimitada 002-1)
+Estado: resolvida por subtasks (subtask 002-1 fechada com 9/10; nota 8/10 e decisão `corrigir` originais preservadas)
 Depende de: 001
 Origem: nenhuma
 
@@ -113,7 +113,7 @@ Restrições: as metas de quantidade são propostas — registrar contagens reai
 - Parecer: C1 e C2 parciais por natureza, com parcialidade declarada e correta; C3 atendida na parte executável. A pendência material (depósito do corpus completo pelo usuário) é dependência legítima já registrada e não contornada.
 - Decisão: **corrigir** — preserva a entrega (`76b8c7a` + `73723cf` + `4f6dfa5`); cria correção delimitada na subtask `002-1` para codificar o `esperado` do caso de borda F13 de duração não múltipla (aplicando a regra de `reserva_min` citada ou justificando sua não aplicação) e sanar a ambiguidade de oráculo antes do congelamento; o placeholder de template duplicado já foi removido nesta consolidação.
 - Reversão: não se aplica — entrega preservada.
-- Próximo passo: subtask pendente `002-1-corrigir-oraculo-borda-f13` (criada); task 003 segue bloqueada pelos mínimos da D4 até novo depósito do usuário.
+- Próximo passo: família resolvida pela subtask `002-1-corrigir-oraculo-borda-f13` (fechada com 9/10 — oráculo da borda F13 codificado com a reserva aplicada, entrega `4a8b0ae` sobre base `e704d5c`, revisão por quórum GLM 9/10, Qwen 9/10 e Luna 10/10); esta mãe permanece `resolvida por subtasks` com nota 8/10 e decisão `corrigir` originais preservadas; task 003 segue pendente, bloqueada pelos mínimos da D4 até novo depósito do usuário.
 
 <!-- task-cycle: {"decision":"corrigir","next_task":".agents/tasks/06-protocolo-de-avaliacao/002-1-corrigir-oraculo-borda-f13.md","family":".agents/tasks/06-protocolo-de-avaliacao/001-definir-corpus-autorizacoes-e-desvios-aceitaveis.md","plan":".agents/plans/06-protocolo-de-avaliacao/plan.md"} -->
 
