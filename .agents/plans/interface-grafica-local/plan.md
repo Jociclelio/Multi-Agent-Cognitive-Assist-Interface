@@ -17,6 +17,7 @@ O princípio de design: **cada área da UI é a projeção visual de um agente o
 7. **Configurações** — página honesta dos estados reais do sistema: gate do modelo (`MODEL_NOT_ADMITTED`), timezone `null`, conector web `CONNECTOR_DISABLED`, reranker não adotado; ausência declarada, nunca disfarçada.
 
 Transversais:
+- **Pomodoro acoplado à sessão de estudo**: timer visível durante o chat (e no Inbox ao clicar "Iniciar"), com duração sincronizada ao `PlanBlock` correspondente quando houver (fallback: ciclo padrão 25/5 quando a sessão é livre, sem bloco). O tempo é estado da UI — sem gamificação, sem streak. Ao terminar, a UI **pergunta** ao aluno se o bloco foi concluído; só com confirmação explícita o fechamento é sinalizado ao sistema (fail-closed: o cronômetro nunca marca cumprimento sozinho).
 - **Busca global** (Ctrl+K) sobre chats, fatos curados, tópicos e materiais, reaproveitando os serviços de retrieval (BM25 + BGE-M3).
 - **Erros de primeira classe**: os 12 `TypedError` renderizados como estados claros (mensagem ao usuário + retentabilidade), com indicador de status no topo lendo `/health`; nada de chat quebrado.
 - A UI fala HTTP JSON com `eduagent/api.py` (loopback, `X-EduAgent-User`), nunca acessa o SQLite diretamente.
@@ -49,6 +50,7 @@ Sequência de alto nível: (a) estender `eduagent/api.py` com endpoints de **lei
 - **Stack do frontend**: Streamlit/Gradio (protótipo rápido, Python puro) vs. SPA (React/Vite, controle total para calendário e inbox). Decidir antes da primeira task de frontend.
 - **Versionamento da API**: estender `eduagent/api.py` in place (mesma versão, endpoints novos de leitura) vs. prefixar `/v1` desde já. Impacta clientes futuros.
 - **Estado do Inbox**: onde persiste a sinalização "sessão pronta" (derivar em tempo real do `ScheduleProposal` + estado de curadoria, ou tabela própria). Preferência inicial: derivar em tempo real, sem estado novo.
+- **Pomodoro**: apenas duração sincronizada ao `PlanBlock` com fallback 25/5, ou ciclos configuráveis na aba Configurações? Preferência inicial: sincronizado + fallback fixo, sem configuração no MVP.
 
 ## Tasks
 <Índice preenchido pelo task-writer e mantido pelo task-master.>
