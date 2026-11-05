@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" font-family="Helvetica, Arial, sans-serif">
+  <!-- fundo -->
+  <rect width="1440" height="920" fill="#f0f2f5"/>
+
+  <!-- ============ TOP BAR ============ -->
+  <rect x="64" y="0" width="1376" height="56" fill="#ffffff"/>
+  <line x1="64" y1="56" x2="1440" y2="56" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="84" y="34" font-size="15" font-weight="bold" fill="#111b21">EduAgent-OS</text>
+  <!-- status: erros de primeira classe + /health -->
+  <circle cx="1150" cy="28" r="4" fill="#25a35a"/>
+  <text x="1160" y="32" font-size="12" fill="#374151">modelo</text>
+  <circle cx="1235" cy="28" r="4" fill="#25a35a"/>
+  <text x="1245" y="32" font-size="12" fill="#374151">dados</text>
+  <circle cx="1315" cy="28" r="4" fill="#25a35a"/>
+  <text x="1325" y="32" font-size="12" fill="#374151">servidor</text>
+
+  <!-- ============ TRILHO DE ÍCONES (esquerda) ============ -->
+  <rect x="0" y="0" width="64" height="920" fill="#f1f3f5"/>
+  <line x1="64" y1="0" x2="64" y2="920" stroke="#e0e0e0" stroke-width="1"/>
+
+  <!-- Operações (com fila pendente) -->
+  <circle cx="32" cy="100" r="12" fill="none" stroke="#343a40" stroke-width="1.8"/>
+  <path d="M26 100 l4 4 l9 -9" fill="none" stroke="#343a40" stroke-width="1.8"/>
+  <circle cx="45" cy="88" r="8" fill="#e03131"/>
+  <text x="45" y="91.5" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">2</text>
+
+  <!-- Calendário -->
+  <rect x="20" y="162" width="24" height="22" rx="3" fill="none" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="20" y1="170" x2="44" y2="170" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="27" y1="157" x2="27" y2="164" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="37" y1="157" x2="37" y2="164" stroke="#343a40" stroke-width="1.8"/>
+
+  <!-- Biblioteca -->
+  <rect x="21" y="232" width="22" height="26" rx="2" fill="none" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="29" y1="232" x2="29" y2="258" stroke="#343a40" stroke-width="1.5"/>
+  <line x1="33" y1="240" x2="39" y2="240" stroke="#343a40" stroke-width="1.5"/>
+  <line x1="33" y1="247" x2="39" y2="247" stroke="#343a40" stroke-width="1.5"/>
+
+  <!-- Revisão (flashcards) -->
+  <rect x="19" y="302" width="18" height="24" rx="2" fill="none" stroke="#343a40" stroke-width="1.8"/>
+  <rect x="26" y="308" width="18" height="24" rx="2" fill="#f1f3f5" stroke="#343a40" stroke-width="1.8"/>
+
+  <!-- Progresso -->
+  <rect x="22" y="388" width="5" height="10" fill="#343a40"/>
+  <rect x="31" y="382" width="5" height="16" fill="#343a40"/>
+  <rect x="40" y="374" width="5" height="24" fill="#343a40"/>
+
+  <!-- Configurações -->
+  <circle cx="32" cy="850" r="8" fill="none" stroke="#343a40" stroke-width="1.8"/>
+  <circle cx="32" cy="850" r="2.5" fill="#343a40"/>
+  <line x1="32" y1="836" x2="32" y2="840" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="32" y1="860" x2="32" y2="864" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="18" y1="850" x2="22" y2="850" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="42" y1="850" x2="46" y2="850" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="22.2" y1="840.2" x2="25" y2="843" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="39" y1="857" x2="41.8" y2="859.8" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="41.8" y1="840.2" x2="39" y2="843" stroke="#343a40" stroke-width="1.8"/>
+  <line x1="25" y1="857" x2="22.2" y2="859.8" stroke="#343a40" stroke-width="1.8"/>
+
+  <!-- ============ COLUNA CENTRAL: MATÉRIAS ============ -->
+  <rect x="64" y="56" width="340" height="60" fill="#ffffff"/>
+  <line x1="64" y1="116" x2="404" y2="116" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="76" y="70" width="252" height="30" rx="15" fill="#f0f2f5"/>
+  <text x="92" y="90" font-size="12" fill="#66757f">Buscar  (Ctrl+K)</text>
+  <text x="392" y="90" font-size="10" fill="#94a3b8" text-anchor="end">matérias</text>
+
+  <!-- Card 1: Química — pronta para estudar -->
+  <rect x="64" y="116" width="340" height="128" fill="#ffffff"/>
+  <line x1="64" y1="244" x2="404" y2="244" stroke="#f0f2f5" stroke-width="1"/>
+  <text x="80" y="142" font-size="15" font-weight="bold" fill="#111b21">Química</text>
+  <text x="388" y="142" font-size="11" fill="#94a3b8" text-anchor="end">hoje</text>
+  <rect x="80" y="152" width="176" height="20" rx="10" fill="#e7f8ee" stroke="#25a35a" stroke-width="1"/>
+  <text x="90" y="166" font-size="11" fill="#1d7a46">Bloco agendado 14h</text>
+  <text x="80" y="196" font-size="12" fill="#66757f">Tutor: vamos retomar cinética…</text>
+  <rect x="80" y="208" width="188" height="24" rx="12" fill="#25d366"/>
+  <text x="174" y="224" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle">Pronto para estudar ✓</text>
+  <rect x="276" y="208" width="112" height="24" rx="12" fill="#128c7e"/>
+  <text x="332" y="224" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle">Iniciar</text>
+
+  <!-- Card 2: Cálculo — material novo -->
+  <rect x="64" y="244" width="340" height="100" fill="#ffffff"/>
+  <line x1="64" y1="344" x2="404" y2="344" stroke="#f0f2f5" stroke-width="1"/>
+  <text x="80" y="270" font-size="15" font-weight="bold" fill="#111b21">Cálculo</text>
+  <text x="388" y="270" font-size="11" fill="#94a3b8" text-anchor="end">hoje</text>
+  <rect x="80" y="280" width="206" height="20" rx="10" fill="#eef4fb" stroke="#6aa1d8" stroke-width="1"/>
+  <text x="90" y="294" font-size="11" fill="#2b6cb0">Material novo curado hoje</text>
+  <text x="80" y="326" font-size="12" fill="#66757f">Curador: 2 novos vídeos adicionados…</text>
+
+  <!-- Card 3: Física -->
+  <rect x="64" y="344" width="340" height="100" fill="#ffffff"/>
+  <line x1="64" y1="444" x2="404" y2="444" stroke="#f0f2f5" stroke-width="1"/>
+  <text x="80" y="370" font-size="15" font-weight="bold" fill="#111b21">Física</text>
+  <text x="388" y="370" font-size="11" fill="#94a3b8" text-anchor="end">ter</text>
+  <rect x="80" y="380" width="150" height="20" rx="10" fill="#f1f3f5" stroke="#ced4da" stroke-width="1"/>
+  <text x="90" y="394" font-size="11" fill="#868e96">3 dias sem estudo</text>
+  <text x="80" y="426" font-size="12" fill="#66757f">Monitor: quiz pendente de conclusão…</text>
+
+  <!-- Card 4: Programação -->
+  <rect x="64" y="444" width="340" height="100" fill="#ffffff"/>
+  <line x1="64" y1="544" x2="404" y2="544" stroke="#f0f2f5" stroke-width="1"/>
+  <text x="80" y="470" font-size="15" font-weight="bold" fill="#111b21">Programação</text>
+  <text x="388" y="470" font-size="11" fill="#94a3b8" text-anchor="end">24/10</text>
+  <rect x="80" y="480" width="160" height="20" rx="10" fill="#f1f3f5" stroke="#ced4da" stroke-width="1"/>
+  <text x="90" y="494" font-size="11" fill="#868e96">12 dias sem estudo</text>
+  <text x="80" y="526" font-size="12" fill="#66757f">Tutor: última sessão encerrada…</text>
+
+  <line x1="404" y1="56" x2="404" y2="920" stroke="#e0e0e0" stroke-width="1"/>
+
+  <!-- ============ PAINEL DE CONVERSA (direita) ============ -->
+  <rect x="404" y="56" width="736" height="56" fill="#ffffff"/>
+  <text x="424" y="82" font-size="16" font-weight="bold" fill="#111b21">Química — Cinética de primeira ordem</text>
+  <text x="424" y="100" font-size="11" fill="#94a3b8">Tutor · sessão efêmera · objetivo: revisar cinética</text>
+  <!-- pomodoro -->
+  <rect x="880" y="68" width="170" height="30" rx="15" fill="#fff4e5" stroke="#f0b429" stroke-width="1"/>
+  <circle cx="900" cy="83" r="8" fill="none" stroke="#b7791f" stroke-width="1.6"/>
+  <line x1="900" y1="83" x2="900" y2="77.5" stroke="#b7791f" stroke-width="1.6"/>
+  <line x1="900" y1="83" x2="904" y2="85" stroke="#b7791f" stroke-width="1.6"/>
+  <text x="916" y="87" font-size="12" font-weight="bold" fill="#7b4d00">Pomodoro · 23:41</text>
+  <text x="1060" y="87" font-size="11" fill="#94a3b8">bloco 14h–15h</text>
+  <line x1="404" y1="112" x2="1140" y2="112" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- área de mensagens -->
+  <rect x="404" y="112" width="736" height="736" fill="#efeae2"/>
+
+  <!-- turno do Tutor 1 -->
+  <rect x="424" y="140" width="470" height="92" rx="10" fill="#ffffff"/>
+  <text x="440" y="166" font-size="13" fill="#111b21">Vamos retomar cinética de primeira ordem. Ontem</text>
+  <text x="440" y="184" font-size="13" fill="#111b21">vimos o experimento da meia-vida — lembra?</text>
+  <rect x="440" y="196" width="92" height="22" rx="11" fill="#e7f8ee" stroke="#25a35a" stroke-width="1"/>
+  <text x="486" y="211" font-size="11" fill="#1d7a46" text-anchor="middle">Fontes (2) ▸</text>
+  <text x="878" y="224" font-size="10" fill="#94a3b8" text-anchor="end">14:02</text>
+
+  <!-- turno do aluno -->
+  <rect x="700" y="252" width="420" height="60" rx="10" fill="#d9fdd3"/>
+  <text x="716" y="276" font-size="13" fill="#111b21">Lembro — a temperatura dobrou e a constante</text>
+  <text x="716" y="294" font-size="13" fill="#111b21">de velocidade quadruplicou.</text>
+  <text x="1104" y="304" font-size="10" fill="#5c8a5e" text-anchor="end">14:03</text>
+
+  <!-- turno do Tutor 2 -->
+  <rect x="424" y="332" width="470" height="108" rx="10" fill="#ffffff"/>
+  <text x="440" y="358" font-size="13" fill="#111b21">Exato — é a lei de Arrhenius em ação. Quer tentar</text>
+  <text x="440" y="376" font-size="13" fill="#111b21">um exercício com dica graduada para fixar?</text>
+  <rect x="440" y="390" width="72" height="22" rx="11" fill="#eef4fb" stroke="#6aa1d8" stroke-width="1"/>
+  <text x="476" y="405" font-size="11" fill="#2b6cb0" text-anchor="middle">Quiz ▸</text>
+  <rect x="520" y="390" width="92" height="22" rx="11" fill="#e7f8ee" stroke="#25a35a" stroke-width="1"/>
+  <text x="566" y="405" font-size="11" fill="#1d7a46" text-anchor="middle">Fontes (1) ▸</text>
+  <text x="878" y="432" font-size="10" fill="#94a3b8" text-anchor="end">14:04</text>
+
+  <!-- digitando… -->
+  <rect x="424" y="460" width="88" height="34" rx="10" fill="#ffffff"/>
+  <circle cx="448" cy="477" r="3" fill="#adb5bd"/>
+  <circle cx="464" cy="477" r="3" fill="#adb5bd"/>
+  <circle cx="480" cy="477" r="3" fill="#adb5bd"/>
+
+  <!-- barra de entrada -->
+  <rect x="424" y="796" width="640" height="44" rx="22" fill="#ffffff" stroke="#dee2e6" stroke-width="1"/>
+  <text x="444" y="823" font-size="13" fill="#94a3b8">Escreva para o Tutor…</text>
+  <circle cx="1096" cy="818" r="22" fill="#128c7e"/>
+  <path d="M1086 818 l18 -9 l-5 17 l-6 -5 z" fill="#ffffff"/>
+
+  <!-- ============ GAVETA DE PROVA DE ORIGEM (evidence drawer) ============ -->
+  <rect x="1140" y="56" width="300" height="796" fill="#ffffff"/>
+  <line x1="1140" y1="56" x2="1140" y2="852" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="1160" y="92" font-size="14" font-weight="bold" fill="#111b21">Prova de origem</text>
+  <text x="1160" y="110" font-size="11" fill="#94a3b8">EvidencePack · cobertura parcial</text>
+
+  <rect x="1156" y="128" width="268" height="74" rx="8" fill="#f8f9fa" stroke="#e9ecef" stroke-width="1"/>
+  <text x="1170" y="152" font-size="12" font-weight="bold" fill="#111b21">Aula 7 — slide 12</text>
+  <text x="1170" y="170" font-size="11" fill="#66757f">Cinética de 1ª ordem · meia-vida</text>
+  <text x="1170" y="188" font-size="10" fill="#94a3b8">fonte: originals/aula07.pdf</text>
+
+  <rect x="1156" y="214" width="268" height="74" rx="8" fill="#f8f9fa" stroke="#e9ecef" stroke-width="1"/>
+  <text x="1170" y="238" font-size="12" font-weight="bold" fill="#111b21">Cap. 14 — p. 332</text>
+  <text x="1170" y="256" font-size="11" fill="#66757f">Equação de Arrhenius</text>
+  <text x="1170" y="274" font-size="10" fill="#94a3b8">fonte: originals/livro-texto.pdf</text>
+
+  <text x="1160" y="316" font-size="10" font-style="italic" fill="#94a3b8">Toda resposta do Tutor cita suas fontes.</text>
+
+  <!-- rodapé -->
+  <text x="424" y="890" font-size="11" fill="#94a3b8">Esboço — plano interface-grafica-local (rascunho) · trilho | matérias | conversa · fail-closed</text>
+</svg>

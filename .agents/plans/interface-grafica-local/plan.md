@@ -45,6 +45,7 @@ Sequência de alto nível: (a) estender `eduagent/api.py` com endpoints de **lei
 - `fase2/documentos/04_mapa_completo_do_sistema.md` (§12 API, §3 estrutura, §4 contratos) — normativo; a UI não contradiz o loopback single-threaded nem o fail-closed.
 - `README-eduagent.md` — estado do MVP e convenções de ambiente (`uv sync`).
 - `.agents/protocolo.md` — fluxo plano → tasks → execução → revisão.
+- `esboco-interface.svg` / `esboco-interface.png` (neste diretório) — esboço visual do esqueleto de três colunas (trilho, matérias, conversa) com pomodoro, badges e evidence drawer.
 
 ## Critérios de conclusão
 - Esqueleto de três colunas (trilho, lista de matérias, painel de conversa) implementado e navegável, consumindo apenas a API loopback (nenhum acesso direto a `data/` ou SQLite pelo frontend).
