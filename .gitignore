@@ -44,3 +44,11 @@ data/*.sqlite-wal
 # Etapa 6 (task 001 do plano 06): corpus restrito nunca versionado nem
 # redistribuído (protocolo §2/§7; registro em eval/corpus/README.md)
 eval/corpus/originais/
+
+# Relatório local de diagnóstico e próximos passos
+RELATORIO_ESTADO_E_PROXIMOS_PASSOS.md
+
+# Editor e Devcontainer local
+.vscode/
+.devcontainer/
+

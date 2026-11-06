@@ -1,0 +1,899 @@
+/* ==========================================================================
+   EduAgent-OS v0.1 — Design System & Layout CSS Grid (3 Colunas + Gaveta)
+   ========================================================================== */
+
+:root {
+  --bg-canvas: #F7F5F0;
+  --bg-surface: #FFFFFF;
+  --bg-panel: #111827;
+  --bg-elevated: #1e293b;
+  --bg-subtle: #EFECE4;
+  --border-subtle: #26334d;
+  --border-focus: #38bdf8;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-primary: #1F5F5B;
+  --accent-secondary: #C86D3B;
+  --accent-primary-hover: #0284c7;
+  --status-ready: #10b981;
+  --status-ready-bg: rgba(16, 185, 129, 0.14);
+  --status-warn: #f59e0b;
+  --status-warn-bg: rgba(245, 158, 11, 0.14);
+  --status-danger: #ef4444;
+  --status-danger-bg: rgba(239, 68, 68, 0.14);
+  --status-info: #38bdf8;
+  --status-info-bg: rgba(56, 189, 248, 0.14);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-canvas: #0b101b;
+    --bg-surface: #1A1F1D;
+    --bg-panel: #111827;
+    --bg-elevated: #1e293b;
+    --bg-subtle: #162032;
+    --accent-primary: #0ea5e9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  block-size: 100dvh;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Shell Principal em CSS Grid (3 Colunas + 4ª Coluna Gaveta de Evidências)
+   -------------------------------------------------------------------------- */
+.app-shell {
+  display: grid;
+  grid-template-columns: 64px 320px minmax(0, 1fr) 340px;
+  block-size: 100dvh;
+  min-block-size: 100dvh;
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.app-shell[data-drawer-open="false"] {
+  grid-template-columns: 64px 320px minmax(0, 1fr);
+}
+
+.app-shell[data-drawer-open="false"] .evidence-drawer {
+  display: none;
+}
+
+@media (max-width: 1120px) {
+  .app-shell {
+    grid-template-columns: 60px 260px minmax(0, 1fr);
+  }
+  .evidence-drawer {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: 320px;
+    z-index: 40;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   1. Trilho Global Esquerdo (64px)
+   -------------------------------------------------------------------------- */
+.global-rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding-block: 12px;
+  background-color: #070b14;
+  border-inline-end: 1px solid var(--border-subtle);
+}
+
+.rail-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0284c7, #10b981);
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inline-size: 100%;
+  align-items: center;
+}
+
+.rail-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.rail-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  inline-size: 52px;
+  block-size: 50px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.rail-btn:hover,
+.rail-btn:focus-visible {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.rail-btn.is-active {
+  background-color: rgba(14, 165, 233, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+}
+
+.rail-icon {
+  font-size: 16px;
+}
+
+.rail-label {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.rail-badge {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  min-inline-size: 16px;
+  block-size: 16px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background-color: var(--status-warn);
+  color: #0b101b;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   2. Coluna de Disciplinas e Sessões (320px, Estilo WhatsApp Web)
+   -------------------------------------------------------------------------- */
+.courses-column {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
+  background-color: var(--bg-panel);
+  border-inline-end: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.courses-header {
+  padding: 12px;
+  border-block-end: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.courses-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.courses-heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.search-input {
+  inline-size: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.search-input:focus {
+  outline: 2px solid var(--border-focus);
+  border-color: transparent;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip.is-active {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.courses-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.course-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+  cursor: pointer;
+  text-align: start;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.course-card:hover {
+  background-color: var(--bg-elevated);
+}
+
+.course-card.is-selected {
+  background-color: rgba(14, 165, 233, 0.14);
+  border-color: var(--border-focus);
+}
+
+.course-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.course-card-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.course-ready-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.course-ready-dot.is-ready {
+  background-color: var(--status-ready-bg);
+  color: var(--status-ready);
+}
+
+.course-ready-dot.is-pending {
+  background-color: var(--status-warn-bg);
+  color: var(--status-warn);
+}
+
+.course-card-preview {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.course-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tier-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.courses-footer {
+  padding: 8px 12px;
+  border-block-start: 1px solid var(--border-subtle);
+  background-color: #0c1322;
+}
+
+.user-context-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.user-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.user-uuid-input {
+  inline-size: 100%;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-canvas);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   3. Painel Central (Main Stage)
+   -------------------------------------------------------------------------- */
+.main-stage {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
+  min-inline-size: 0;
+  background-color: var(--bg-canvas);
+  overflow: hidden;
+}
+
+.runtime-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 14px;
+  background-color: #0f172a;
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.banner-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.banner-pill.level-warning {
+  background-color: var(--status-warn-bg);
+  color: #fcd34d;
+}
+
+.banner-pill.level-info {
+  background-color: var(--status-info-bg);
+  color: #7dd3fc;
+}
+
+.banner-pill.level-ok {
+  background-color: var(--status-ready-bg);
+  color: #6ee7b7;
+}
+
+.stage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 16px;
+  background-color: var(--bg-panel);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.stage-title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stage-course-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stage-course-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.status-pill.status-ready {
+  background-color: var(--status-ready-bg);
+  color: var(--status-ready);
+}
+
+/* Timer Pomodoro Widget */
+.pomodoro-widget {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+}
+
+.pomodoro-clock-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.pomodoro-phase {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.pomodoro-clock {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+/* Stage Views */
+.stage-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.stage-view[hidden] {
+  display: none !important;
+}
+
+.chat-timeline {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Cards de Mensagem e Artefatos na Timeline */
+.timeline-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-panel);
+  max-inline-size: 860px;
+}
+
+.timeline-card.role-student {
+  align-self: flex-end;
+  background-color: rgba(14, 165, 233, 0.15);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.timeline-card.role-tutor {
+  align-self: flex-start;
+  background-color: var(--bg-panel);
+}
+
+.timeline-card.role-item {
+  border-inline-start: 4px solid var(--accent-primary);
+  background-color: var(--bg-subtle);
+}
+
+.timeline-card.role-error {
+  border-inline-start: 4px solid var(--status-danger);
+  background-color: var(--status-danger-bg);
+}
+
+.card-header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-end: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.source-ref-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 4px 0 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Composer Inferior */
+.composer-bar {
+  padding: 10px 16px;
+  background-color: var(--bg-panel);
+  border-block-start: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.composer-top-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.intent-select,
+.topic-select,
+.input-field,
+.input-textarea {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.composer-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.composer-textarea {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  resize: none;
+}
+
+.composer-submit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Visões Auxiliares */
+.aux-view-container {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aux-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.aux-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.info-card,
+.upload-card {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Flashcards Stage */
+.flashcard-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding-block: 12px;
+}
+
+.flashcard-box {
+  inline-size: min(640px, 100%);
+  min-block-size: 220px;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid var(--border-focus);
+  background-color: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Gaveta Direita de Evidências (340px)
+   -------------------------------------------------------------------------- */
+.evidence-drawer {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
+  background-color: var(--bg-panel);
+  border-inline-start: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.drawer-header {
+  padding: 12px 14px;
+  border-block-end: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawer-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-section-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.drawer-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evidence-chunk-card {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+  font-size: 12.5px;
+}
+
+/* --------------------------------------------------------------------------
+   Botões e Utilitários
+   -------------------------------------------------------------------------- */
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.btn-danger {
+  background-color: var(--status-danger);
+  color: #ffffff;
+}
+
+.btn-compact {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.muted-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Modais Nativos <dialog> (Modern Web Guidance)
+   -------------------------------------------------------------------------- */
+dialog.modal-dialog {
+  max-inline-size: 520px;
+  inline-size: calc(100% - 32px);
+  padding: 0;
+  border: 1px solid var(--border-focus);
+  border-radius: 14px;
+  background-color: var(--bg-panel);
+  color: var(--text-primary);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+}
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  background-color: rgba(7, 11, 20, 0.78);
+  backdrop-filter: blur(3px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.modal-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.modal-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+

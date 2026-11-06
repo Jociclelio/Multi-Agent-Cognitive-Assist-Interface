@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduAgent-OS v0.1 — Assistência Cognitiva Multiagente Local</title>
+  <link rel="stylesheet" href="/ui/styles.css" />
+</head>
+<body>
+  <div id="app-shell" class="app-shell" data-drawer-open="true" data-active-view="courses">
+    <!-- 1. Trilho Global Esquerdo (64px) -->
+    <nav class="global-rail" aria-label="Navegação principal do EduAgent-OS">
+      <div class="rail-brand" title="EduAgent-OS v0.1 (127.0.0.1 Loopback)">
+        <span class="brand-glyph" aria-hidden="true">EA</span>
+      </div>
+
+      <ul class="rail-list" role="list">
+        <li>
+          <button type="button" class="rail-btn is-active" data-rail-target="courses" title="Disciplinas e Sessões de Tutoria">
+            <span class="rail-icon" aria-hidden="true">💬</span>
+            <span class="rail-label">Estudo</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="rail-btn" data-rail-target="calendar" title="Calendário, Demandas e Exportação .ics">
+            <span class="rail-icon" aria-hidden="true">📅</span>
+            <span class="rail-label">Agenda</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="rail-btn" data-rail-target="library" title="Biblioteca, Ingestão e Citações">
+            <span class="rail-icon" aria-hidden="true">📚</span>
+            <span class="rail-label">Acervo</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="rail-btn" data-rail-target="review" title="Revisão Espaçada e Flashcards (Feynman)">
+            <span class="rail-icon" aria-hidden="true">🗂️</span>
+            <span class="rail-label">Revisão</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="rail-btn" data-rail-target="progress" title="Progresso Qualitativo por Tópico">
+            <span class="rail-icon" aria-hidden="true">📊</span>
+            <span class="rail-label">Domínio</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="rail-btn" data-rail-target="operations" title="Fila de Aprovações e Operações Pendentes">
+            <span class="rail-icon" aria-hidden="true">🛡️</span>
+            <span class="rail-label">Gates</span>
+            <span id="rail-ops-badge" class="rail-badge" hidden>0</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="rail-footer">
+        <button type="button" id="btn-open-search" class="rail-btn" title="Busca Global (Ctrl+K)">
+          <span class="rail-icon" aria-hidden="true">🔍</span>
+          <span class="rail-label">Ctrl+K</span>
+        </button>
+        <button type="button" class="rail-btn" data-rail-target="settings" title="Diagnóstico (Doctor), Backup e Configurações">
+          <span class="rail-icon" aria-hidden="true">⚙️</span>
+          <span class="rail-label">Sistema</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 2. Coluna Esquerda: Lista de Disciplinas e Sessões (320px, estilo WhatsApp Web) -->
+    <aside class="courses-column" aria-label="Lista de disciplinas e sessões">
+      <header class="courses-header">
+        <div class="courses-title-row">
+          <h1 class="courses-heading">Disciplinas</h1>
+          <button type="button" id="btn-new-course" class="btn-secondary btn-compact" title="Criar disciplina ou ingerir material">
+            + Nova
+          </button>
+        </div>
+
+        <div class="search-input-wrap">
+          <input
+            type="search"
+            id="course-search-input"
+            class="search-input"
+            placeholder="Filtrar disciplina ou tópico..."
+            aria-label="Filtrar disciplinas"
+          />
+        </div>
+
+        <div class="filter-chips" role="group" aria-label="Filtros de prioridade de disciplinas">
+          <button type="button" class="chip is-active" data-course-filter="all">Todas</button>
+          <button type="button" class="chip" data-course-filter="ready">Prontas p/ Estudar</button>
+          <button type="button" class="chip" data-course-filter="scheduled">Na Agenda</button>
+          <button type="button" class="chip" data-course-filter="pending_approval">Pendências</button>
+        </div>
+      </header>
+
+      <div id="courses-list" class="courses-list" role="listbox" aria-label="Disciplinas ordenadas por prioridade">
+        <!-- Preenchido dinamicamente por app.js -->
+      </div>
+
+      <footer class="courses-footer">
+        <div class="user-context-row">
+          <label for="active-user-input" class="user-label">X-EduAgent-User:</label>
+          <input
+            type="text"
+            id="active-user-input"
+            class="user-uuid-input"
+            value="00000000-0000-0000-0000-000000000001"
+            aria-label="UUID do usuário ativo"
+          />
+        </div>
+      </footer>
+    </aside>
+
+    <!-- 3. Painel Central: Sessão da Disciplina ou Visão Auxiliar -->
+    <main class="main-stage" id="main-stage">
+      <!-- Banner de Gates e Transparência de Estado Degradado -->
+      <section id="runtime-gates-banner" class="runtime-banner" aria-live="polite"></section>
+
+      <!-- Cabeçalho Contextual da Disciplina Ativa + Timer Pomodoro -->
+      <header class="stage-header">
+        <div class="stage-course-meta">
+          <div class="stage-title-line">
+            <h2 id="active-course-title" class="stage-course-title">Selecione uma disciplina</h2>
+            <span id="active-course-ready-badge" class="status-pill status-ready">Pronta para estudar</span>
+            <span id="active-course-domain-badge" class="status-pill status-domain">Domínio: insufficient</span>
+          </div>
+          <p id="active-course-subtitle" class="stage-course-subtitle">
+            Tutoria socrática e Feynman ancorada em evidências locais (127.0.0.1)
+          </p>
+        </div>
+
+        <!-- Timer Pomodoro Sincronizado ao PlanBlock (Fail-Closed) -->
+        <div class="pomodoro-widget" aria-label="Timer Pomodoro sincronizado ao bloco de estudo">
+          <div class="pomodoro-clock-box">
+            <span id="pomodoro-phase-label" class="pomodoro-phase">Foco</span>
+            <span id="pomodoro-clock" class="pomodoro-clock" aria-live="off">25:00</span>
+          </div>
+          <div class="pomodoro-actions">
+            <button type="button" id="btn-pomodoro-toggle" class="btn-secondary btn-compact">Iniciar</button>
+            <button type="button" id="btn-pomodoro-reset" class="btn-ghost btn-compact" title="Reiniciar bloco">↺</button>
+          </div>
+        </div>
+
+        <div class="stage-header-actions">
+          <button type="button" id="btn-toggle-drawer" class="btn-secondary btn-compact" aria-expanded="true">
+            Evidências &amp; Plano
+          </button>
+        </div>
+      </header>
+
+      <!-- Visão 3A: Timeline Conversacional & Prática da Disciplina (Default) -->
+      <section id="view-courses" class="stage-view is-visible" aria-label="Sessão de estudo e tutoria">
+        <div id="chat-timeline" class="chat-timeline" role="log" aria-live="polite">
+          <!-- Mensagens do estudante, Tutor (L0-L3), LearningItem, Assessment e Gates -->
+        </div>
+
+        <!-- Composer Contextual Inferior -->
+        <form id="turn-composer-form" class="composer-bar" autocomplete="off">
+          <div class="composer-top-controls">
+            <label for="intent-select" class="sr-only">Intenção do turno</label>
+            <select id="intent-select" class="intent-select" aria-label="Modo de interação">
+              <option value="/ask">💬 Perguntar ao Tutor (/ask)</option>
+              <option value="/practice">🎯 Praticar Exercício (/practice)</option>
+              <option value="/submit">✅ Submeter Resposta (/submit)</option>
+              <option value="/plan">📅 Propor Agenda (/plan)</option>
+            </select>
+
+            <label for="topic-select" class="sr-only">Tópico alvo</label>
+            <select id="topic-select" class="topic-select" aria-label="Tópico de estudo">
+              <option value="">Todos os tópicos da disciplina</option>
+            </select>
+
+            <button type="button" id="btn-request-hint" class="btn-ghost btn-compact" title="Avançar escada de ajuda socrática (L0 → L1 → L2 → L3)">
+              💡 Pedir Dica (<span id="current-help-level-indicator">L0</span>)
+            </button>
+
+            <button type="button" id="btn-quick-upload" class="btn-ghost btn-compact" title="Enviar PDF ou Markdown para esta disciplina">
+              📎 Anexar Material
+            </button>
+          </div>
+
+          <div class="composer-input-row">
+            <textarea
+              id="composer-textarea"
+              class="composer-textarea"
+              rows="2"
+              placeholder="Escreva sua dúvida conceitual, explicação Feynman ou resposta ao exercício..."
+              aria-label="Mensagem para o sistema multiagente"
+            ></textarea>
+            <div class="composer-submit-group">
+              <button type="submit" id="btn-send-turn" class="btn-primary">Enviar Turno</button>
+              <button type="button" id="btn-cancel-turn" class="btn-danger btn-compact" hidden>Cancelar</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- Visão 3B: Calendário & Demandas (Agente Planejador) -->
+      <section id="view-calendar" class="stage-view" hidden aria-label="Calendário, demandas e blocos planejados">
+        <div class="aux-view-container">
+          <div class="aux-header-row">
+            <h3>Calendário de Estudos &amp; Demandas (Agente Planejador)</h3>
+            <div class="aux-actions">
+              <button type="button" id="btn-generate-plan" class="btn-primary btn-compact">Gerar Proposta (/plan)</button>
+              <button type="button" id="btn-export-ics" class="btn-secondary btn-compact">Exportar .ics (/export)</button>
+            </div>
+          </div>
+          <div id="calendar-view-content" class="aux-grid"></div>
+        </div>
+      </section>
+
+      <!-- Visão 3C: Biblioteca & Ingestão (Agentes Curador e Bibliotecário) -->
+      <section id="view-library" class="stage-view" hidden aria-label="Biblioteca de documentos e ingestão">
+        <div class="aux-view-container">
+          <div class="aux-header-row">
+            <h3>Biblioteca, Ingestão &amp; Indexação Híbrida (Curador + Bibliotecário)</h3>
+          </div>
+          <form id="library-upload-form" class="upload-card">
+            <h4>Ingerir Novo Material na Disciplina Ativa (Confinado em <code>data/&lt;user&gt;/originals/</code> · máx. 50 MiB)</h4>
+            <div class="upload-fields">
+              <input type="text" id="upload-filename" class="input-field" placeholder="Ex.: aula01_sistemas_multiagente.md" required />
+              <textarea id="upload-content-text" class="input-textarea" rows="3" placeholder="Cole o conteúdo textual/Markdown ou selecione um arquivo local abaixo..."></textarea>
+              <div class="upload-actions-row">
+                <input type="file" id="upload-file-input" class="file-input" accept=".pdf,.md,.txt,.html" />
+                <button type="submit" class="btn-primary btn-compact">Fazer Upload &amp; Ingerir (/ingest)</button>
+              </div>
+            </div>
+          </form>
+          <div id="library-view-content" class="aux-grid"></div>
+        </div>
+      </section>
+
+      <!-- Visão 3D: Revisão & Flashcards (Sem Gamificação) -->
+      <section id="view-review" class="stage-view" hidden aria-label="Revisão espaçada e flashcards">
+        <div class="aux-view-container">
+          <div class="aux-header-row">
+            <h3>Revisão Espaçada &amp; Recordação Ativa (Método Feynman · Zero Gamificação)</h3>
+            <span class="status-pill">Sem streaks ou pontuação punitiva</span>
+          </div>
+          <div id="review-view-content" class="flashcard-stage"></div>
+        </div>
+      </section>
+
+      <!-- Visão 3E: Progresso Qualitativo (Agente Monitor) -->
+      <section id="view-progress" class="stage-view" hidden aria-label="Progresso e estado de domínio por tópico">
+        <div class="aux-view-container">
+          <div class="aux-header-row">
+            <h3>Estado de Domínio Qualitativo por Tópico (Agente Monitor · <code>estimate = null</code>)</h3>
+          </div>
+          <div id="progress-view-content" class="aux-grid"></div>
+        </div>
+      </section>
+
+      <!-- Visão 3F: Fila de Operações e Gates de Confirmação -->
+      <section id="view-operations" class="stage-view" hidden aria-label="Fila de aprovações e operações">
+        <div class="aux-view-container">
+          <div class="aux-header-row">
+            <h3>Fila de Aprovações, Fatos Ambíguos e Recibos Outbox</h3>
+            <button type="button" id="btn-refresh-operations" class="btn-secondary btn-compact">Atualizar Fila</button>
+          </div>
+          <div id="operations-view-content" class="aux-grid"></div>
+        </div>
+      </section>
+
+      <!-- Visão 3G: Configurações, Diagnóstico (Doctor) e Ciclo de Vida de Dados -->
+      <section id="view-settings" class="stage-view" hidden aria-label="Diagnóstico do sistema e configurações">
+        <div class="aux-view-container">
+          <div class="aux-header-row">
+            <h3>Diagnóstico do Runtime (Doctor), Gates e Ciclo de Vida de Dados</h3>
+          </div>
+          <div id="settings-view-content" class="aux-grid"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 4. Gaveta Direita Retrátil: EvidencePack, SourceRef, Rubrica e Plano (340px) -->
+    <aside id="evidence-drawer" class="evidence-drawer" aria-label="Gaveta de evidências documentais e invariantes">
+      <header class="drawer-header">
+        <h3 class="drawer-title">Evidências &amp; Invariantes</h3>
+        <span id="evidence-coverage-badge" class="status-pill">Cobertura: —</span>
+      </header>
+
+      <div class="drawer-body">
+        <section class="drawer-section">
+          <h4 class="drawer-section-title">Trechos Recuperados (<code>EvidencePack</code>)</h4>
+          <div id="drawer-evidence-list" class="drawer-card-list">
+            <p class="muted-note">Selecione uma disciplina ou clique em uma citação <code>[Fonte]</code> para inspecionar o trecho original.</p>
+          </div>
+        </section>
+
+        <section class="drawer-section">
+          <h4 class="drawer-section-title">Rubrica &amp; Escada Socrática</h4>
+          <div id="drawer-rubric-list" class="drawer-card-list">
+            <p class="muted-note">Critérios públicos do item em prática aparecerão aqui. O gabarito permanece oculto até L3 ou revelação explícita.</p>
+          </div>
+        </section>
+
+        <section class="drawer-section">
+          <h4 class="drawer-section-title">Bloco Planejado &amp; Invariantes</h4>
+          <div id="drawer-plan-summary" class="drawer-card-list"></div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Modal Nativo <dialog> 1: Confirmação Fail-Closed do Timer Pomodoro (Decisão D5) -->
+  <dialog id="pomodoro-confirm-dialog" class="modal-dialog" aria-labelledby="pomodoro-dialog-title">
+    <div class="modal-content">
+      <h2 id="pomodoro-dialog-title" class="modal-title">Tempo do bloco de foco concluído (00:00)</h2>
+      <p class="modal-description">
+        Por segurança <em>fail-closed</em>, o EduAgent-OS <strong>nunca marca um bloco de estudo como concluído automaticamente</strong>.
+        Como deseja prosseguir com a atividade atual?
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="btn-pomodoro-confirm-complete" class="btn-primary" autofocus>
+          ✅ Concluir Bloco e Registrar Atividade
+        </button>
+        <button type="button" id="btn-pomodoro-extend-10m" class="btn-secondary">
+          ⏱️ Mais 10 Minutos de Foco
+        </button>
+        <button type="button" id="btn-pomodoro-start-break" class="btn-ghost">
+          ☕ Iniciar Pausa (5 min) sem Concluir
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal Nativo <dialog> 2: Busca Global Unificada (Ctrl+K) -->
+  <dialog id="global-search-dialog" class="modal-dialog" aria-labelledby="global-search-title">
+    <div class="modal-content">
+      <div class="modal-header-row">
+        <h2 id="global-search-title" class="modal-title">Busca Global no Domínio (Ctrl+K)</h2>
+        <button type="button" id="btn-close-search-dialog" class="btn-ghost btn-compact">Fechar (Esc)</button>
+      </div>
+      <input
+        type="search"
+        id="global-search-input"
+        class="search-input"
+        placeholder="Buscar em disciplinas, tópicos e trechos de documentos..."
+        aria-label="Termo de busca global"
+        autofocus
+      />
+      <div id="global-search-results" class="search-results-list" role="region" aria-live="polite">
+        <p class="muted-note">Digite um termo para pesquisar no acervo local do estudante.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal Nativo <dialog> 3: Nova Disciplina -->
+  <dialog id="new-course-dialog" class="modal-dialog" aria-labelledby="new-course-title">
+    <form id="new-course-form" class="modal-content" method="dialog">
+      <div class="modal-header-row">
+        <h2 id="new-course-title" class="modal-title">Adicionar Disciplina e Tópicos</h2>
+        <button type="button" id="btn-close-new-course" class="btn-ghost btn-compact">Cancelar</button>
+      </div>
+      <label class="field-label" for="new-course-name">Nome da Disciplina</label>
+      <input
+        type="text"
+        id="new-course-name"
+        class="input-field"
+        placeholder="Ex.: MC906 — Introdução à Inteligência Artificial"
+        required
+        autofocus
+      />
+      <label class="field-label" for="new-course-topics">Tópicos Iniciais (separados por vírgula)</label>
+      <input
+        type="text"
+        id="new-course-topics"
+        class="input-field"
+        placeholder="Ex.: Busca Heurística, Agentes Lógicos, Planejamento Clássico"
+      />
+      <div class="modal-actions">
+        <button type="submit" class="btn-primary">Criar Disciplina</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/ui/app.js"></script>
+</body>
+</html>
+

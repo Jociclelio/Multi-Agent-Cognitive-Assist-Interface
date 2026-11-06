@@ -665,8 +665,14 @@ def run(
     stdout: Any = None,
 ) -> int:
     """Executa a CLI e devolve o exit code do §12 (JSON sempre com status)."""
+    raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
+    if "--serve-ui" in raw_argv:
+        from eduagent.api import main as api_main
+
+        filtered = [arg for arg in raw_argv if arg != "--serve-ui"]
+        return api_main(filtered)
     parser = build_parser()
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    args = parser.parse_args(raw_argv if argv is not None else None)
     factory = runtime_factory or default_runtime_factory(args)
     runtime: RuntimeContext | None = None
     try:
