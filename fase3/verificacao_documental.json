@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "scope": "documentação e relatório prático da Fase 3",
+  "bibliography_unique": 14,
+  "cited_unique": 14,
+  "uncited_unique": 0,
+  "missing_citations": [],
+  "required_sections": 7,
+  "ai_declaration_present": true,
+  "local_links_checked": 7,
+  "delivery_pending": [
+    "SHA256SUMS.txt",
+    "fase3_resultado_pratico.pdf",
+    "fase3_resultado_pratico_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf"
+  ]
+}
+
