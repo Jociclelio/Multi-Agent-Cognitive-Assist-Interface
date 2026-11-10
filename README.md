@@ -35,12 +35,14 @@
    - [Condições Experimentais e Comparações](#condições-experimentais-e-comparações)
    - [Métricas e Critérios de Aceite](#métricas-e-critérios-de-aceite)
 9. [Estrutura do Repositório](#-estrutura-do-repositório)
-10. [Instalação, Configuração e Execução](#-instalação-configuração-e-execução)
-    - [Pré-requisitos e Ambiente Python](#pré-requisitos-e-ambiente-python)
-    - [Variáveis de Ambiente](#variáveis-de-ambiente)
-    - [Notebooks da Disciplina](#notebooks-da-disciplina)
-    - [Compilação dos Documentos da Fase 1](#compilação-dos-documentos-da-fase-1)
-    - [Compilação, Validação e Pacote da Fase 2](#compilação-validação-e-pacote-da-fase-2)
+10. [Instalação, Configuração e Execução (EduAgent-OS v0.1 — Fase 3)](#-instalação-configuração-e-execução)
+    - [Requisitos e Instalação das Dependências via `uv`](#1-requisitos-e-instalação-das-dependências-eduagent-os-v01)
+    - [Obtenção dos Modelos e Dados Não Versionados](#2-obtenção-dos-modelos-e-dados-não-versionados)
+    - [Configuração de Parâmetros e Variáveis de Ambiente](#3-configuração-de-parâmetros-e-variáveis-de-ambiente)
+    - [Comandos de Execução (CLI, Interface Gráfica Local e Testes)](#4-comandos-de-execução-da-solução)
+    - [Exemplo Completo de Entrada e Saída Ponta a Ponta](#5-exemplo-de-entrada-e-saída-ponta-a-ponta)
+    - [Notebooks Pedagógicos da Disciplina](#notebooks-da-disciplina)
+    - [Compilação e Verificação das Entregas (Fases 1, 2 e 3)](#compilação-dos-documentos-da-fase-1)
 11. [Convenções de Desenvolvimento e Versionamento](#-convenções-de-desenvolvimento-e-versionamento)
 12. [Referências Bibliográficas Fundamentais](#-referências-bibliográficas-fundamentais)
 
@@ -386,200 +388,384 @@ O testbed avalia o sistema sob desenho pareado com controle rigoroso de orçamen
 ```text
 .
 ├── README.md                           # Documento principal do repositório (este arquivo)
-├── requirements.txt                    # Dependências Python base e interativas
-├── .env.example                        # Modelo de configuração de variáveis de ambiente
-├── .gitignore                          # Arquivos e diretórios ignorados pelo Git
-├── .gitmodules                         # Módulos Git versionados
+├── pyproject.toml                      # Manifesto de dependências e pacote do EduAgent-OS v0.1
+├── uv.lock                             # Lockfile determinístico congelado (SHA-256 verificado)
+├── manifest.json                       # Manifesto congelado (modelo, runtime, skills, BGE-M3, Docling)
+├── config/
+│   └── default.yaml                    # Parâmetros operacionais, limites de contexto e timeouts
+├── .env.example                        # Modelo de configuração de variáveis de ambiente (sem segredos)
+├── .gitattributes                      # Normalização LF global e exceção CRLF para *.ics (RFC 5545)
+├── .editorconfig                       # Padronização de codificação UTF-8 e fins de linha
 │
-├── docs/                               # Documentação e referências acadêmicas da disciplina
-│   ├── disciplina/                     # Ementa e Programa de Desenvolvimento de Disciplina (PDD)
-│   │   ├── MO810_2026.pdf
-│   │   └── PDD-MO810-MC959-1.pdf
-│   ├── notebooks/                      # Notebooks pedagógicos de referência (não avaliativos)
-│   │   ├── 00-introducao-langchain.ipynb
-│   │   ├── 01-langgraph-com-llms.ipynb
-│   │   ├── 03-ferramentas.ipynb
-│   │   ├── 04-model-context-protocol.ipynb
-│   │   └── 05-skills.ipynb
-│   └── playground-llmagenticsystem/     # Submódulo com experimentações práticas adicionais
+├── eduagent/                           # Núcleo Multiagente Implementado (EduAgent-OS v0.1)
+│   ├── cli.py                          # CLI oficial (`eduagent`) com 14 subcomandos + `--serve-ui`
+│   ├── api.py                          # API HTTP Loopback concorrente (`ThreadingHTTPServer`)
+│   ├── runtime.py                      # Inicialização integrada (`RuntimeContext`)
+│   ├── config.py                       # Resolução automática de timezone IANA + fallback interativo
+│   ├── contracts.py                    # Contratos tipados Pydantic v2 (`extra="forbid"`)
+│   ├── graph.py                        # Máquina de estados finitos (`EduAgentGraph` / LangGraph)
+│   ├── policy.py                       # Allowlists de ferramentas por papel e confinamento de paths
+│   ├── telemetry.py                    # Traces estruturados locais por turno e span
+│   ├── agents/                         # Os 5 agentes especializados
+│   │   ├── curator.py                  # Curador de Conhecimento (ingestão, fatos e citações)
+│   │   ├── librarian.py                # Bibliotecário de Memória (memória bitemporal e síntese)
+│   │   ├── tutor.py                    # Tutor Adaptativo (escada socrática L0..L3 e prática)
+│   │   ├── monitor.py                  # Monitor de Aprendizagem (rubricas analíticas 0/1/2)
+│   │   └── planner.py                  # Planejador de Rotina (demandas, CP-SAT e revisão)
+│   ├── services/                       # Serviços determinísticos e ferramentas
+│   │   ├── ingestion.py                # Extração Docling isolada em subprocesso `spawn` (4 GiB)
+│   │   ├── retrieval.py                # RAG híbrido: BM25 + BGE-M3 + RRF (k=60)
+│   │   ├── memory.py                   # Ledger bitemporal (`occurred_at` vs. `recorded_at`)
+│   │   ├── assessment.py               # Julgamento formativo e redutor `TopicState`
+│   │   ├── scheduling.py               # Solver CP-SAT (5 estágios) + verificador em minutos
+│   │   ├── calendar.py                 # Exportador RFC 5545 (`.ics`) com UID/SEQUENCE estáveis
+│   │   ├── effects.py                  # Commit idempotente (`operation_id`) e fila `Outbox`
+│   │   ├── backup.py                   # Backup consistente, restore verificado e deleção lógica
+│   │   └── model_adapter.py            # Adaptador HTTP loopback para o fork PrismML llama.cpp
+│   ├── skills/                         # Catálogo versionado de habilidades pedagógicas
+│   │   ├── catalog.json                # Índice com hashes SHA-256 congelados
+│   │   ├── loader.py                   # Carregador e validador de integridade das skills
+│   │   └── *.yaml                      # 5 skills: explain, graduated_hint, quiz, flashcard, self_explain
+│   └── storage/                        # Camada de persistência relacional
+│       ├── migrations.py               # DDL SQLite WAL/FULL (20 tabelas)
+│       ├── repository.py               # `DomainStore` com controle monotônico `domain_revision`
+│       └── checkpoints.py              # `SQLiteCheckpointer` para pausa/retomada de sessões
 │
-├── fase1/                              # Fase 1: Proposta inicial do projeto
-│   ├── fase1_proposta.tex              # Fonte LaTeX da proposta consolidada
-│   ├── fase1_proposta.pdf              # Documento da proposta compilada
-│   ├── fase1_slides.tex                # Fonte Beamer dos slides de apresentação
-│   ├── fase1_slides.pdf                # Slides compilados (16:9, ~5 minutos de apresentação)
-│   ├── fase1_rascunho_agricola.tex     # Rascunho individual de desenvolvimento
-│   ├── fase1_rascunho_jociclelio.tex   # Rascunho individual de desenvolvimento
-│   ├── references.bib                  # Referências bibliográficas da Fase 1
-│   └── template-fase1.tex              # Template oficial de LaTeX da Fase 1
+├── ui/                                 # Interface Gráfica Local (Web SPA 100% Offline)
+│   ├── src/                            # Contratos TypeScript (`contracts.ts`) e estado (`state.ts`)
+│   ├── dist/                           # Ativos servidos em `/` e `/ui/*` (`index.html`, `styles.css`, `app.js`)
+│   └── tests/                          # Suíte automatizada de frontend (`ui_automated_test.ts` via Deno)
 │
-└── fase2/                              # Fase 2: Metodologia e especificação de engenharia
-    ├── fase2_metodologia.tex           # Fonte LaTeX do relatório científico metodológico
-    ├── fase2_metodologia.pdf           # Relatório científico consolidado (31 páginas)
-    ├── fase2_metodologia_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf
-    ├── references.bib                  # Base bibliográfica auditada (56 fontes únicas)
-    ├── README-entrega.md               # Guia de conferência e instruções da entrega
-    ├── SHA256SUMS.txt                  # Checksums SHA-256 de integridade de todos os artefatos
-    ├── verificacao_documental.json     # Metadados de validação e cobertura documental
-    │
-    ├── documentos/                     # Especificação detalhada em 11 etapas de engenharia
-    │   ├── 01_esqueleto_conceitual.md           # Etapa 1: Escopo normativo e princípios
-    │   ├── 02_componentes_e_requisitos.md       # Etapa 2: Especificação de C01 a C20
-    │   ├── 03_metodologias_de_implementacao.md  # Etapa 3: Síntese de métodos e decisões
-    │   ├── 04_mapa_completo_do_sistema.md       # Etapa 4: Arquitetura implementável do EduAgent-OS
-    │   ├── 05_fluxos_resultados_e_falhas.md     # Etapa 5: Catálogo W01–W12, O01–O18 e F01–F24
-    │   ├── 06_protocolo_de_avaliacao.md         # Etapa 6: Métricas, oráculos e critérios
-    │   ├── 07_metodologias_de_testagem.md       # Etapa 7: Síntese da pesquisa de testes
-    │   ├── 08_mapa_completo_da_testagem.md      # Etapa 8: Especificação do testbed e harness
-    │   ├── 09_relatorio_tecnico.md              # Etapa 9: Estrutura do relatório científico
-    │   ├── 10_auditoria_de_referencias.md       # Etapa 10: Auditoria e verificação de citações
-    │   ├── 11_indice_da_entrega.md              # Etapa 11: Índice completo e ordem de leitura
-    │   └── auditoria_de_consistencia.md         # Relatório de auditoria independente
-    │
-    ├── pesquisa/                       # Pesquisas dirigidas e relatórios aprofundados
-    │   ├── 03a_arquitetura_rag.md               # Pesquisa em inferência, OCR, RAG e MCP
-    │   ├── 03b_pedagogia_memoria_planejamento.md# Pesquisa em tutoria, BKT, MemGPT e CP-SAT
-    │   ├── 07a_metodos_qualidade.md             # Pesquisa em avaliação de saídas e oráculos
-    │   ├── 07b_metodos_robustez_experimentos.md # Pesquisa em injeção de falhas e estatística
-    │   ├── references_arquitetura.bib
-    │   ├── references_pedagogia.bib
-    │   ├── references_avaliacao_qualidade.bib
-    │   └── references_robustez.bib
-    │
-    └── scripts/                        # Ferramentas de automação e compilação
-        ├── gerar_entrega.py            # Compilação segura do LaTeX em tempdir e geração do ZIP
-        └── verificar_documentos.py     # Verificação de integridade, links e contagens
+├── schemas/                            # 15 contratos JSON Schema Draft 2020-12 exportados
+├── eval/                               # Ensaio funcional ponta a ponta e relatórios de aceite
+│   ├── ensaio_longitudinal.py          # Protocolo executável de 15 passos com o modelo local real
+│   └── relatorio-testes-mvp.md         # Relatório do ensaio longitudinal e aceite §13.235
+├── tests/                              # Suíte automatizada Pytest (600 testes de sistema e gates)
+│
+├── fase1/                              # Fase 1: Proposta inicial e slides Beamer
+├── fase2/                              # Fase 2: Metodologia, mapas normativos (01..11) e relatório PDF
+└── fase3/                              # Fase 3: Resultados práticos, roteiro de demo e relatório PDF
+    ├── MO810_2026-Fase3-Instruções.pdf # Enunciado oficial da Fase 3
+    ├── template-fase3.tex              # Template oficial disponibilizado na disciplina
+    ├── fase3_resultado_pratico.tex     # Fonte LaTeX do relatório técnico da Fase 3
+    ├── fase3_resultado_pratico.pdf     # Relatório compilado (capa + máx. 3 páginas de conteúdo)
+    ├── fase3_resultado_pratico_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf
+    ├── references.bib                  # Referências bibliográficas citadas na Fase 3
+    ├── roteiro_demo_3min.md            # Roteiro cronometrado para o vídeo demo (máx. 3 min)
+    ├── README-entrega.md               # Guia de conferência da entrega da Fase 3
+    ├── SHA256SUMS.txt                  # Digests SHA-256 dos artefatos da Fase 3
+    ├── verificacao_documental.json     # Resultado da verificação mecânica da Fase 3
+    └── scripts/                        # Verificador stdlib e compilador isolado da Fase 3
+        ├── verificar_documentos.py
+        └── gerar_entrega.py
 ```
 
 ---
 
 ## 🚀 Instalação, Configuração e Execução
 
-### Pré-requisitos e Ambiente Python
+### 1. Requisitos e Instalação das Dependências (EduAgent-OS v0.1)
 
-O projeto requer **Python 3.11+** e um compilador TeX (Tectonic ou TeX Live completo com `pdflatex` e `bibtex`):
+O **EduAgent-OS v0.1** requer:
+- **Python 3.11+** (desenvolvido e congelado em Python `3.12.13` com `SQLite 3.53.1`);
+- Gerenciador de pacotes **[`uv`](https://docs.astral.sh/uv/)** para reprodução exata do `uv.lock`;
+- *(Opcional para testes de frontend)* **Deno 1.40+** para rodar `ui/tests/ui_automated_test.ts`;
+- *(Opcional para recompilar relatórios LaTeX)* **TeX Live** (`pdflatex` e `bibtex`).
 
 ```bash
-# 1. Clonar o repositório com submódulos
+# 1. Clonar o repositório e acessar a pasta raiz
 git clone --recurse-submodules https://github.com/Jociclelio/Multi-Agent-Cognitive-Assist-Interface.git
 cd Multi-Agent-Cognitive-Assist-Interface
 
-# 2. Criar e ativar o ambiente virtual
-python -m venv .venv
+# 2. Criar o ambiente virtual (.venv) e instalar as dependências congeladas no uv.lock
+uv sync --frozen --group dev
 
-# No Linux / macOS:
-source .venv/bin/activate
-
-# No Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-
-# 3. Instalar as dependências do projeto
-pip install --upgrade pip
-pip install -r requirements.txt
+# 3. Verificar a integridade dos 15 contratos JSON Schema exportados
+uv run python -m eduagent.contracts --check
 ```
 
 ---
 
-### Variáveis de Ambiente
+### 2. Obtenção dos Modelos e Dados Não Versionados
 
-Copie o arquivo de exemplo `.env.example` para `.env` e ajuste as variáveis de acordo com os provedores utilizados:
+Por restrições de tamanho de repositório Git (dezenas de gigabytes em pesos binários), os pesos do LLM local e do embedder denso são listados no `.gitignore` e verificados por hash SHA-256 em [`manifest.json`](manifest.json). Para obtê-los:
 
+1. **Modelo de Linguagem Local (`Ternary-Bonsai-2-27B-PTQ1_0.gguf`):**
+   - Repositório Hugging Face: [`prism-ml/Ternary-Bonsai-2-27B-gguf`](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf) (revisão `b072e1d3b35a0a630cece372c2127528e0994386`).
+   - SHA-256 esperado do arquivo GGUF: `53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3`.
+   ```bash
+   mkdir -p runner-llm/models/Ternary-Bonsai-2-27B-gguf
+   huggingface-cli download prism-ml/Ternary-Bonsai-2-27B-gguf \
+     Ternary-Bonsai-2-27B-PTQ1_0.gguf \
+     --revision b072e1d3b35a0a630cece372c2127528e0994386 \
+     --local-dir runner-llm/models/Ternary-Bonsai-2-27B-gguf
+   ```
+2. **Runtime Local (`PrismML-Eng/llama.cpp`):**
+   - O formato ternário `PTQ1_0` (1,75 bpw) utiliza o fork [`PrismML-Eng/llama.cpp`](https://github.com/PrismML-Eng/llama.cpp) (branch `prism`, tag `prism-b10743-adfffbe` / commit `84445367fbaf79c00ff64bc93a0689cdb3eee54d`):
+   ```bash
+   git clone --branch prism https://github.com/PrismML-Eng/llama.cpp.git runner-llm/third_party/llama.cpp
+   cmake -S runner-llm/third_party/llama.cpp -B runner-llm/build -DGGML_CUDA=ON
+   cmake --build runner-llm/build --config Release -j --target llama-server
+
+   # Iniciar o servidor HTTP em loopback (127.0.0.1:8079), 1 slot e contexto de 32.768 tokens:
+   ./runner-llm/build/bin/llama-server \
+     -m runner-llm/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PTQ1_0.gguf \
+     --host 127.0.0.1 --port 8079 -np 1 -c 32768 --seed 42 --alias bonsai2-ptq1-0
+   ```
+3. **Modelo de Embeddings Denso (`BAAI/bge-m3`):**
+   - Repositório Hugging Face: [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) (revisão `5617a9f61b028005a4858fdac845db406aefb181`).
+   ```bash
+   mkdir -p runner-llm/models/bge-m3
+   huggingface-cli download BAAI/bge-m3 \
+     --revision 5617a9f61b028005a4858fdac845db406aefb181 \
+     --local-dir runner-llm/models/bge-m3
+   ```
+4. **Modelos de Layout do `Docling`:** baixados automaticamente na primeira execução do `DoclingExtractor` (`docling-project/docling-layout-heron` e `docling-project/docling-models`).
+
+---
+
+### 3. Configuração de Parâmetros e Variáveis de Ambiente
+
+1. Copie o arquivo `.env.example` para `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Os limites operacionais e orçamentos de tokens ficam em [`config/default.yaml`](config/default.yaml) (`window: 32768`, `max_output_tokens: 16384`, `doc_tokens: 4096`, `memory_tokens: 2048`, `max_llm_calls: 6`, `max_graph_steps: 16`, `slot_minutes: 15`, `horizon_days: 7`).
+3. **Fuso Horário Automático (`eduagent/config.py`):** O sistema detecta automaticamente o fuso horário IANA do sistema operacional (`EDUAGENT_TIMEZONE`, `TZ`, `/etc/timezone`, `/etc/localtime` ou `astimezone()`) ou do navegador na Interface Gráfica Local (`POST /settings/timezone`), contando com fallback interativo caso o ambiente reporte apenas UTC genérico.
+
+---
+
+### 4. Comandos de Execução da Solução
+
+#### A. Interface Gráfica Local (Web SPA + Loopback HTTP API)
 ```bash
-cp .env.example .env
+# Inicia o servidor HTTP loopback em http://127.0.0.1:8094 e abre o navegador:
+uv run eduagent --serve-ui --data-root data --port 8094 --open-browser
+
+# Ou diretamente via módulo da API:
+uv run python -m eduagent.api --data-root data --port 8094 --open-browser
 ```
 
-Conteúdo esperado do `.env`:
-```ini
-# Chaves opcionais para serviços externos e monitoramento
-OLLAMA_API_KEY=seu_token_aqui
-OPENAI_API_KEY=not-needed
-LANGSMITH_API_KEY=seu_token_aqui
+#### B. Linha de Comando (`eduagent` — 14 Subcomandos Normativos)
+```bash
+# 1. Diagnóstico completo de saúde (SQLite WAL, manifesto, timezone e modelo):
+uv run eduagent --data-root data doctor
 
-# Backend de Inferência Local via llama.cpp (compatível com API OpenAI)
-LLAMA_CPP_BASE_URL=http://localhost:8079/v1
-LLAMA_CPP_MODEL=bonsai2-pq2-0
-OPENAI_BASE_URL=http://localhost:8079/v1
+# 2. Executar o ensaio longitudinal completo de 15 passos ponta a ponta:
+uv run python eval/ensaio_longitudinal.py \
+  --root /tmp/opencode/ensaio_fase3 \
+  --model-url http://127.0.0.1:8079/v1 \
+  --model-id bonsai2-ptq1-0 \
+  --embedder-dir runner-llm/models/bge-m3 \
+  --step all
 ```
 
-> **Atenção:** Nunca versione o arquivo `.env`. Suas chaves e tokens locais devem permanecer estritamente privados.
+#### C. Suítes de Testes Automatizados (600 Testes Pytest + 6 Suítes Deno)
+```bash
+# Suíte completa do núcleo, agentes, ferramentas, persistência e API/UI E2E:
+uv run pytest tests/
+
+# Suíte automatizada de estado e invariantes do frontend TypeScript:
+deno test --allow-read ui/tests/ui_automated_test.ts
+```
+
+---
+
+### 5. Exemplo de Entrada e Saída Ponta a Ponta
+
+Abaixo está um exemplo real e reprodutível de entrada e saída demonstrando os 5 agentes em operação sobre a CLI (`eduagent`) e a API Loopback:
+
+#### Passo 1 — Diagnóstico de Saúde (`doctor`)
+**Entrada:**
+```bash
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data doctor
+```
+**Saída (JSON):**
+```json
+{
+  "status": "ok",
+  "sqlite": { "version": "3.53.1", "wal_ok": true, "integrity": "ok" },
+  "timezone": { "resolved": "America/Sao_Paulo", "source": "system_auto:env" },
+  "model": { "status": "configured", "admitted": true },
+  "connectors": { "network_enabled": false, "web_search": "CONNECTOR_DISABLED" }
+}
+```
+
+#### Passo 2 — Ingestão Documental e Gate de Fato Ambíguo (`Curador` — `ingest` $\rightarrow$ `resume`)
+**Entrada:**
+```bash
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  --embedder-dir runner-llm/models/bge-m3 \
+  ingest --file /tmp/opencode/ensaio_fase3/aula_idempotencia.pdf \
+  --course 00000000-0000-0000-0000-000000000021 \
+  --session 7c9e6679-7425-40de-944b-e07fc1f90ae7
+```
+**Saída inicial (Pausa *Fail-Closed* para confirmação de data ambígua):**
+```json
+{
+  "status": "waiting",
+  "session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "intent": "ingest",
+  "waiting_for": "user",
+  "interrupted": {
+    "kind": "ambiguous_fact_confirmation",
+    "ambiguous_count": 2,
+    "message": "Confirme os fatos/prazos candidatos extraídos antes de ativar a versão documental."
+  }
+}
+```
+**Entrada de Confirmação (`resume`) e Saída Final:**
+```bash
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  --embedder-dir runner-llm/models/bge-m3 \
+  resume --session 7c9e6679-7425-40de-944b-e07fc1f90ae7 --data '{"confirmed": true}'
+```
+```json
+{
+  "status": "completed",
+  "intent": "ingest",
+  "output": {
+    "doc_id": "d8b41a20-5a1c-4e82-9b12-90a1b2c3d4e5",
+    "version_status": "active",
+    "indexed_chunks": 4,
+    "confirmed_facts": 3
+  }
+}
+```
+
+#### Passo 3 — Prática Ativa, Pistas Graduadas e Avaliação por Rubrica (`Bibliotecário` + `Tutor` + `Monitor`)
+**Entrada (`practice` e `submit`):**
+```bash
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  --model-url http://127.0.0.1:8079/v1 \
+  --embedder-dir runner-llm/models/bge-m3 \
+  practice "Gerar exercício sobre commit idempotente" \
+  --course 00000000-0000-0000-0000-000000000021 \
+  --topic 00000000-0000-0000-0000-000000000011 \
+  --session 7c9e6679-7425-40de-944b-e07fc1f90ae7
+
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  --model-url http://127.0.0.1:8079/v1 \
+  submit "A deduplicação por operation_id precede a checagem de domain_revision para devolver o recibo original em retries sem duplicar efeitos." \
+  --session 7c9e6679-7425-40de-944b-e07fc1f90ae7
+```
+**Saída da Avaliação Formativa (`Assessment` + `TopicState`):**
+```json
+{
+  "status": "completed",
+  "intent": "submit",
+  "output": {
+    "assessment": {
+      "correctness": "correct",
+      "help_level": 0,
+      "independent": true,
+      "criteria_scores": [{ "criterion_id": "dedup", "level": 2 }]
+    },
+    "topic_state": {
+      "topic_id": "00000000-0000-0000-0000-000000000011",
+      "status": "mixed",
+      "estimate": null
+    }
+  }
+}
+```
+
+#### Passo 4 — Planejamento CP-SAT, Aprovação e Exportação RFC 5545 (`Planejador` — `plan` $\rightarrow$ `approve` $\rightarrow$ `export`)
+**Entrada:**
+```bash
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  plan --session 9a8b7c6d-1111-4222-8333-444455556666
+
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  approve --session 9a8b7c6d-1111-4222-8333-444455556666
+
+uv run eduagent --data-root /tmp/opencode/ensaio_fase3/data \
+  --user 123e4567-e89b-12d3-a456-426614174000 \
+  export --session 9a8b7c6d-1111-4222-8333-444455556666
+```
+**Saída (`export`):**
+```json
+{
+  "status": "completed",
+  "intent": "export",
+  "output": {
+    "solver_status": "OPTIMAL",
+    "verifier_passed": true,
+    "events_count": 3,
+    "ics_path": "data/123e4567-e89b-12d3-a456-426614174000/exports/plan_latest.ics"
+  }
+}
+```
 
 ---
 
 ### Notebooks da Disciplina
 
-Para explorar os notebooks de introdução e fundamentos fornecidos na disciplina:
+Para explorar os notebooks pedagógicos da disciplina em `docs/notebooks/` (ambiente independente do EduAgent-OS, consulte `docs/INDEX.yml`):
 
 ```bash
-jupyter notebook docs/notebooks/00-introducao-langchain.ipynb
+jupyter notebook docs/notebooks/introducao-langchain.ipynb
 ```
-
-Outros cadernos disponíveis:
-- `01-langgraph-com-llms.ipynb` — Criação de grafos de estados com LangGraph.
-- `03-ferramentas.ipynb` — Acoplamento de ferramentas (*tool calling*).
-- `04-model-context-protocol.ipynb` — Integração com o protocolo MCP.
-- `05-skills.ipynb` — Estruturação de catálogos de habilidades pedagógicas.
 
 ---
 
 ### Compilação dos Documentos da Fase 1
 
-Para compilar o relatório da proposta e os slides da apresentação:
-
 ```bash
-# Compilar slides usando Tectonic a partir da raiz:
 tectonic fase1/fase1_slides.tex
-
-# Ou compilar o relatório da proposta via pdflatex:
-cd fase1
-pdflatex fase1_proposta.tex
-bibtex fase1_proposta
-pdflatex fase1_proposta.tex
-pdflatex fase1_proposta.tex
-cd ..
 ```
-
-Arquivos oficiais da entrega da Fase 1:
-- Slides: `fase1_slides_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf`
-- Proposta: `fase1_relatorio_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf`
 
 ---
 
 ### Compilação, Validação e Pacote da Fase 2
 
-A pasta `fase2/` inclui scripts determinísticos para validar a consistência documental e gerar o pacote de entrega sem poluir a árvore do repositório:
-
 ```bash
-# 1. Verificar a integridade dos documentos, links e cobertura de requisitos:
-python fase2/scripts/verificar_documentos.py
-
-# 2. Compilar o relatório LaTeX e gerar o pacote de entrega oficial (ZIP + SHA256):
-python fase2/scripts/gerar_entrega.py
+python3 fase2/scripts/verificar_documentos.py
+python3 fase2/scripts/gerar_entrega.py
 ```
 
-O script `gerar_entrega.py` cria um diretório temporário isolado, roda `pdflatex` e `bibtex` com fallback automático de estilo bibliográfico (`plainnat`), verifica warnings, copia o PDF resultante e gera o arquivo `fase2/eduagent_fase2_entrega.zip` acompanhado do arquivo `fase2/SHA256SUMS.txt`.
+---
+
+### Compilação, Validação e Pacote da Fase 3
+
+A pasta `fase3/` contém o verificador documental e o script de compilação isolada do relatório de resultados práticos (validando as 7 seções obrigatórias, a declaração de IA, a ausência de *overfull boxes* e o limite máximo de 3 páginas fora a capa):
+
+```bash
+# 1. Verificar a integridade do relatório e dos artefatos da Fase 3:
+python3 fase3/scripts/verificar_documentos.py
+
+# 2. Compilar o PDF da Fase 3 e gerar checksums SHA-256 e pacote ZIP:
+python3 fase3/scripts/gerar_entrega.py
+```
 
 ---
 
 ## 🤝 Convenções de Desenvolvimento e Versionamento
 
-- **Controle de Branches e Commits:** Mensagens de commit em português, concisas e orientadas à ação (ex.: `feat: adiciona verificador de grade cp-sat`, `docs: atualiza mapa de componentes c01-c20`).
-- **Segurança de Dados:** Arquivos de dados sensíveis, credenciais e arquivos de banco de dados (`*.sqlite`, `*.db`) não devem ser commitados.
-- **Transparência de Estatuto Científico:** Parâmetros numéricos, tabelas de gates e contagens de instâncias descritos na Fase 2 constituem *especificações metodológicas congeláveis para a implementação*; resultados empíricos só serão relatados após a execução integral do testbed na fase seguinte.
+- **Controle de Branches e Commits:** Mensagens de commit em português, concisas e orientadas à ação.
+- **Segurança de Dados:** Arquivos de dados sensíveis, credenciais (`.env`), pesos de modelos (`*.gguf`) e bancos de runtime (`data/*.sqlite`) nunca são commitados.
+- **Transparência de Estatuto Científico:** A Fase 3 comprova a execução funcional ponta a ponta do sistema multiagente implementado (`eval/relatorio-testes-mvp.md`); os experimentos comparativos (`MA_FULL` vs. `SA_EQUIVALENT`) e ablações estatísticas pertencem à Fase 4 (Mapa 08).
 
 ---
 
 ## 📚 Referências Bibliográficas Fundamentais
 
 1. **MetaGPT:** Hong, S., et al. (2024). *MetaGPT: Meta programming for a multi-agent collaborative framework*. ICLR 2024. [arXiv:2308.00352](https://arxiv.org/abs/2308.00352).
-2. **MultiTutor:** Sun, X., & Tai, K. S. (2025). *MultiTutor: Cooperative multi-agent systems for personalized tutoring*. PMLR 273.
+2. **MultiTutor:** Sun, E., & Tai, L. (2025). *MultiTutor: Collaborative LLM agents for multimodal student support*. PMLR 273.
 3. **MemGPT:** Packer, C., et al. (2023). *MemGPT: Towards LLMs as operating systems*. [arXiv:2310.08560](https://arxiv.org/abs/2310.08560).
 4. **Voyager:** Wang, G., et al. (2023). *Voyager: An open-ended embodied agent with large language models*. [arXiv:2305.16291](https://arxiv.org/abs/2305.16291).
 5. **ToRA:** Gou, Z., et al. (2024). *ToRA: A tool-integrated reasoning agent for mathematical problem solving*. ICLR 2024. [arXiv:2309.17452](https://arxiv.org/abs/2309.17452).
-6. **BGE-M3:** Chen, J., et al. (2024). *BGE M3-Embedding: Multi-lingual, multi-functionality, multi-granularity text embeddings*. [arXiv:2402.03216](https://arxiv.org/abs/2402.03216).
-7. **RRF:** Cormack, G. V., Clarke, C. L., & Buettcher, S. (2009). *Reciprocal Rank Fusion out在该 information retrieval*. SIGIR 2009.
+6. **BGE-M3:** Chen, J., et al. (2024). *M3-Embedding: Multi-linguality, multi-functionality, multi-granularity text embeddings*. [arXiv:2402.03216](https://arxiv.org/abs/2402.03216).
+7. **RRF:** Cormack, G. V., Clarke, C. L., & Buettcher, S. (2009). *Reciprocal rank fusion outperforms condorcet and individual rank learning methods*. SIGIR 2009.
 8. **CP-SAT Solver:** Google Optimization Tools (OR-Tools). *CP-SAT Solver Documentation*. [developers.google.com/optimization/cp/cp_solver](https://developers.google.com/optimization/cp/cp_solver).
 9. **RFC 5545:** Desruisseaux, B. (2009). *Internet Calendaring and Scheduling Core Object Specification (iCalendar)*. IETF.
-10. **Docling:** IBM Research (2024). *Docling: Universal document conversion and layout analysis*.
-11. **AgentDojo:** Debenedetti, E., et al. (2024). *AgentDojo: A dynamic environment for evaluating LLM agent security*. [arXiv:2406.13352](https://arxiv.org/abs/2406.13352).
+10. **Docling:** Docling Project. *Docling document architecture*. [docling-project.github.io/docling](https://docling-project.github.io/docling/concepts/docling_document/).
+11. **AgentDojo:** Debenedetti, E., et al. (2024). *AgentDojo: A dynamic environment to evaluate prompt injection attacks and defenses for LLM agents*. [arXiv:2406.13352](https://arxiv.org/abs/2406.13352).
 12. **Prometheus:** Kim, S., et al. (2024). *Prometheus: Inducing fine-grained evaluation capability in language models*. ICLR 2024. [arXiv:2310.08491](https://arxiv.org/abs/2310.08491).
-13. **LongMemEval:** Wu, Y., et al. (2024). *LongMemEval: Benchmarking chat assistants on long-term interactive memory*. [arXiv:2410.10813](https://arxiv.org/abs/2410.10813).
+13. **LongMemEval:** Wu, D., et al. (2025). *LongMemEval: Benchmarking chat assistants on long-term interactive memory*. ICLR 2025. [arXiv:2410.10813](https://arxiv.org/abs/2410.10813).

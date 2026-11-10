@@ -1,0 +1,193 @@
+% ============================================================================
+% Relatório da Fase 3 — Desenvolvimento dos Resultados Práticos
+% Disciplina: MO810A/MC959A — Sistemas Multiagentes com Modelos de Linguagem
+% Instituto de Computação — UNICAMP (1º Semestre de 2026)
+% ============================================================================
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{titlesec}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage[numbers]{natbib}
+\newcommand{\citeonline}[1]{\citeauthor{#1}~\cite{#1}}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+
+\setlength{\emergencystretch}{3em}
+\setlength{\tabcolsep}{4pt}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% --- Compactação vertical de títulos e listas para respeitar o teto de 3 páginas fora a capa ---
+\titlespacing*{\section}{0pt}{1.1ex plus 0.3ex minus 0.2ex}{0.5ex plus 0.1ex}
+\setlist[itemize]{nosep,leftmargin=1.4em,topsep=2pt}
+
+% --- Cabeçalho e Rodapé ---
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\footnotesize MO810A/MC959A -- Sistemas Multiagentes com LLMs}
+\lhead{\footnotesize Fase 3 -- Resultados Práticos}
+\cfoot{\thepage}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black,
+  pdftitle={EduAgent-OS v0.1: Fase 3 - Desenvolvimento dos Resultados Praticos},
+  pdfauthor={Rafael Attilio Agricola; Jociclelio Castro Macedo Junior}
+}
+
+\begin{document}
+
+% ============================================================================
+% CAPA (Fora da contagem das 3 páginas de conteúdo)
+% ============================================================================
+\thispagestyle{empty}
+\vspace*{1.0cm}
+\begin{center}
+  {\LARGE \textbf{Universidade Estadual de Campinas}}\\[0.2cm]
+  {\large Instituto de Computação}\\[0.5cm]
+  {\large \textbf{MO810A / MC959A -- Tópicos em Inteligência Artificial:}}\\[0.1cm]
+  {\large \textbf{Sistemas Multiagentes com Modelos de Linguagem}}\\[0.2cm]
+  {\normalsize Prof.\ Dr.\ Julio Cesar dos Reis --- 1º Semestre de 2026}\\[0.6cm]
+  \rule{\textwidth}{0.4pt}\\[0.4cm]
+  {\Large \textbf{Fase 3 -- Desenvolvimento dos Resultados Práticos}}\\[0.3cm]
+  {\large \textbf{EduAgent-OS v0.1: Sistema Multiagente Local para Tutoria Ativa e Gestão Longitudinal de Estudos}}\\[0.3cm]
+  \rule{\textwidth}{0.4pt}\\[0.6cm]
+\end{center}
+
+\noindent
+\begin{tabular}{@{}L{4.2cm}L{11.3cm}@{}}
+  \textbf{Integrante 1:} & Rafael Attilio Agricola --- RA 249245 \\
+  \textbf{Integrante 2:} & Jociclelio Castro Macedo Junior --- RA 231722 \\
+  \textbf{Repositório Git:} & \url{https://github.com/Jociclelio/Multi-Agent-Cognitive-Assist-Interface} \\
+  \textbf{Release Avaliada:} & \url{https://github.com/Jociclelio/Multi-Agent-Cognitive-Assist-Interface/releases/tag/fase3} \\
+  \textbf{Tag / Commit Base:} & \code{fase3} (base congelada \code{47204e8d77cf30df571415ee6ed55db22a29918f}) \\
+  \textbf{Vídeo Demo ($\le 3$ min):} & Roteiro executável em \code{fase3/roteiro_demo_3min.md} (link de vídeo na submissão Classroom) \\
+  \textbf{Data de Entrega:} & \today \\
+\end{tabular}
+
+\newpage
+\setcounter{page}{1}
+
+% ============================================================================
+\section{Visão Geral da Implementação e Arquitetura em Operação}
+\label{sec:visao-geral}
+
+O \textbf{EduAgent-OS v0.1} foi integralmente implementado no pacote \code{eduagent/} e na interface local \code{ui/}, colocando em operação ponta a ponta a arquitetura especificada na Fase 2 para apoiar o estudo universitário autônomo (\textbf{ODS 4}). O sistema coordena cinco agentes especializados (\textbf{Curador}, \textbf{Bibliotecário}, \textbf{Tutor}, \textbf{Monitor} e \textbf{Planejador}) por meio da máquina de estados finitos \code{EduAgentGraph} (\code{eduagent/graph.py}) \cite{hong2024metagpt,sun2025multitutor}. O ciclo operacional parte da ingestão de documentos acadêmicos e confirmação humana de prazos ambíguos (\code{W01}), prossegue com recuperação híbrida e memória longitudinal bitemporal \cite{packer2023memgpt} do mesmo snapshot (\code{W02/W05}), conduz tutoria socrática e prática graduada com habilidades YAML versionadas \cite{wang2023voyager} (\code{W03}), avalia respostas por rubricas analíticas ancoradas em trechos literais (\code{W04}) e converte defasagens formativas em planos semanais resolvidos por programação por restrições (\code{CP-SAT}) \cite{gou2024tora,google2024cpsat} e exportados em iCalendar (\code{RFC 5545}) \cite{desruisseaux2009icalendar} (\code{W06--W08}). A superfície de operação compreende a CLI normativa (\code{eduagent/cli.py}, 14 subcomandos) e a API/Web SPA loopback (\code{eduagent/api.py} e \code{ui/dist/}).
+
+% ============================================================================
+\section{Tecnologias, Frameworks e Infraestrutura de Execução}
+\label{sec:tecnologias}
+
+Toda a pilha tecnológica encontra-se fixada por hash em \code{manifest.json} e \code{uv.lock} (SHA-256 \code{40c5156c...}) sobre \textbf{Python 3.12.13}. A Tabela~\ref{tab:stack} sintetiza os componentes em produção.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.08}
+\caption{Stack tecnológico implementado e congelado em \code{manifest.json}.}
+\label{tab:stack}
+\begin{tabular}{@{}L{3.1cm}L{4.8cm}L{7.6cm}@{}}
+\toprule
+\textbf{Camada} & \textbf{Tecnologia / Versão / Provedor} & \textbf{Papel e Configuração Operacional no Sistema} \\
+\midrule
+Orquestração e Contratos & \code{langgraph 1.2.16}, \code{langgraph-checkpoint 4.3.0}, \code{pydantic 2.14.1} \cite{lgstate,pydstrict} & Grafo \code{EduAgentGraph} com \code{SQLiteCheckpointer} próprio e 15 contratos JSON Schema Draft 2020-12 (\code{extra="forbid"}). \\
+Modelo de Linguagem (LLM Local) & \code{prism-ml/Ternary-Bonsai-2-27B-gguf} (rev. \code{b072e1d3...}, \code{PTQ1_0}, 1,75 bpw, 26,89B params) \cite{bonsai2} & Servido localmente via fork \code{PrismML-Eng/llama.cpp} (build \code{b1-8444536}) em \code{127.0.0.1:8079} (1 slot, fila máx.\ 4, modo \code{non-thinking}). \\
+Persistência e Índices RAG & \code{SQLite 3.53.1} (\code{WAL/FULL}) \cite{sqlitewal}, \code{rank-bm25 0.2.2}, \code{BAAI/bge-m3} (\code{sentence-transformers 5.7.0}) \cite{m3} & Bancos \code{domain.sqlite} (20 tabelas) e \code{checkpoints.sqlite}; fusão híbrida lexical+densa via RRF ($k=60$, top-40 $\rightarrow$ 6 chunks) \cite{rrf09}. \\
+Ferramentas e Serviços Expostos & \code{docling 2.141.0} \cite{docling}, \code{easyocr 1.7.2}, \code{ortools 9.15.6755} \cite{google2024cpsat}, \code{icalendar 6.3.2} \cite{desruisseaux2009icalendar} & Extração PDF em subprocesso \code{spawn} (\code{RLIMIT_AS=4 GiB}); solver \code{CP-SAT} em 5 estágios + verificador em minutos; exportador \code{.ics}. \\
+Superfícies CLI, API e Web UI & \code{eduagent/cli.py}, \code{ThreadingHTTPServer} (\code{api.py}), SPA TypeScript/CSS Grid (\code{ui/}) & 14 comandos CLI, API loopback (\code{127.0.0.1:8094}) e interface gráfica 100\% offline de 4 zonas com Timer Pomodoro \textit{fail-closed}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+\section{Especificação Técnica dos Agentes}
+\label{sec:especificacao-agentes}
+
+Cada agente opera sob contratos estritos (\code{eduagent/contracts.py}) sem compartilhamento de estado implícito fora do snapshot de domínio (Tabela~\ref{tab:agentes}). Os prompts estruturados do Tutor são carregados de 5 arquivos YAML auditados por SHA-256 em \code{eduagent/skills/catalog.json}.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.08}
+\caption{Especificação implementada dos cinco agentes em \code{eduagent/agents/}.}
+\label{tab:agentes}
+\begin{tabular}{@{}L{2.2cm}L{4.3cm}L{4.5cm}L{4.5cm}@{}}
+\toprule
+\textbf{Agente / Módulo} & \textbf{Papel, Prompts e Skills} & \textbf{Contratos de Entrada / Saída} & \textbf{Critério Explícito de Término} \\
+\midrule
+\textbf{Curador} (\code{curator.py}) & Extrai blocos/fatos documentais, classifica confiança (\code{candidate/ambiguous}) e monta pacote RAG com citações canônicas. & \textbf{In:} arquivo confinado, \code{course\_id}, query. \textbf{Out:} versão indexada, fatos e \code{EvidencePack}. & Versão ativa (\code{active}) após indexação completa ou pausa em gate (\code{waiting\_user}) se houver fato ambíguo. \\
+\textbf{Bibliotecário} (\code{librarian.py}) & Recupera eventos bitemporais, fatos vigentes (\code{supersedes}) e sintetiza contexto sob teto de 2.048 tokens (máx.\ 8 unidades). & \textbf{In:} \code{user\_id}, \code{topic\_ids}, snapshot \code{domain\_revision}. \textbf{Out:} \code{MemoryPack} validado. & Emissão de \code{MemoryPack} aprovado pelo verificador determinístico de preservação de datas e polaridade. \\
+\textbf{Tutor} (\code{tutor.py}) & Condução socrática via 5 \textit{skills} YAML (\code{explain}, \code{graduated\_hint}, \code{quiz}, \code{flashcard}, \code{self\_explain}); escada \code{L0..L3}. & \textbf{In:} \code{EvidencePack}, \code{MemoryPack}, intenção. \textbf{Out:} \code{TutorTurn} ou \code{LearningItem} (gabarito isolado). & Turno fundamentado concluído (\code{completed}), pausa \code{waiting\_student} em item/pista ou abstenção \code{NO\_EVIDENCE}. \\
+\textbf{Monitor} (\code{monitor.py}) & Julgamento formativo com rubrica analítica (níveis \code{0/1/2}) ancorada em \textit{spans} literais e acionamento do redutor de tópico. & \textbf{In:} resposta do aluno, \code{answer\_ref}, \code{rubric\_ref}, \code{help\_level}. \textbf{Out:} \code{Assessment} + \code{TopicState}. & Persistência de \code{Assessment} decidível (\code{insufficient|mixed|favorable}, \code{estimate=null}) ou abstenção \code{FORMAL\_DIVERGENCE}. \\
+\textbf{Planejador} (\code{planner.py}) & Traduz defasagens e prazos confirmados em \code{StudyDemand} (\code{policy\_v1}) e invoca solver \code{CP-SAT} + exportador \code{.ics}. & \textbf{In:} \code{TopicState}, fatos \code{confirmed}, janelas UTC. \textbf{Out:} \code{ScheduleProposal}, \code{PlanDiff}, \code{.ics}. & Pausa em \code{waiting\_approval} com solução validada pelo verificador independente e, pós-aprovação, arquivo \code{.ics}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+\section{Padrão de Orquestração, Protocolo de Mensagens e Uso de Ferramentas}
+\label{sec:orquestracao-ferramentas}
+
+A orquestração em \code{EduAgentGraph} implementa uma máquina de estados determinística sobre \code{StateGraph} (\code{LangGraph}), na qual cada turno percorre etapas fixas: \code{classify} $\rightarrow$ \code{snapshot} (leitura atômica de \code{users.domain\_revision}) $\rightarrow$ roteamento por \code{Intent} (\code{ingest}, \code{ask}, \code{practice}, \code{submit}, \code{plan}, \code{approve}, \code{export}, \code{delete}) $\rightarrow$ \code{\_contract\_state}. A troca de mensagens ocorre exclusivamente por envelopes tipados validados em modo estrito (\code{extra="forbid"}) contra os 15 JSON Schemas exportados em \code{schemas/*.schema.json}. Textos documentais nunca são concatenados como instruções de sistema, mitigando injeção de prompt (\code{F16}).
+
+O uso de ferramentas (\textit{tool use}) é mediado programaticamente pelo grafo sob \textit{allowlists} estritas por papel (\code{eduagent/policy.py}): o adaptador de modelo recusa chamadas diretas não autorizadas com \code{TOOL\_DENIED} (gate \code{G6}), e todo acesso a arquivos passa por \code{resolve\_owned\_path}, confinando leituras e escritas a \code{data/<user\_id>/} (\code{F17}). Toda saída passa por verificadores determinísticos independentes antes de persistência ou exibição: (i) citações seguem a gramática \code{[doc\_id@versao:pagina:bloco]} e são resolvidas contra os chunks do \code{EvidencePack}; (ii) na avaliação formativa, os \textit{spans} citados pelo Monitor devem ser substrings exatas da resposta do estudante; (iii) no agendamento, a grade gerada pelo solver \code{CP-SAT} (slots de 15 min em horizonte de 7 dias, otimizada lexicograficamente em 5 estágios) é auditada por um verificador independente em minutos contínuos UTC (\code{eduagent/services/scheduling.py}) que bloqueia qualquer sobreposição ou violação de janela antes da aprovação humana; e (iv) arquivos \code{.ics} são reparseados via \code{icalendar} para atestar conformidade com a RFC 5545 (\code{CRLF}, \code{UID} e \code{SEQUENCE}).
+
+% ============================================================================
+\section{Mecanismos de Memória, Limites de Execução, Custo e Tratamento de Falhas}
+\label{sec:memoria-limites-falhas}
+
+A memória combina \textbf{curto prazo} transacional (\code{SQLiteCheckpointer} em \code{checkpoints.sqlite}, preservando o item ativo, o nível de ajuda \code{L0..L3} e interrupções \code{waiting\_user}/\code{waiting\_approval} entre invocações) e \textbf{longo prazo bitemporal} (\code{eduagent/services/memory.py} sobre \code{domain.sqlite}). Cada evento registra \code{occurred\_at} (tempo do fato acadêmico) e \code{recorded\_at} (tempo de gravação), permitindo correções retroativas por encadeamento \code{supersedes} e exclusão lógica em cascata via \code{artifact\_dependencies} (\code{tombstones}) sem ressurgimento em reindexações ou restores (\code{F08/F21}).
+
+O controle de custo e recursos (\code{config/default.yaml}) fixa a janela do modelo em $32.768$ tokens: $T_{\text{entrada}} \le 13.312$ tokens (documentos $\le 4.096$, memória $\le 2.048$ em até 8 unidades), reserva de saída de $16.384$, ferramentas $2.048$ e margem $1.024$. Cada turno é limitado a $\le 16$ passos no grafo, $\le 6$ chamadas ao LLM, $\le 8$ chamadas de ferramentas, $\le 2$ reparos totais ($\le 1$ por artefato), timeout de $90\text{ s}$ por inferência e watchdog ativo de $120\text{ s}$ (\code{F11/F12}). O tratamento de falhas mapeia anomalias nos códigos canônicos \code{ErrorCode} (\code{SCHEMA\_INVALID}, \code{AMBIGUOUS\_INPUT}, \code{SOURCE\_UNRESOLVED}, \code{VERSION\_CONFLICT}, \code{RESOURCE\_LIMIT}, \code{TIMEOUT}, \code{TOOL\_DENIED}, \code{MODEL\_NOT\_ADMITTED}, \code{NO\_EVIDENCE}, \code{INTERNAL\_FAILURE}, \code{CANCELLED}). Mutações seguem protocolo de commit idempotente em duas fases (\code{EffectsService} + tabela \code{operations} deduplicada por \code{operation\_id} antes da checagem de \code{domain\_revision}) e fila transacional \code{outbox} com \textit{lease}, garantindo zero efeito duplicado mesmo após término abrupto por \code{SIGKILL} (\code{F14/F15/F18}).
+
+% ============================================================================
+\section{Ajustes Realizados em Relação à Proposta Original e Justificativas}
+\label{sec:ajustes}
+
+Durante a implementação e o ensaio real com o modelo local, seis ajustes técnicos foram incorporados sobre a especificação original das Fases 1 e 2, mantendo intactos os invariantes normativos:
+\begin{itemize}
+  \item \textbf{Isolamento do \code{Docling 2.141} via subprocesso \code{spawn} (\code{ingestion.py}):} o uso de \code{fork} fazia o processo filho herdar a memória residente do \code{PyTorch/BGE-M3} e violar o teto de \code{RLIMIT\_AS = 4 GiB}; a troca por \code{spawn} garantiu extração limpa dentro do orçamento de memória.
+  \item \textbf{Rubrica de critério único em itens determinísticos (\code{tutor.py}):} no ensaio com o \code{Bonsai 2}, itens de quiz gerados com múltiplos critérios levavam o Monitor determinístico a abster sistematicamente (\code{FORMAL\_DIVERGENCE}); o Tutor passou a exigir exatamente 1 critério em itens determinísticos, acionando o ciclo de reparo quando violado.
+  \item \textbf{Derivação de \code{operation\_id} por \code{turn\_id} e normalização de \code{MemoryPack.Origin}:} evitou colisão de digest idempotente entre múltiplos turnos de \code{submit}/\code{plan} na mesma sessão e mapeou eventos internos (\code{review\_after\_error} $\rightarrow$ \code{inferred}) para conformidade estrita com o JSON Schema.
+  \item \textbf{Resolução automática de fuso horário IANA com fallback interativo (\code{config.py}):} implementada inspeção automática do sistema operacional (\code{EDUAGENT\_TIMEZONE}, \code{TZ}, \code{/etc/timezone}, \code{/etc/localtime}) e do navegador (\code{POST /settings/timezone}), com pergunta de fallback ao estudante quando apenas UTC genérico é detectado, preservando \code{manifest.json} congelado.
+  \item \textbf{Interface Gráfica Local Web SPA (\code{ui/}) e \code{ThreadingHTTPServer} (\code{api.py}):} adicionada SPA 100\% offline (4 zonas, ordenação determinística de disciplinas em 4 faixas e Timer Pomodoro \textit{fail-closed} que jamais emite \code{update\_activity} sem confirmação explícita) sobre servidor loopback concorrente, permitindo cancelamento imediato de turnos (\code{POST /turns/\{id\}/cancel}) sem alterar os 14 subcomandos da CLI.
+  \item \textbf{Contenção \textit{fail-closed} de OCR em CPU e estado qualitativo:} o reconhecimento óptico de página inteira em CPU acima de 4 GiB falha de modo tipado (\code{INTERNAL\_FAILURE}) sem ativar versão parcial, e \code{TopicState.estimate} permanece \code{null} (rótulos auditáveis \code{insufficient|mixed|favorable} em vez de probabilidade BKT não calibrada).
+\end{itemize}
+
+% ============================================================================
+\section{Execução Ponta a Ponta e Resultados Práticos Obtidos}
+\label{sec:resultados-praticos}
+
+A solução foi executada e validada de ponta a ponta em três frentes complementares (\code{eval/relatorio-testes-mvp.md}): (i) \textbf{Gate de Admissão do Modelo Local (\code{tests/gates/task002\_gate\_modelo.py}):} aprovou os 8 checks obrigatórios (\code{G1--G8}: loopback offline, SHA-256 do GGUF, round-trip de tokenização, amostragem \code{non-thinking}, conformidade JSON Schema, bloqueio \code{TOOL\_DENIED}, timeout e limite de fila); (ii) \textbf{Ensaio Longitudinal de 15 Passos com Modelo Real (\code{eval/ensaio\_longitudinal.py}):} executou sequencialmente em invocações reais \code{setup} $\rightarrow$ \code{doctor} $\rightarrow$ \code{ingest} (PDF extraído pelo \code{Docling}, gate em 2 fatos ambíguos, retomada confirmada e indexação \code{BGE-M3}) $\rightarrow$ \code{ask} $\rightarrow$ \code{practice} (quiz publicado em \code{waiting\_student}) $\rightarrow$ \code{hint} $\times 2$ (\code{L1} $\rightarrow$ \code{L2} via checkpoint) $\rightarrow$ \code{submit} (contenção \code{FORMAL\_DIVERGENCE} seguida de reparo e aprovação independente atualizando o tópico para \code{mixed}) $\rightarrow$ \code{plan} (\code{CP-SAT OPTIMAL} em 3 blocos de 15 min com déficit zero) $\rightarrow$ \code{approve} (recibo \code{626fb8ef...}) $\rightarrow$ \code{export} (3 \code{VEVENT}s RFC 5545 válidos) $\rightarrow$ \code{cancel} $\rightarrow$ \code{crash} (recuperação íntegra pós-\code{SIGKILL} na mesma sessão) $\rightarrow$ \code{backup/restore} $\rightarrow$ \code{trace/state} (30 traces locais, 16 operações \code{committed}, \code{domain\_revision=22}); e (iii) \textbf{Suítes Automatizadas:} \textbf{600 testes \code{pytest}} (591 de núcleo + 9 de API/UI E2E e timezone) e \textbf{6 suítes \code{deno test}} do frontend aprovados com 0 falhas. Conforme as instruções da Fase 3, os experimentos comparativos (\code{MA\_FULL} vs.\ \code{SA\_EQUIVALENT}) e ablações estatísticas pertencem exclusivamente à Fase 4.
+
+% ============================================================================
+\section*{Declaração de uso de IA generativa no processo de elaboração}
+
+Em conformidade com a Seção 7.2 do PDD da disciplina, declara-se que ferramentas de IA generativa (assistentes de codificação baseados em LLMs sob protocolo de revisão multiagente em \code{.agents/protocolo.md}) foram utilizadas como apoio na implementação de código, estruturação de testes automatizados, consolidação documental e formatação LaTeX. Todas as decisões arquiteturais, verificação de corretude, execução local e revisão crítica final do texto e do código são de inteira autoria e responsabilidade dos integrantes da dupla.
+
+{\footnotesize
+\bibliographystyle{plainnat}
+\bibliography{references}
+}
+
+\end{document}
+

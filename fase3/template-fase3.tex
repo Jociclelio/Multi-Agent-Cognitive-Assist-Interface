@@ -1,0 +1,124 @@
+% ============================================================================
+% Template da Fase 3 — Desenvolvimento dos Resultados Práticos
+% Disciplina: MO810A/MC959A — Sistemas Multiagentes com Modelos de Linguagem
+% Instituto de Computação — UNICAMP (1º Semestre de 2026)
+% ============================================================================
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage[numbers]{natbib}
+\newcommand{\citeonline}[1]{\citeauthor{#1}~\cite{#1}}
+
+% --- Cabeçalho e Rodapé ---
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\footnotesize MO810A/MC959A -- Sistemas Multiagentes com LLMs}
+\lhead{\footnotesize Fase 3 -- Resultados Práticos}
+\cfoot{\thepage}
+
+% --- Estilo para caixas de instrução ---
+\usepackage{mdframed}
+\newmdenv[
+  linecolor=gray!60,
+  backgroundcolor=gray!8,
+  roundcorner=4pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  skipabove=6pt,
+  skipbelow=6pt
+]{instrucao}
+
+\newcommand{\dica}[1]{%
+  \begin{instrucao}
+  \small\textcolor{gray!80!black}{\textbf{Instruções:} #1}
+  \end{instrucao}
+}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE \textbf{Universidade Estadual de Campinas}}\\[0.2cm]
+  {\large Instituto de Computação}\\[0.5cm]
+  {\large \textbf{MO810A / MC959A -- Tópicos em Inteligência Artificial:}}\\[0.1cm]
+  {\large \textbf{Sistemas Multiagentes com Modelos de Linguagem}}\\[0.2cm]
+  {\normalsize Prof.\ Dr.\ Julio Cesar dos Reis --- 1º Semestre de 2026}\\[0.6cm]
+  \rule{\textwidth}{0.4pt}\\[0.4cm]
+  {\Large \textbf{Fase 3 -- Desenvolvimento dos Resultados Práticos}}\\[0.3cm]
+  {\large \textbf{[Título do Projeto]}}\\[0.3cm]
+  \rule{\textwidth}{0.4pt}\\[0.4cm]
+\end{center}
+
+\noindent
+\begin{tabular}{@{}ll@{}}
+  \textbf{Integrante 1:} & Nome Completo --- RA XXXXXX \\
+  \textbf{Integrante 2:} & Nome Completo --- RA XXXXXX \\
+  \textbf{Repositório Git:} & \url{https://github.com/usuario/repositorio} \\
+  \textbf{Data de Entrega:} & \today \\
+\end{tabular}
+
+\vspace{0.6cm}
+
+% ============================================================================
+\section{Visão Geral da Implementação e Arquitetura em Operação}
+\label{sec:visao-geral}
+\dica{Apresente o estado operacional do Sistema Multiagente com Modelos de Linguagem (LLMs) especificado na Fase 2, destacando como os agentes, a orquestração, o uso de ferramentas (\textit{tool use}) e o acesso às fontes de dados funcionam de ponta a ponta.}
+
+% ============================================================================
+\section{Tecnologias, Frameworks e Infraestrutura de Execução}
+\label{sec:tecnologias}
+\dica{Descreva detalhadamente as tecnologias e os \textit{frameworks} utilizados: bibliotecas de construção e orquestração de agentes, modelos de linguagem empregados com provedor e versão, bancos de dados e índices vetoriais, APIs e serviços expostos aos agentes como ferramentas.}
+
+% ============================================================================
+\section{Especificação Técnica dos Agentes}
+\label{sec:especificacao-agentes}
+\dica{Detalhe as tomadas de decisão técnicas referentes aos agentes: papéis, \textit{prompts} e habilidades (\textit{skills}), contratos de entrada e saída e critérios explícitos de término.}
+
+% ============================================================================
+\section{Padrão de Orquestração, Protocolo de Mensagens e Uso de Ferramentas}
+\label{sec:orquestracao-ferramentas}
+\dica{Descreva o padrão de orquestração implementado, o protocolo de troca de mensagens entre agentes e serviços, os esquemas de chamada das ferramentas (\textit{tool calling}) e os mecanismos de validação de suas saídas.}
+
+% ============================================================================
+\section{Mecanismos de Memória, Limites de Execução, Custo e Tratamento de Falhas}
+\label{sec:memoria-limites-falhas}
+\dica{Explicite o funcionamento dos mecanismos de memória (curto e longo prazo), os orçamentos e limites de execução (passos, chamadas, \textit{tokens}, tempo), o controle de custo computacional e o tratamento de erros, reparos e recuperação de falhas.}
+
+% ============================================================================
+\section{Ajustes Realizados em Relação à Proposta Original e Justificativas}
+\label{sec:ajustes}
+\dica{Explicite os ajustes realizados na implementação em relação à proposta original das Fases 1 e 2 e apresente a respectiva justificativa técnica para cada mudança.}
+
+% ============================================================================
+\section{Execução Ponta a Ponta e Resultados Práticos Obtidos}
+\label{sec:resultados-praticos}
+\dica{Demonstre a execução ponta a ponta do sistema multiagente gerando os artefatos práticos esperados (ingestão documental, recuperação híbrida, tutoria, avaliação por rubrica, memória temporal e planejamento CP-SAT), reservando os experimentos comparativos e ablações para a Fase 4.}
+
+% ============================================================================
+\section*{Declaração de uso de IA generativa no processo de elaboração}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
+
