@@ -664,6 +664,13 @@ class LoopbackAPI:
             "gates": {
                 "model_admitted": model_admitted,
                 "model_status": "admitted" if model_admitted else "MODEL_NOT_ADMITTED",
+                "model_label": (
+                    getattr(
+                        getattr(self.runtime.graph, "_backend", None), "label", None
+                    )
+                    if model_admitted
+                    else None
+                ),
                 "timezone": resolved_tz,
                 "timezone_source": tz_source,
                 "timezone_needs_prompt": bool(resolved_tz is None),
@@ -2233,11 +2240,31 @@ def main(argv: list[str] | None = None) -> int:
         help="ID do modelo no runtime (default: bonsai-27b-ada)",
     )
     parser.add_argument(
+        "--model-label",
+        default=None,
+        help=(
+            "rótulo exibido no banner de gates da UI (ex.: 'GLM-5.3-Flash "
+            "Admitido'); default deriva do --model-id"
+        ),
+    )
+    parser.add_argument(
         "--embedder-dir",
         default=None,
         help=(
             "diretório do BGE-M3 local (mapa §6.5); sem ele, a rota "
             "ask/practice recusa com SOURCE_UNRESOLVED"
+        ),
+    )
+    parser.add_argument(
+        "--model-capabilities",
+        choices=("manifest", "off"),
+        default="manifest",
+        help=(
+            "origem da capacidade json_schema alegada ao runtime: 'manifest' "
+            "lê do manifesto congelado (gate G5, válido para o runtime Bonsai "
+            "verificado); 'off' não alega capacidade verificada (use para "
+            "runtimes não cobertos pelo manifesto, ex.: GLM/sglang) — "
+            "fail-closed, mapa §3.1"
         ),
     )
     args = parser.parse_args(argv)
@@ -2252,7 +2279,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path = pathlib.Path("manifest.json")
         json_schema = False
         evidence = "não verificada — sem manifesto"
-        if manifest_path.exists():
+        if args.model_capabilities == "manifest" and manifest_path.exists():
             try:
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 caps = (manifest.get("capacidades") or {}).get("json_schema") or {}
@@ -2268,6 +2295,7 @@ def main(argv: list[str] | None = None) -> int:
                 json_schema_evidence=evidence,
             ),
         )
+        backend.label = args.model_label or args.model_id
 
     embedder = None
     if args.embedder_dir:

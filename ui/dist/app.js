@@ -288,7 +288,7 @@ function renderRuntimeGatesBanner() {
     );
   } else {
     pills.push(
-      `<span class="banner-pill level-ok"><strong>Bonsai 2 Admitido</strong> · Tutoria Socrática e Prática ativas</span>`,
+      `<span class="banner-pill level-ok"><strong>${escapeHtml(appState.health?.gates?.model_label || "Modelo admitido")}</strong> · Tutoria Socrática e Prática ativas</span>`,
     );
   }
   if (!gates.timezone) {
