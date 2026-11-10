@@ -3,15 +3,18 @@
    ========================================================================== */
 
 :root {
+  /* Tema claro (base): superfícies claras + texto escuro. Os painéis que
+     antes eram navy herdam texto escuro — o tema escuro completo vive no
+     bloco prefers-color-scheme abaixo. */
   --bg-canvas: #F7F5F0;
   --bg-surface: #FFFFFF;
-  --bg-panel: #111827;
-  --bg-elevated: #1e293b;
+  --bg-panel: #FFFFFF;
+  --bg-elevated: #F3F0E8;
   --bg-subtle: #EFECE4;
-  --border-subtle: #26334d;
+  --border-subtle: #DFD9CC;
   --border-focus: #38bdf8;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --text-primary: #1F2937;
+  --text-secondary: #5B6472;
   --text-muted: #64748b;
   --accent-primary: #1F5F5B;
   --accent-secondary: #C86D3B;
@@ -24,6 +27,10 @@
   --status-danger-bg: rgba(239, 68, 68, 0.14);
   --status-info: #38bdf8;
   --status-info-bg: rgba(56, 189, 248, 0.14);
+  /* Cores "fortes" de texto sobre fundos translúcidos (legíveis no claro). */
+  --info-strong: #0369a1;
+  --warn-strong: #B45309;
+  --ready-strong: #047857;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
@@ -35,7 +42,14 @@
     --bg-panel: #111827;
     --bg-elevated: #1e293b;
     --bg-subtle: #162032;
+    --border-subtle: #26334d;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
     --accent-primary: #0ea5e9;
+    --info-strong: #7dd3fc;
+    --warn-strong: #fcd34d;
+    --ready-strong: #6ee7b7;
   }
 }
 
@@ -174,7 +188,7 @@ body {
 .rail-btn.is-active {
   background-color: rgba(14, 165, 233, 0.16);
   border-color: rgba(56, 189, 248, 0.45);
-  color: #38bdf8;
+  color: var(--info-strong);
 }
 
 .rail-icon {
@@ -362,7 +376,7 @@ body {
   padding: 1px 6px;
   border-radius: 4px;
   background-color: rgba(56, 189, 248, 0.12);
-  color: #7dd3fc;
+  color: var(--info-strong);
   font-weight: 600;
 }
 
@@ -427,17 +441,17 @@ body {
 
 .banner-pill.level-warning {
   background-color: var(--status-warn-bg);
-  color: #fcd34d;
+  color: var(--warn-strong);
 }
 
 .banner-pill.level-info {
   background-color: var(--status-info-bg);
-  color: #7dd3fc;
+  color: var(--info-strong);
 }
 
 .banner-pill.level-ok {
   background-color: var(--status-ready-bg);
-  color: #6ee7b7;
+  color: var(--ready-strong);
 }
 
 .stage-header {
@@ -513,7 +527,7 @@ body {
   font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--info-strong);
 }
 
 /* Stage Views */
@@ -589,7 +603,7 @@ body {
   border-radius: 6px;
   border: 1px solid rgba(56, 189, 248, 0.4);
   background-color: rgba(56, 189, 248, 0.12);
-  color: #7dd3fc;
+  color: var(--info-strong);
   font-family: var(--font-mono);
   font-size: 11px;
   cursor: pointer;
