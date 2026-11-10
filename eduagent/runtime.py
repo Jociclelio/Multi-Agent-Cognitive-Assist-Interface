@@ -22,6 +22,7 @@ from eduagent.agents.librarian import Librarian
 from eduagent.agents.monitor import Monitor
 from eduagent.agents.planner import PlannerAgent
 from eduagent.agents.tutor import EventItemSink, Tutor
+from eduagent.config import resolve_timezone
 from eduagent.contracts import ErrorCode, EduAgentError
 from eduagent.graph import EduAgentGraph
 from eduagent.services.assessment import AssessmentService
@@ -120,6 +121,19 @@ class RuntimeContext:
         effective_config = dict(load_config(config_path))
         if config:
             effective_config.update(config)
+        explicit_null_tz = bool(
+            config is not None and "timezone" in config and config["timezone"] is None
+        )
+        if not explicit_null_tz:
+            resolved_tz, tz_source = resolve_timezone(
+                effective_config.get("timezone"),
+                auto_detect=True,
+                prompt_fallback=False,
+            )
+            effective_config["timezone"] = resolved_tz
+            effective_config["timezone_source"] = tz_source
+        else:
+            effective_config["timezone_source"] = "explicit_null"
         store = DomainStore.open(root / DOMAIN_DB_NAME)
         checkpointer = SQLiteCheckpointer(root / CHECKPOINTS_DB_NAME)
         clock_fn = clock or (lambda: datetime.now(timezone.utc))

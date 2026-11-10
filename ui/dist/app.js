@@ -295,6 +295,10 @@ function renderRuntimeGatesBanner() {
     pills.push(
       `<span class="banner-pill level-info"><strong>timezone: null</strong> · Pendente confirmação explícita (ex.: America/Sao_Paulo)</span>`,
     );
+  } else {
+    pills.push(
+      `<span class="banner-pill level-info"><strong>Fuso: ${escapeHtml(gates.timezone)}</strong> (${escapeHtml(gates.timezone_source || "sistema")})</span>`,
+    );
   }
   pills.push(
     `<span class="banner-pill level-info">Web: ${escapeHtml(gates.web_connector)} · Rev #${escapeHtml(gates.domain_revision)}</span>`,
@@ -673,6 +677,46 @@ async function selectCourse(courseId) {
   }
 }
 
+async function ensureSystemOrFallbackTimezone() {
+  const gates = appState.health?.gates;
+  if (!gates || gates.timezone) return;
+
+  let chosenTz = null;
+  let source = "browser_auto";
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (resolved && resolved !== "UTC" && resolved !== "Etc/UTC") {
+      chosenTz = resolved;
+    }
+  } catch (_err) {
+    chosenTz = null;
+  }
+
+  if (!chosenTz && typeof window !== "undefined" && typeof window.prompt === "function") {
+    const manual = window.prompt(
+      "Não foi possível detectar automaticamente o fuso horário do sistema.\nInforme o fuso horário IANA a utilizar (ex.: America/Sao_Paulo):",
+      "America/Sao_Paulo",
+    );
+    if (manual && manual.trim()) {
+      chosenTz = manual.trim();
+      source = "user_prompt";
+    }
+  }
+
+  if (chosenTz) {
+    const res = await apiFetch("/settings/timezone", {
+      method: "POST",
+      body: { timezone: chosenTz, source },
+    });
+    if (res.status === 200 && appState.health?.gates) {
+      appState.health.gates.timezone = res.data.timezone;
+      appState.health.gates.timezone_source = res.data.timezone_source;
+      appState.health.gates.timezone_needs_prompt = false;
+      renderRuntimeGatesBanner();
+    }
+  }
+}
+
 async function refreshCoreData() {
   try {
     const healthRes = await fetch("/health");
@@ -684,6 +728,7 @@ async function refreshCoreData() {
       if (userInput) userInput.value = appState.userId;
     }
     renderRuntimeGatesBanner();
+    await ensureSystemOrFallbackTimezone();
   } catch (_err) {
     // servidor offline
   }
@@ -839,13 +884,29 @@ async function loadAuxiliaryView(viewName) {
       </div>
       <div class="info-card">
         <strong>Fuso Horário &amp; Conectores</strong>
-        <span>Timezone: <code>${escapeHtml(String(gates.timezone))}</code> · Web: <code>${escapeHtml(gates.web_connector)}</code></span>
+        <span>Timezone: <code>${escapeHtml(String(gates.timezone))}</code> (${escapeHtml(gates.timezone_source || "unresolved")}) · Web: <code>${escapeHtml(gates.web_connector)}</code></span>
+        <div class="modal-actions">
+          <input type="text" id="settings-timezone-input" class="input-field" value="${escapeHtml(gates.timezone || "America/Sao_Paulo")}" aria-label="Fuso horário IANA" />
+          <button type="button" id="btn-save-timezone" class="btn-secondary btn-compact">Aplicar Fuso Horário</button>
+        </div>
       </div>
       <div class="info-card">
         <strong>Armazenamento SQLite/WAL</strong>
         <span>SQLite ${escapeHtml(gates.sqlite_version)} · Revisão de Domínio #${escapeHtml(gates.domain_revision)}</span>
       </div>
     `;
+    document.getElementById("btn-save-timezone")?.addEventListener("click", async () => {
+      const tzVal = document.getElementById("settings-timezone-input")?.value.trim();
+      if (!tzVal) return;
+      const res = await apiFetch("/settings/timezone", {
+        method: "POST",
+        body: { timezone: tzVal, source: "user_manual" },
+      });
+      if (res.status === 200) {
+        await refreshCoreData();
+        await loadAuxiliaryView("settings");
+      }
+    });
   }
 }
 

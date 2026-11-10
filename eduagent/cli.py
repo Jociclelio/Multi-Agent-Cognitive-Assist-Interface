@@ -33,6 +33,7 @@ import uuid as _uuid
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from eduagent.config import resolve_timezone, validate_iana_timezone
 from eduagent.contracts import EduAgentError, ErrorCode
 from eduagent.services.backup import BackupService
 from eduagent.services.model_adapter import ModelAdapter, RuntimeCapabilities
@@ -127,6 +128,15 @@ def build_parser() -> argparse.ArgumentParser:
             "manifesto congelado (mapa §3.1/§13.10; default: manifest.json "
             "no diretório atual quando existir). Sem manifesto, capacidades "
             "NÃO são presumidas (json_schema desligada)"
+        ),
+    )
+    parser.add_argument(
+        "--timezone",
+        default=None,
+        help=(
+            "fuso horário IANA (ex.: America/Sao_Paulo). Quando omitido, "
+            "o sistema detecta automaticamente o fuso do sistema operacional "
+            "e, em fallback interativo, pergunta ao usuário."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -275,9 +285,13 @@ def default_runtime_factory(args: argparse.Namespace) -> Callable[[], Any]:
             from eduagent.services.retrieval import BgeM3Embedder
 
             embedder = BgeM3Embedder(args.embedder_dir)
+        cfg_override: dict[str, Any] = {}
+        if getattr(args, "timezone", None):
+            cfg_override["timezone"] = validate_iana_timezone(args.timezone)
         return RuntimeContext.open(
             args.data_root,
             config_path=args.config,
+            config=cfg_override or None,
             backend=backend,
             embedder=embedder,
         )
@@ -337,6 +351,38 @@ def _turn_payload(result: Any) -> dict[str, Any]:
     return payload
 
 
+def _ensure_user_timezone(
+    runtime: RuntimeContext,
+    user_id: str,
+    args: argparse.Namespace,
+    *,
+    prompt_if_unresolved: bool = False,
+) -> tuple[str | None, str]:
+    """Resolve automaticamente o fuso horário do usuário/sistema ou pergunta em fallback."""
+    rows = runtime.store.fetch_user_rows(
+        "SELECT timezone FROM users WHERE id = ?", (str(user_id),)
+    )
+    user_tz = str(rows[0]["timezone"]) if rows and rows[0]["timezone"] else None
+    cli_tz = getattr(args, "timezone", None)
+    resolved_tz, source = resolve_timezone(
+        runtime.config.get("timezone"),
+        user_tz=user_tz,
+        cli_tz=cli_tz,
+        auto_detect=True,
+        prompt_fallback=prompt_if_unresolved,
+    )
+    if resolved_tz and resolved_tz != user_tz:
+        runtime.store.execute_write(
+            str(user_id),
+            [("UPDATE users SET timezone = ? WHERE id = ?", (resolved_tz, str(user_id)))],
+            bump_domain_revision=False,
+        )
+    if resolved_tz:
+        runtime.config["timezone"] = resolved_tz
+        runtime.config["timezone_source"] = source
+    return resolved_tz, source
+
+
 def _run_turn_command(
     runtime: RuntimeContext,
     args: argparse.Namespace,
@@ -346,6 +392,12 @@ def _run_turn_command(
     payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     user_id = _require_user(runtime, args.user)
+    _ensure_user_timezone(
+        runtime,
+        user_id,
+        args,
+        prompt_if_unresolved=(getattr(args, "command", None) == "plan"),
+    )
     result = runtime.graph.run_turn(
         user_id=user_id,
         session_id=_session_id(args),
@@ -428,14 +480,21 @@ def _cmd_doctor(runtime: RuntimeContext, args: argparse.Namespace) -> tuple[dict
         ),
     }
 
-    # Config: chaves efetivamente carregadas (mapa §3).
+    # Config: chaves efetivamente carregadas e resolução automática de timezone (§3).
+    resolved_tz, tz_source = resolve_timezone(
+        runtime.config.get("timezone"),
+        cli_tz=getattr(args, "timezone", None),
+        auto_detect=True,
+        prompt_fallback=False,
+    )
     checks["config"] = {
         "status": "ok",
         "keys": sorted(runtime.config.keys()),
-        "timezone": runtime.config.get("timezone"),
+        "timezone": resolved_tz,
+        "timezone_source": tz_source,
         "note": (
-            "timezone permanece null até confirmação explícita (mapa §3; "
-            "decisão pendente, não fechada aqui)"
+            "timezone resolvida automaticamente do sistema ou pendente de "
+            "fallback interativo ao usuário quando não detectável (mapa §3)"
         ),
     }
 

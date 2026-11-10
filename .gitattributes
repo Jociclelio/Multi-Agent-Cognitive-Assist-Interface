@@ -1,0 +1,39 @@
+# Força quebra de linha LF (\n) para arquivos de texto em Windows e Linux.
+# Garante consistência byte a byte em artefatos congelados e verificados por hash.
+* text=auto eol=lf
+
+# Arquivos críticos verificados por SHA-256 ou comparação byte a byte
+uv.lock text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.tex text eol=lf
+*.bib text eol=lf
+*.sh text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.svg text eol=lf
+
+# Exceção normativa: iCalendar (RFC 5545) exige CRLF (\r\n)
+*.ics text eol=crlf
+
+# Arquivos binários nunca sofrem conversão de fim de linha
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.sqlite binary
+*.sqlite-wal binary
+*.sqlite-shm binary
+*.gguf binary
+*.zip binary
+*.safetensors binary
+*.bin binary
+*.model binary
+

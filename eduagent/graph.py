@@ -2023,6 +2023,30 @@ class EduAgentGraph:
             )
         return {"resume_value": resume, "confirmations_applied": applied}
 
+    def _resolve_local_timezone(self, user_id: str) -> Any | None:
+        """Resolve a zona IANA confirmada para o usuário ou configuração."""
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        tz_name: str | None = None
+        try:
+            rows = self._store.fetch_user_rows(
+                "SELECT timezone FROM users WHERE id = ?", (user_id,)
+            )
+            if rows and rows[0]["timezone"]:
+                tz_name = str(rows[0]["timezone"]).strip()
+        except Exception:  # noqa: BLE001
+            tz_name = None
+        if not tz_name:
+            cfg_tz = (self._config or {}).get("timezone")
+            if isinstance(cfg_tz, str) and cfg_tz.strip():
+                tz_name = cfg_tz.strip()
+        if not tz_name:
+            return None
+        try:
+            return ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, KeyError, ValueError):
+            return None
+
     def _default_problem(
         self,
         user_id: str,
@@ -2030,9 +2054,11 @@ class EduAgentGraph:
         snapshot_version: int | None,
     ) -> SchedulingProblem:
         """Problema com disponibilidade default de ENSAIO (não medido):
-        seg–sex 08:00–12:00 e 14:00–18:00 (UTC enquanto a timezone não for
-        confirmada, mapa §3). Substituível por ``build_problem``."""
-        now = self._clock().astimezone(timezone.utc)
+        seg–sex 08:00–12:00 e 14:00–18:00 (no fuso local resolvido ou UTC
+        enquanto a timezone não for confirmada, mapa §3). Substituível por
+        ``build_problem``."""
+        local_tz = self._resolve_local_timezone(user_id)
+        now = self._clock().astimezone(local_tz or timezone.utc)
         horizon_start: date = now.date()
         windows = []
         day = horizon_start
@@ -2075,7 +2101,7 @@ class EduAgentGraph:
         return SchedulingProblem(
             user_id=user_id,
             horizon_start=horizon_start,
-            local_timezone=None,  # timezone só após confirmação (mapa §3)
+            local_timezone=local_tz,
             snapshot_version=int(snapshot_version or 0),
             demands=tuple(solver_demands),
             availability=tuple(windows),

@@ -149,6 +149,7 @@ class BackupCatalog:
                 indent=2,
             ),
             encoding="utf-8",
+            newline="\n",
         )
 
     # -- consultas/mutações --------------------------------------------------
@@ -336,6 +337,7 @@ class BackupService:
         (target / "manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2),
             encoding="utf-8",
+            newline="\n",
         )
         report = BackupReport(
             backup_id=backup_id,
