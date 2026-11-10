@@ -243,6 +243,9 @@ const appState = {
   pendingUploadBase64: null,
   pomodoro: createPomodoroState(null),
   pomodoroTimerId: null,
+  // Turnos locais renderizados a partir da resposta do POST /turns (o backend
+  // não grava mensagens de chat como eventos de domínio; ver task interface 002).
+  localTurns: [],
 };
 
 async function apiFetch(path, options = {}) {
@@ -440,6 +443,43 @@ function renderSessionTimelineAndDrawer() {
     `);
   }
 
+  // Turnos locais (resposta direta do POST /turns) vêm depois dos eventos
+  // persistidos, em ordem de ocorrência.
+  for (const lt of appState.localTurns || []) {
+    if (lt.message) {
+      cardsHtml.push(`
+        <article class="timeline-card role-student">
+          <div class="card-header-meta">
+            <strong>Estudante</strong>
+            <span>${escapeHtml(lt.occurredAt)}</span>
+          </div>
+          <div>${escapeHtml(lt.message)}</div>
+        </article>
+      `);
+    }
+    if (lt.errorText) {
+      cardsHtml.push(`
+        <article class="timeline-card role-tutor">
+          <div class="card-header-meta">
+            <strong>Falha do turno</strong>
+            <span>${escapeHtml(lt.occurredAt)}</span>
+          </div>
+          <div>${escapeHtml(lt.errorText)}</div>
+        </article>
+      `);
+    } else if (lt.responseText) {
+      cardsHtml.push(`
+        <article class="timeline-card role-tutor">
+          <div class="card-header-meta">
+            <strong>Tutor Socrático &amp; Feynman (EduAgent-OS)</strong>
+            <span>${escapeHtml(lt.occurredAt)}</span>
+          </div>
+          <div>${escapeHtml(lt.responseText)}</div>
+        </article>
+      `);
+    }
+  }
+
   for (const rawItem of detail.items || []) {
     const item = sanitizeLearningItemForDisplay(rawItem);
     const refsHtml = (item.source_refs || [])
@@ -546,6 +586,40 @@ function renderSessionTimelineAndDrawer() {
       }
     });
   });
+}
+
+/**
+ * Registra um turno enviado pelo compositor a partir da resposta do
+ * POST /turns, para exibição imediata na timeline (a resposta do backend
+ * carrega `output.turn.text` ou erro tipado; eventos de chat não são
+ * gravados no domínio, então `GET /sessions/{id}` não os devolve).
+ */
+function recordLocalTurnFromResponse(message, data) {
+  const occurredAt = new Date().toISOString();
+  const turn = { message, occurredAt, responseText: null, errorText: null };
+  const out = data && typeof data === "object" ? data.output || {} : {};
+  const err =
+    (data && (data.error || (Array.isArray(data.errors) && data.errors[0]))) ||
+    out.error ||
+    null;
+  if (err) {
+    let described = null;
+    if (typeof describeTypedError === "function") {
+      try {
+        described = describeTypedError(err);
+      } catch (_err) {
+        described = null;
+      }
+    }
+    const prefix = described && described.title ? `${described.title}: ` : "";
+    turn.errorText = `${prefix}${err.message || "falha desconhecida no turno"}`;
+  } else if (out && out.turn && out.turn.text) {
+    turn.responseText = out.turn.text;
+  } else if (data && (data.status === "waiting" || data.status === "waiting_student")) {
+    turn.responseText = "Turno registrado — aguardando ação do estudante.";
+  }
+  appState.localTurns.push(turn);
+  if (appState.localTurns.length > 100) appState.localTurns.shift();
 }
 
 async function selectCourse(courseId) {
@@ -916,7 +990,7 @@ function bindEvents() {
     const cancelBtn = document.getElementById("btn-cancel-turn");
     if (cancelBtn) cancelBtn.hidden = false;
     try {
-      await apiFetch("/turns", {
+      const res = await apiFetch("/turns", {
         method: "POST",
         body: {
           session_id: appState.activeSessionId,
@@ -928,6 +1002,8 @@ function bindEvents() {
         },
       });
       if (textarea) textarea.value = "";
+      recordLocalTurnFromResponse(message, res.data);
+      renderSessionTimelineAndDrawer();
       await refreshCoreData();
     } finally {
       if (cancelBtn) cancelBtn.hidden = true;

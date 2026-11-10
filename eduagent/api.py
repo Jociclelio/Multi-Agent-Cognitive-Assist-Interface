@@ -2130,9 +2130,64 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1", help="Host loopback (127.0.0.1)")
     parser.add_argument("--port", type=int, default=8080, help="Porta TCP local (default: 8080)")
     parser.add_argument("--open-browser", action="store_true", help="Abre navegador automaticamente")
+    parser.add_argument(
+        "--model-url",
+        default=None,
+        help=(
+            "URL OpenAI-compatible do runtime do modelo (ex.: "
+            "http://127.0.0.1:8081/v1); sem ela a UI roda sem geração "
+            "(MODEL_NOT_ADMITTED bloqueia a tutoria, mapa §3.1)"
+        ),
+    )
+    parser.add_argument(
+        "--model-id",
+        default="bonsai-27b-ada",
+        help="ID do modelo no runtime (default: bonsai-27b-ada)",
+    )
+    parser.add_argument(
+        "--embedder-dir",
+        default=None,
+        help=(
+            "diretório do BGE-M3 local (mapa §6.5); sem ele, a rota "
+            "ask/practice recusa com SOURCE_UNRESOLVED"
+        ),
+    )
     args = parser.parse_args(argv)
 
-    ctx = RuntimeContext.open(args.data_root)
+    # Backend do modelo (mapa §3.1): capacidade json_schema lida do manifesto
+    # congelado e verificada por hash (gate G5 da task 002); sem manifesto a
+    # capacidade NÃO é presumida — mesmo contrato da CLI (cli.py).
+    backend = None
+    if args.model_url:
+        from eduagent.services.model_adapter import ModelAdapter, RuntimeCapabilities
+
+        manifest_path = pathlib.Path("manifest.json")
+        json_schema = False
+        evidence = "não verificada — sem manifesto"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                caps = (manifest.get("capacidades") or {}).get("json_schema") or {}
+                json_schema = bool(caps.get("suportada"))
+                evidence = f"manifesto congelado ({manifest_path})"
+            except (OSError, json.JSONDecodeError):
+                pass
+        backend = ModelAdapter(
+            base_url=args.model_url,
+            model_id=args.model_id,
+            capabilities=RuntimeCapabilities(
+                json_schema=json_schema,
+                json_schema_evidence=evidence,
+            ),
+        )
+
+    embedder = None
+    if args.embedder_dir:
+        from eduagent.services.retrieval import BgeM3Embedder
+
+        embedder = BgeM3Embedder(args.embedder_dir)
+
+    ctx = RuntimeContext.open(args.data_root, backend=backend, embedder=embedder)
     try:
         if args.user:
             ctx.store.ensure_user(str(uuid.UUID(args.user)))
