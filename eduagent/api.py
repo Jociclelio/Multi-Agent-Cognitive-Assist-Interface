@@ -45,6 +45,7 @@ from urllib.parse import parse_qs, urlparse
 import uuid
 import webbrowser
 
+from eduagent.config import resolve_timezone, validate_iana_timezone
 from eduagent.contracts import EduAgentError, ErrorCode, TypedError
 from eduagent.graph import TurnResult
 from eduagent.policy import resolve_owned_path
@@ -585,9 +586,12 @@ class LoopbackAPI:
     ) -> tuple[Any, list[Any]]:
         ans_str = str(answer_ref_raw or "")
         rub_str = str(rubric_ref_raw or "")
-        match = _EVENT_REF_RE.fullmatch(ans_str)
-        if match:
-            ev_id = match.group(1)
+        expected_answer: Any = None
+        rubric_list: list[Any] | None = None
+
+        ans_match = _EVENT_REF_RE.fullmatch(ans_str)
+        if ans_match:
+            ev_id = ans_match.group(1)
             ev_row = self._fetchone(
                 "SELECT payload_json FROM events WHERE user_id = ? AND id = ?",
                 (user_id, ev_id),
@@ -595,17 +599,27 @@ class LoopbackAPI:
             if ev_row and ev_row["payload_json"]:
                 ev_payload = _safe_json_loads(ev_row["payload_json"], {}) or {}
                 expected_answer = ev_payload.get("expected_answer")
-                rubric = ev_payload.get("rubric")
-                return (
-                    expected_answer,
-                    rubric if isinstance(rubric, list) else [],
+                if isinstance(ev_payload.get("rubric"), list):
+                    rubric_list = ev_payload.get("rubric")
+        else:
+            expected_answer = _safe_json_loads(ans_str, ans_str if ans_str else None)
+
+        if rubric_list is None:
+            rub_match = _EVENT_REF_RE.fullmatch(rub_str)
+            if rub_match:
+                rub_row = self._fetchone(
+                    "SELECT payload_json FROM events WHERE user_id = ? AND id = ?",
+                    (user_id, rub_match.group(1)),
                 )
-        expected_answer = _safe_json_loads(ans_str, ans_str if ans_str else None)
-        rubric_parsed = _safe_json_loads(rub_str, [])
-        return (
-            expected_answer,
-            rubric_parsed if isinstance(rubric_parsed, list) else [],
-        )
+                if rub_row and rub_row["payload_json"]:
+                    rub_payload = _safe_json_loads(rub_row["payload_json"], {}) or {}
+                    if isinstance(rub_payload.get("rubric"), list):
+                        rubric_list = rub_payload.get("rubric")
+            if rubric_list is None:
+                rubric_parsed = _safe_json_loads(rub_str, [])
+                rubric_list = rubric_parsed if isinstance(rubric_parsed, list) else []
+
+        return expected_answer, rubric_list
 
     def _build_health_payload(self) -> dict[str, Any]:
         cfg = self.runtime.config or {}
@@ -618,6 +632,31 @@ class LoopbackAPI:
             "SELECT id, timezone, domain_revision FROM users ORDER BY id LIMIT 10"
         )
         primary_user = dict(user_rows[0]) if user_rows else None
+        user_tz = (
+            str(primary_user["timezone"])
+            if primary_user and primary_user.get("timezone")
+            else None
+        )
+        resolved_tz, tz_source = resolve_timezone(
+            cfg.get("timezone"),
+            user_tz=user_tz,
+            auto_detect=True,
+            prompt_fallback=False,
+        )
+        if resolved_tz and primary_user and not user_tz:
+            try:
+                self.runtime.store.execute_write(
+                    str(primary_user["id"]),
+                    [
+                        (
+                            "UPDATE users SET timezone = ? WHERE id = ?",
+                            (resolved_tz, str(primary_user["id"])),
+                        )
+                    ],
+                    bump_domain_revision=False,
+                )
+            except Exception:  # noqa: BLE001
+                pass
         return {
             "status": "ok",
             "service": "eduagent-loopback",
@@ -625,11 +664,9 @@ class LoopbackAPI:
             "gates": {
                 "model_admitted": model_admitted,
                 "model_status": "admitted" if model_admitted else "MODEL_NOT_ADMITTED",
-                "timezone": (
-                    primary_user.get("timezone")
-                    if primary_user and primary_user.get("timezone")
-                    else cfg.get("timezone")
-                ),
+                "timezone": resolved_tz,
+                "timezone_source": tz_source,
+                "timezone_needs_prompt": bool(resolved_tz is None),
                 "network_enabled": bool(cfg.get("network_enabled", False)),
                 "web_connector": (
                     "enabled"
@@ -1631,7 +1668,15 @@ class LoopbackAPI:
                 "sha256": r["sha256"],
                 "mime": r["mime"],
                 "original_ref": r["original_ref"],
-                "version_status": r["version_status"] or "pending",
+                "version_status": (
+                    "active"
+                    if (
+                        r["active_version"] is not None
+                        and r["version_id"] is not None
+                        and str(r["active_version"]) == str(r["version_id"])
+                    )
+                    else (r["version_status"] or "pending")
+                ),
                 "chunk_count": chunk_counts.get(str(r["version_id"]), 0),
                 "extractor_manifest": _safe_json_loads(r["extractor_manifest"], {}),
             }
@@ -1889,7 +1934,7 @@ class LoopbackAPI:
                     "kind": "concept_recall",
                     "front": f"[{cr['course_title']}] Explique com suas próprias palavras (Método Feynman) o conceito central do trecho #{str(cr['id'])[:8]}:",
                     "back": text,
-                    "revealed": True,
+                    "revealed": False,
                     "source_refs": [
                         {"doc_id": str(cr["doc_id"]), "chunk_id": str(cr["id"])}
                     ],
@@ -1986,6 +2031,45 @@ class LoopbackAPI:
             {"status": "ok", "query": q, "results": results},
         )
 
+    def _handle_post_settings_timezone(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        raw_tz = body.get("timezone")
+        source = str(body.get("source") or "user_manual").strip() or "user_manual"
+        if raw_tz is None or not str(raw_tz).strip():
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(
+                    ErrorCode.SCHEMA_INVALID,
+                    "campo 'timezone' é obrigatório (ex.: 'America/Sao_Paulo')",
+                ),
+            )
+            return
+        validated_tz = validate_iana_timezone(str(raw_tz))
+        assert validated_tz is not None
+        self.runtime.store.execute_write(
+            user_id,
+            [("UPDATE users SET timezone = ? WHERE id = ?", (validated_tz, user_id))],
+            bump_domain_revision=False,
+        )
+        if self.runtime.config is not None:
+            self.runtime.config["timezone"] = validated_tz
+            self.runtime.config["timezone_source"] = source
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {
+                "status": "ok",
+                "user_id": user_id,
+                "timezone": validated_tz,
+                "timezone_source": source,
+            },
+        )
+
     def _handle_post(self, handler: BaseHTTPRequestHandler) -> None:
         user_id = self._require_user(handler)
         if user_id is None:
@@ -1998,6 +2082,10 @@ class LoopbackAPI:
         try:
             if path == "/courses":
                 self._handle_post_courses(handler, user_id, body)
+                return
+
+            if path == "/settings/timezone":
+                self._handle_post_settings_timezone(handler, user_id, body)
                 return
 
             if path == "/library/upload":

@@ -69,7 +69,7 @@ DOC_TEXT_PAGES = [
 @pytest.fixture(autouse=True)
 def _allow_host_sqlite_version(monkeypatch: pytest.MonkeyPatch) -> None:
     """Permite execução em ambientes com SQLite local anterior a 3.45.0 quando necessário."""
-    if repository.sqlite_version_tuple() < repository.SQLITE_WAL_FLOOR:
+    if repository._sqlite_version_tuple() < repository.SQLITE_WAL_FLOOR:
         monkeypatch.setattr(repository, "SQLITE_WAL_FLOOR", (3, 35, 0))
 
 
@@ -580,18 +580,24 @@ def test_ui_api_05_session_detail_socratic_answer_barrier(tmp_path: Path) -> Non
     headers = {"X-EduAgent-User": UID}
     try:
         # Registra eventos de resposta e rubrica via MemoryService
-        ans_ev = ctx.memory.record_event(
+        ctx.memory.record_event(
             user_id=UID,
             session_id=SESSION,
-            kind=MemoryPack.EventKind.PRACTICE,
+            kind=MemoryPack.EventKind.ATTEMPT,
             payload={"expected_answer": "GABARITO_CONFIDENCIAL_L3"},
             occurred_at=FIXED_NOW,
             origin=MemoryPack.Origin.OBSERVED,
         )
-        rub_ev = ctx.memory.record_event(
+        ans_ev = str(
+            ctx.store.fetch_user_rows(
+                "SELECT id FROM events WHERE user_id = ? AND session_id = ? ORDER BY rowid DESC LIMIT 1",
+                (UID, SESSION),
+            )[0]["id"]
+        )
+        ctx.memory.record_event(
             user_id=UID,
             session_id=SESSION,
-            kind=MemoryPack.EventKind.PRACTICE,
+            kind=MemoryPack.EventKind.ATTEMPT,
             payload={
                 "rubric": [
                     {"criterion_id": "c1", "description": "Critério público", "critical": True}
@@ -599,6 +605,12 @@ def test_ui_api_05_session_detail_socratic_answer_barrier(tmp_path: Path) -> Non
             },
             occurred_at=FIXED_NOW,
             origin=MemoryPack.Origin.OBSERVED,
+        )
+        rub_ev = str(
+            ctx.store.fetch_user_rows(
+                "SELECT id FROM events WHERE user_id = ? AND session_id = ? ORDER BY rowid DESC LIMIT 1",
+                (UID, SESSION),
+            )[0]["id"]
         )
 
         item_l1 = str(uuid.uuid4())
@@ -817,3 +829,86 @@ def test_e2e_full_student_journey_via_loopback_ui_api(tmp_path: Path) -> None:
     finally:
         server.stop()
         ctx.close()
+
+
+# ============================================================================
+# TZ-01 a TZ-03: Detecção Automática de Fuso Horário do Sistema + Fallback
+# ============================================================================
+def test_timezone_auto_detection_and_interactive_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from eduagent.config import (
+        detect_system_timezone,
+        prompt_user_timezone,
+        resolve_timezone,
+        validate_iana_timezone,
+    )
+
+    # 1. Detecção automática via variável de ambiente do sistema (TZ / EDUAGENT_TIMEZONE)
+    tz_env, src_env = detect_system_timezone(
+        env={"TZ": "America/Sao_Paulo"},
+        etc_timezone_path=tmp_path / "inexistente",
+        etc_localtime_path=tmp_path / "inexistente_link",
+    )
+    assert tz_env == "America/Sao_Paulo"
+    assert src_env == "env"
+
+    # 2. Detecção automática via arquivo /etc/timezone do sistema operacional
+    etc_tz_file = tmp_path / "etc_timezone"
+    etc_tz_file.write_text("America/Manaus\n", encoding="utf-8")
+    tz_etc, src_etc = detect_system_timezone(
+        env={},
+        etc_timezone_path=etc_tz_file,
+        etc_localtime_path=tmp_path / "inexistente_link",
+    )
+    assert tz_etc == "America/Manaus"
+    assert src_etc == "etc_timezone"
+
+    # 3. Fallback interativo perguntando ao usuário quando a detecção automática não resolve
+    monkeypatch.setattr(
+        "eduagent.config.detect_system_timezone",
+        lambda **kwargs: (None, "unresolved"),
+    )
+    resolved_fb, source_fb = resolve_timezone(
+        None,
+        auto_detect=True,
+        prompt_fallback=True,
+        input_fn=lambda _msg: "America/Sao_Paulo",
+    )
+    assert resolved_fb == "America/Sao_Paulo"
+    assert source_fb == "user_prompt"
+
+    # Fallback com resposta vazia assume o padrão America/Sao_Paulo
+    prompted_default = prompt_user_timezone(input_fn=lambda _msg: "")
+    assert prompted_default == "America/Sao_Paulo"
+
+    # Validação rejeita identificador IANA inválido com SCHEMA_INVALID
+    with pytest.raises(EduAgentError) as exc_info:
+        validate_iana_timezone("Fuso/Inexistente_999")
+    assert exc_info.value.code == ErrorCode.SCHEMA_INVALID
+
+    # 4. Endpoint POST /settings/timezone na LoopbackAPI persiste no usuário e atualiza /health
+    ctx = open_ui_runtime(tmp_path / "tz_api", admit_model=False)
+    server = LoopbackAPI(ctx, host="127.0.0.1", port=0)
+    host, port = server.start()
+    base_url = f"http://{host}:{port}"
+    headers = {"X-EduAgent-User": UID}
+    try:
+        st_tz, tz_data = _http_json(
+            f"{base_url}/settings/timezone",
+            method="POST",
+            headers=headers,
+            body={"timezone": "America/Sao_Paulo", "source": "browser_auto"},
+        )
+        assert st_tz == 200
+        assert tz_data["timezone"] == "America/Sao_Paulo"
+        assert tz_data["timezone_source"] == "browser_auto"
+
+        st_h, h_data = _http_json(f"{base_url}/health")
+        assert st_h == 200
+        assert h_data["gates"]["timezone"] == "America/Sao_Paulo"
+        assert h_data["gates"]["timezone_needs_prompt"] is False
+    finally:
+        server.stop()
+        ctx.close()
+

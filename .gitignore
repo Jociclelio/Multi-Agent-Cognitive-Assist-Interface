@@ -47,6 +47,8 @@ eval/corpus/originais/
 
 # Relatório local de diagnóstico e próximos passos
 RELATORIO_ESTADO_E_PROXIMOS_PASSOS.md
+GUIA_DE_USO_SISTEMA.md
+PLANO_DE_TRABALHO_FASE3.md
 
 # Editor e Devcontainer local
 .vscode/

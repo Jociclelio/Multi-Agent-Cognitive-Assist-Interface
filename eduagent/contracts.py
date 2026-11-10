@@ -1321,6 +1321,7 @@ def export_schemas(output_dir: str | Path = "schemas") -> list[Path]:
             json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True)
             + "\n",
             encoding="utf-8",
+            newline="\n",
         )
         written.append(path)
         index[model.__name__] = path.name
@@ -1333,6 +1334,7 @@ def export_schemas(output_dir: str | Path = "schemas") -> list[Path]:
         )
         + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     written.append(out / "index.json")
     return written

@@ -390,6 +390,7 @@ def rehash(directory: Path | str = DEFAULT_SKILLS_DIR) -> dict[str, Any]:
     out.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return payload
 
