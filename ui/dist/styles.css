@@ -792,6 +792,11 @@ body {
   font-size: 12.5px;
 }
 
+.evidence-chunk-card.is-focused {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
 /* --------------------------------------------------------------------------
    Botões e Utilitários
    -------------------------------------------------------------------------- */

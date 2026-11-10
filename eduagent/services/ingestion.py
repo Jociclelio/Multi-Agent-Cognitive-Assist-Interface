@@ -1347,7 +1347,17 @@ def _docling_convert(
     # uv.lock): ``convert`` exige ``DocumentStream`` (BytesIO cru é recusado
     # pela validação da API) e ``iterate_items`` devolve tuplas
     # ``(item, nível)`` com proveniência em ``prov.page_no``.
-    stream = DocumentStream(name="document", stream=BytesIO(data))
+    # O nome do stream precisa carregar uma extensão que o Docling reconheça:
+    # sem sufixo ele recusa ("File format not allowed"), e o formato
+    # text/plain não existe no InputFormat do Docling 2.141 — texto é
+    # apresentado como .md (Markdown é supraconjunto do texto plano; o
+    # original arquivado continua com a extensão canônica .txt, §6.1).
+    # O nome nunca define o tipo — apenas comunica ao conversor o formato
+    # já decidido pelo sniffing de bytes.
+    stream_extension = ".pdf" if mime == "application/pdf" else ".md"
+    stream = DocumentStream(
+        name=f"document{stream_extension}", stream=BytesIO(data)
+    )
     result = converter.convert(stream)
     document = result.document
 

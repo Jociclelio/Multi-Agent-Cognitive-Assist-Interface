@@ -69,7 +69,7 @@ DOC_TEXT_PAGES = [
 @pytest.fixture(autouse=True)
 def _allow_host_sqlite_version(monkeypatch: pytest.MonkeyPatch) -> None:
     """Permite execução em ambientes com SQLite local anterior a 3.45.0 quando necessário."""
-    if repository.sqlite_version_tuple() < repository.SQLITE_WAL_FLOOR:
+    if repository._sqlite_version_tuple() < repository.SQLITE_WAL_FLOOR:
         monkeypatch.setattr(repository, "SQLITE_WAL_FLOOR", (3, 35, 0))
 
 

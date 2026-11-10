@@ -115,7 +115,7 @@ class RuntimeContext:
         """Abre o conjunto local. ``backend=None`` deixa as rotas com geração
         indisponíveis com erro tipado (§4) — a tutoria exige modelo admitido
         (mapa §3.1: MODEL_NOT_ADMITTED bloqueia tutoria)."""
-        root = Path(data_root)
+        root = Path(data_root).resolve()
         root.mkdir(parents=True, exist_ok=True)
         effective_config = dict(load_config(config_path))
         if config:

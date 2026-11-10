@@ -580,9 +580,15 @@ function renderSessionTimelineAndDrawer() {
       if (toggleBtn) {
         toggleBtn.setAttribute("aria-expanded", "true");
       }
-      const chunkEl = document.getElementById(`chunk-${chunkId}`);
+      const chunkEl =
+        document.getElementById(`chunk-${chunkId}`) ||
+        (Number.isInteger(Number(chunkId))
+          ? document.querySelectorAll(".evidence-chunk-card")[Number(chunkId)]
+          : null);
       if (chunkEl && typeof chunkEl.scrollIntoView === "function") {
+        chunkEl.classList.add("is-focused");
         chunkEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => chunkEl.classList.remove("is-focused"), 2400);
       }
     });
   });
@@ -615,11 +621,39 @@ function recordLocalTurnFromResponse(message, data) {
     turn.errorText = `${prefix}${err.message || "falha desconhecida no turno"}`;
   } else if (out && out.turn && out.turn.text) {
     turn.responseText = out.turn.text;
+  } else if (out && out.feedback) {
+    const fb = out.feedback;
+    const parts = [`Avaliação da submissão: ${fb.correctness || "—"}.`];
+    const review = Array.isArray(out.review_requests) ? out.review_requests : [];
+    if (review.length > 0) {
+      parts.push("Revisão espaçada agendada para este tópico.");
+    }
+    turn.responseText = parts.join(" ");
   } else if (data && (data.status === "waiting" || data.status === "waiting_student")) {
     turn.responseText = "Turno registrado — aguardando ação do estudante.";
   }
   appState.localTurns.push(turn);
   if (appState.localTurns.length > 100) appState.localTurns.shift();
+}
+
+/**
+ * POST /turns com registro e renderização imediata do resultado na timeline
+ * (contrato compartilhado por todos os disparadores de turno da UI: composer,
+ * dica gradual, Pomodoro, plano e exportação).
+ */
+async function postTurnAndRecord(message, payload) {
+  const res = await apiFetch("/turns", {
+    method: "POST",
+    body: {
+      session_id: appState.activeSessionId,
+      message,
+      payload,
+    },
+  });
+  recordLocalTurnFromResponse(message, res.data);
+  renderSessionTimelineAndDrawer();
+  await refreshCoreData();
+  return res.data;
 }
 
 async function selectCourse(courseId) {
@@ -956,15 +990,7 @@ function bindEvents() {
     if (dialog && dialog.open) dialog.close();
     renderPomodoroWidget();
     if (res.turnRequest) {
-      await apiFetch("/turns", {
-        method: "POST",
-        body: {
-          session_id: appState.activeSessionId,
-          message: res.turnRequest.message,
-          payload: res.turnRequest.payload,
-        },
-      });
-      await refreshCoreData();
+      await postTurnAndRecord(res.turnRequest.message, res.turnRequest.payload);
     }
   };
 
@@ -990,31 +1016,26 @@ function bindEvents() {
     const cancelBtn = document.getElementById("btn-cancel-turn");
     if (cancelBtn) cancelBtn.hidden = false;
     try {
-      const res = await apiFetch("/turns", {
-        method: "POST",
-        body: {
-          session_id: appState.activeSessionId,
-          message,
-          payload: {
-            course_id: appState.selectedCourseId || "",
-            topic_ids: topicId ? [topicId] : [],
-          },
-        },
-      });
       if (textarea) textarea.value = "";
-      recordLocalTurnFromResponse(message, res.data);
-      renderSessionTimelineAndDrawer();
-      await refreshCoreData();
+      await postTurnAndRecord(message, {
+        course_id: appState.selectedCourseId || "",
+        topic_ids: topicId ? [topicId] : [],
+      });
     } finally {
       if (cancelBtn) cancelBtn.hidden = true;
     }
   });
 
   document.getElementById("btn-cancel-turn")?.addEventListener("click", async () => {
-    await apiFetch(`/turns/${encodeURIComponent(appState.activeSessionId)}/cancel`, {
-      method: "POST",
-      body: {},
-    });
+    const res = await apiFetch(
+      `/turns/${encodeURIComponent(appState.activeSessionId)}/cancel`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+    recordLocalTurnFromResponse("/cancel", res.data);
+    renderSessionTimelineAndDrawer();
     await refreshCoreData();
   });
 
@@ -1029,20 +1050,15 @@ function bindEvents() {
     }
     const topicId = document.getElementById("topic-select")?.value || "";
     const lastItem = (appState.sessionDetail?.items || []).slice(-1)[0];
-    await apiFetch("/turns", {
-      method: "POST",
-      body: {
-        session_id: appState.activeSessionId,
-        message: `/practice Solicitar dica gradual (${appState.helpLevel})`,
-        payload: {
-          course_id: appState.selectedCourseId || "",
-          topic_ids: topicId ? [topicId] : [],
-          help_level: appState.helpLevel,
-          item_id: lastItem?.id || undefined,
-        },
+    await postTurnAndRecord(
+      `/practice Solicitar dica gradual (${appState.helpLevel})`,
+      {
+        course_id: appState.selectedCourseId || "",
+        topic_ids: topicId ? [topicId] : [],
+        help_level: appState.helpLevel,
+        item_id: lastItem?.id || undefined,
       },
-    });
-    await refreshCoreData();
+    );
   });
 
   // Atalho de Upload rápido no Composer ("📎 Material")
@@ -1056,32 +1072,16 @@ function bindEvents() {
 
   // Atalhos da visão de Agenda & Calendário (/plan e /export)
   document.getElementById("btn-generate-plan")?.addEventListener("click", async () => {
-    await apiFetch("/turns", {
-      method: "POST",
-      body: {
-        session_id: appState.activeSessionId,
-        message: "/plan gerar proposta de cronograma semanal",
-        payload: {
-          course_id: appState.selectedCourseId || "",
-        },
-      },
+    await postTurnAndRecord("/plan gerar proposta de cronograma semanal", {
+      course_id: appState.selectedCourseId || "",
     });
-    await refreshCoreData();
     await loadAuxiliaryView("calendar");
   });
 
   document.getElementById("btn-export-ics")?.addEventListener("click", async () => {
-    await apiFetch("/turns", {
-      method: "POST",
-      body: {
-        session_id: appState.activeSessionId,
-        message: "/export exportar blocos aprovados em iCalendar (.ics)",
-        payload: {
-          course_id: appState.selectedCourseId || "",
-        },
-      },
+    await postTurnAndRecord("/export exportar blocos aprovados em iCalendar (.ics)", {
+      course_id: appState.selectedCourseId || "",
     });
-    await refreshCoreData();
     await loadAuxiliaryView("calendar");
   });
 
