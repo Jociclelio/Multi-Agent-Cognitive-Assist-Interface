@@ -44,6 +44,35 @@ from typing import Any, Sequence
 
 from eduagent.contracts import ErrorCode  # reexportado p/ gates (mapa §4)
 
+# Buffer ao vivo da geração corrente (§12: single-slot de geração — o MVP
+# local processa um turno por vez, então um buffer único basta). Fases:
+# "reading" (prefill do contexto), "thinking" (reasoning deltas) e
+# "answering" (deltas do texto final). Consumido por GET /generation/live.
+_LIVE: dict[str, Any] = {"phase": None, "text": "", "reasoning": ""}
+_LIVE_LOCK = threading.Lock()
+
+
+def _live_reset(phase: str) -> None:
+    with _LIVE_LOCK:
+        _LIVE["phase"] = phase
+        _LIVE["text"] = ""
+        _LIVE["reasoning"] = ""
+
+
+def _live_set(phase: str, text_delta: str | None, reasoning_delta: str | None) -> None:
+    with _LIVE_LOCK:
+        if text_delta is not None:
+            _LIVE["text"] += text_delta
+        if reasoning_delta is not None:
+            _LIVE["reasoning"] += reasoning_delta
+        _LIVE["phase"] = phase
+
+
+def live_generation_state() -> dict[str, Any]:
+    """Instantâneo thread-safe do estado da geração corrente (para a UI)."""
+    with _LIVE_LOCK:
+        return dict(_LIVE)
+
 
 class ModelAdapterError(Exception):
     """Erro tipado do caminho do modelo (mapa §4)."""
@@ -253,9 +282,9 @@ class ModelAdapter:
             }
 
         started = time.monotonic()
-        data = self._post("/chat/completions", body, deadline)
+        _live_reset("reading")
+        data = self._post_stream("/chat/completions", body, deadline)
         elapsed = time.monotonic() - started
-
         try:
             choice = data["choices"][0]
             message = choice["message"]
@@ -334,6 +363,94 @@ class ModelAdapter:
                 f"Deadline de {deadline}s excedido na geração.",
                 retryable=True,
             ) from exc
+
+    def _post_stream(
+        self, path: str, body: dict[str, Any], deadline: float
+    ) -> dict[str, Any]:
+        """POST com ``stream=true`` (SSE, OpenAI-compatible): alimenta o
+        buffer ao vivo (fases reading/thinking/answering) e devolve o mesmo
+        formato de resposta do caminho não-streaming."""
+        url = f"{self.base_url}{path}"
+        stream_body = dict(body)
+        stream_body["stream"] = True
+        payload = json.dumps(stream_body).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+            method="POST",
+        )
+        content_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        finish_reason = ""
+        usage: dict[str, Any] = {}
+        model_id = self.model_id
+        try:
+            with urllib.request.urlopen(request, timeout=deadline) as response:
+                for raw_line in response:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    chunk_text = line[len("data:"):].strip()
+                    if chunk_text == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(chunk_text)
+                    except json.JSONDecodeError:
+                        continue
+                    model_id = str(chunk.get("model", model_id))
+                    if chunk.get("usage"):
+                        usage = chunk["usage"] or {}
+                    choices = chunk.get("choices") or []
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta") or {}
+                    if choices[0].get("finish_reason"):
+                        finish_reason = str(choices[0]["finish_reason"])
+                    reasoning_delta = delta.get("reasoning_content")
+                    if reasoning_delta:
+                        _live_set("thinking", None, reasoning_delta)
+                    content_delta = delta.get("content")
+                    if content_delta:
+                        _live_set("answering", content_delta, None)
+                        content_parts.append(content_delta)
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")[:2000]
+            finally:
+                exc.close()
+            code = ErrorCode.MODEL_NOT_ADMITTED if exc.code == 503 else ErrorCode.INTERNAL_FAILURE
+            raise ModelAdapterError(
+                code,
+                f"Runtime respondeu HTTP {exc.code}: {detail}",
+                retryable=exc.code in (429, 500, 502, 503, 504),
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise ModelAdapterError(
+                ErrorCode.INTERNAL_FAILURE,
+                f"Falha de conexão com o runtime loopback: {exc.reason}",
+                retryable=True,
+            ) from exc
+        except TimeoutError as exc:
+            raise ModelAdapterError(
+                ErrorCode.TIMEOUT,
+                f"Deadline de {deadline}s excedido na geração.",
+                retryable=True,
+            ) from exc
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": "".join(content_parts),
+                        "reasoning_content": "".join(reasoning_parts) or None,
+                    },
+                    "finish_reason": finish_reason or "stop",
+                }
+            ],
+            "usage": usage,
+            "model": model_id,
+        }
 
 
 class LoopbackGenerationServer:

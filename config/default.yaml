@@ -26,7 +26,13 @@ max_tool_calls: 8
 max_graph_steps: 16
 max_repairs_total: 2
 max_repair_artifact: 1
-active_deadline_s: 120
+# Deadline do turno ativo (§12): default de ensaio 120s é insuficiente para
+# inferência local (retrieval + prefill + geração a ~27 tok/s).
+active_deadline_s: 900
+# Tutor: deadline por chamada ao modelo (mapa §3, default de ensaio era 90s —
+# insuficiente para inferência local: prefill de RAG grande + ~27 tok/s).
+tutor:
+  llm_timeout_s: 900
 llm_timeout_s: 90
 
 # Recuperação (mapa §3, §6.5-§6.6)
@@ -44,11 +50,17 @@ num_workers: 1
 
 # Ingestão (mapa §3): máximos iniciais; oversized é recusado ou dividido pelo
 # usuário; ajustar no hardware registrado (§3, §12).
+# subprocess_mem_gib: 4 → 16 → 32 → 64 em 15/11/2026: medido VmPeak=13,9 GB
+# (VA) da extração docling standalone, mas PDFs tabelados grandes (apostila
+# de contabilidade, 5,3 MB, 200+ págs) crescem mais; o RLIMIT_AS é de
+# endereçamento virtual, não de RAM (VmHWM real medido: ~4 GB) — 64 GiB de VA
+# é seguro nesta caixa de 64 GB. Mapa §3 convida a ajustar no hardware
+# registrado (§3, §12).
 ingestion:
   max_size_mib: 50
   max_pages: 500
-  timeout_s: 600
-  subprocess_mem_gib: 4
+  timeout_s: 1800
+  subprocess_mem_gib: 64
 
 # Reranker opcional BAAI/bge-reranker-v2-m3 (mapa §6.6): configuração inicial
 # SEM reranker; seleção em validação — decisão pendente, não fechada aqui.

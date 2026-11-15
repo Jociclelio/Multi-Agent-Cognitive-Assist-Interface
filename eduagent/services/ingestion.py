@@ -61,6 +61,7 @@ import functools
 import hashlib
 import json
 import multiprocessing
+import queue as queue_mod
 import re
 import resource
 import threading
@@ -215,7 +216,14 @@ def _subprocess_target(
     except (ValueError, OSError):
         pass  # plataforma sem RLIMIT_AS: o limite de ensaio não se aplica
     try:
-        queue.put(("ok", fn()))
+        import inspect
+
+        try:
+            params = inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            params = {}
+        kwargs = {"progress_queue": queue} if "progress_queue" in params else {}
+        queue.put(("ok", fn(**kwargs)))
     except BaseException as exc:  # noqa: BLE001 — erro cruza fronteira de processo
         queue.put(("error", f"{type(exc).__name__}: {exc}"))
 
@@ -226,6 +234,7 @@ def run_in_subprocess(
     mem_gib: int,
     timeout_s: float,
     start_method: str | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> Any:
     """Executa ``fn`` em subprocesso com ``RLIMIT_AS = mem_gib`` GiB e
     timeout ``timeout_s`` (mapa §3).
@@ -238,6 +247,9 @@ def run_in_subprocess(
     o filho é terminado (SIGKILL após TERM curto). Falha do filho é refeita
     como ``INTERNAL_FAILURE`` com o motivo relatado. Usado pelo adaptador
     Docling real; testes exercitam o mecanismo com função trivial picklável.
+
+    ``on_progress(pages_done, total_pages)`` recebe eventos de progresso por
+    página encaminhados pelo filho (quando ``fn`` aceita ``progress_queue``).
     """
     context = (
         multiprocessing.get_context(start_method)
@@ -250,33 +262,66 @@ def run_in_subprocess(
         args=(fn, queue, mem_gib),
     )
     process.start()
-    process.join(timeout_s)
-    if process.is_alive():
+
+    def _kill_on_timeout() -> None:
         process.terminate()
         process.join(1.0)
         if process.is_alive():
             process.kill()
             process.join(1.0)
-        raise EduAgentError(
-            ErrorCode.TIMEOUT,
-            f"extração excedeu {timeout_s}s de subprocesso e foi terminada "
-            "(mapa §3)",
-            diagnostic=DIAGNOSTIC,
-        )
-    if process.exitcode != 0:
+
+    deadline = time.monotonic() + timeout_s
+    result_msg: tuple[str, Any] | None = None
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _kill_on_timeout()
+            raise EduAgentError(
+                ErrorCode.TIMEOUT,
+                f"extração excedeu {timeout_s}s de subprocesso e foi terminada "
+                "(mapa §3)",
+                diagnostic=DIAGNOSTIC,
+            )
+        msg: tuple[str, Any] | None = None
+        try:
+            msg = queue.get(timeout=min(0.5, remaining))
+        except queue_mod.Empty:
+            pass
+        if msg is not None:
+            if msg[0] == "page":
+                if on_progress is not None:
+                    try:
+                        on_progress(int(msg[1]), int(msg[2]))
+                    except Exception:  # noqa: BLE001 — progresso nunca falha
+                        pass
+                continue
+            result_msg = msg
+            break
+        if not process.is_alive():
+            # Filho terminou: drena o resultado em buffer antes de desistir.
+            try:
+                leftover = queue.get(timeout=2.0)
+                if leftover[0] != "page":
+                    result_msg = leftover
+            except Exception:  # noqa: BLE001 — fila vazia/corrompida
+                pass
+            break
+    process.join(1.0)
+    if result_msg is None:
+        if process.is_alive():
+            _kill_on_timeout()
+            raise EduAgentError(
+                ErrorCode.TIMEOUT,
+                f"extração excedeu {timeout_s}s de subprocesso e foi terminada "
+                "(mapa §3)",
+                diagnostic=DIAGNOSTIC,
+            )
         raise EduAgentError(
             ErrorCode.INTERNAL_FAILURE,
             f"subprocesso de extração terminou com exitcode {process.exitcode}",
             diagnostic=DIAGNOSTIC,
         )
-    try:
-        status, payload = queue.get_nowait()
-    except Exception as exc:  # noqa: BLE001 — fila vazia/corrompida
-        raise EduAgentError(
-            ErrorCode.INTERNAL_FAILURE,
-            f"subprocesso não devolveu resultado: {type(exc).__name__}",
-            diagnostic=DIAGNOSTIC,
-        ) from exc
+    status, payload = result_msg
     if status != "ok":
         raise EduAgentError(
             ErrorCode.INTERNAL_FAILURE,
@@ -541,6 +586,15 @@ class IngestionService:
         self._data_root = Path(data_root)
         self.limits = limits or IngestionLimits()
         self._extractor = extractor
+        # Progresso por versão para a API/UI (§12): {version_id: {pages_done,
+        # total_pages}} — só extrações reais em andamento aparecem aqui.
+        self._active_progress: dict[str, dict[str, int]] = {}
+        self._progress_lock = threading.Lock()
+
+    def active_progress(self) -> dict[str, dict[str, int]]:
+        """Instantâneo do progresso de extração por versão (leitura thread-safe)."""
+        with self._progress_lock:
+            return {k: dict(v) for k, v in self._active_progress.items()}
 
     # -- §6.1: validação -----------------------------------------------------
 
@@ -704,11 +758,14 @@ class IngestionService:
         documento/versão ``pending`` → extração completa → ``indexed``.
 
         ``filename`` nunca define o tipo nem entra no path canônico (§6.1);
+        é persistido em ``extractor_manifest.original_filename`` apenas como
+        metadado de exibição para o estudante.
         ``doc_id`` informado cria **nova versão** de documento existente do
         usuário/disciplina (que só ativa após indexação completa, §6.1);
         ``job`` permite cancelamento e leitura de progresso por página.
         """
-        del filename  # nunca usado para tipo/path (§6.1: MIME por bytes)
+        # §6.1: filename NÃO define tipo nem path canônico (MIME vem dos bytes);
+        # aqui ele vira apenas metadado de exibição no manifest da versão.
         self._validate_ownership(user_id, course_id)
         self._validate_size(data)
         mime = self._validate_mime_by_bytes(data, declared_mime)
@@ -757,7 +814,12 @@ class IngestionService:
                     diagnostic=DIAGNOSTIC,
                 )
         version_id = str(_uuid.uuid4())
-        manifest = self._extractor_manifest(extractor)
+        # §6.1: filename NÃO define tipo/path canônico (MIME vem dos bytes);
+        # aqui ele vira apenas metadado de exibição no manifest da versão.
+        manifest_raw = self._extractor_manifest(extractor)
+        manifest = json.loads(manifest_raw) if isinstance(manifest_raw, str) else dict(manifest_raw or {})
+        manifest["original_filename"] = str(filename or "").strip() or None
+        manifest_json = json.dumps(manifest, ensure_ascii=False)
         statements: list[tuple[str, tuple[Any, ...]]] = []
         if new_document:
             statements.append(
@@ -771,7 +833,7 @@ class IngestionService:
                 "INSERT INTO doc_versions(id, user_id, doc_id, sha256, mime, "
                 "original_ref, extractor_manifest, status) "
                 "VALUES (?,?,?,?,?,?,?,'pending')",
-                (version_id, user_id, doc_id, sha256, mime, relative, manifest),
+                (version_id, user_id, doc_id, sha256, mime, relative, manifest_json),
             )
         )
         self._store.execute_write(user_id, statements, expected_version=expected_version)
@@ -833,16 +895,35 @@ class IngestionService:
             # sucesso fingido.
             return
         local_job = job if job is not None else ExtractionJob(timeout_s=self.limits.timeout_s)
+        with self._progress_lock:
+            self._active_progress[str(version_id)] = {"pages_done": 0, "total_pages": 0}
+
+        def _report_progress(pages_done: int, total_pages: int) -> None:
+            with self._progress_lock:
+                current = self._active_progress.get(str(version_id))
+                if current is None:
+                    print(f"[progress] registro ausente para {str(version_id)[:8]}", flush=True)
+                    return
+                current["pages_done"] = max(current["pages_done"], pages_done)
+                current["total_pages"] = max(current["total_pages"], total_pages)
+            self._on_page(local_job, pages_done)
+
+        import inspect as _inspect
+
+        supports_progress = "on_progress" in _inspect.signature(
+            active_extractor.extract
+        ).parameters
         try:
             local_job.check_deadline()
-            extracted = active_extractor.extract(
-                data,
-                mime,
-                max_pages=self.limits.max_pages,
-                languages=(languages,) if languages else None,
-                on_page=lambda page: self._on_page(local_job, page),
-                cancelled=local_job.cancelled,
-            )
+            extract_kwargs: dict[str, Any] = {
+                "max_pages": self.limits.max_pages,
+                "languages": (languages,) if languages else None,
+                "on_page": lambda page: self._on_page(local_job, page),
+                "cancelled": local_job.cancelled,
+            }
+            if supports_progress:
+                extract_kwargs["on_progress"] = _report_progress
+            extracted = active_extractor.extract(data, mime, **extract_kwargs)
             local_job.check_cancelled()
             local_job.check_deadline()
             extracted.diagnose_pages()
@@ -880,6 +961,9 @@ class IngestionService:
                 f"extração falhou: {type(exc).__name__}",
                 diagnostic=DIAGNOSTIC,
             ) from exc
+        finally:
+            with self._progress_lock:
+                self._active_progress.pop(str(version_id), None)
 
     @staticmethod
     def _on_page(job: ExtractionJob, page: int) -> None:
@@ -1170,6 +1254,7 @@ class DoclingExtractor:
         max_pages: int,
         languages: tuple[str, ...] | None = None,
         on_page: Callable[[int], None] | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
         cancelled: Callable[[], bool] = lambda: False,
     ) -> ExtractedDocument:
         if not docling_available():
@@ -1198,6 +1283,7 @@ class DoclingExtractor:
             mem_gib=self.mem_gib,
             timeout_s=self.timeout_s,
             start_method="spawn",
+            on_progress=on_progress,
         )
         ocr_error = payload.get("ocr_config_error")
         if ocr_error:
@@ -1297,6 +1383,7 @@ def _docling_convert(
     mime: str,
     max_pages: int,
     languages: tuple[str, ...] | None = None,
+    progress_queue: Any | None = None,
 ) -> dict[str, Any]:
     """Corpo de conversão Docling (roda no subprocesso; picklável).
 
@@ -1358,7 +1445,24 @@ def _docling_convert(
     stream = DocumentStream(
         name=f"document{stream_extension}", stream=BytesIO(data)
     )
-    result = converter.convert(stream)
+
+    # Progresso por página (§12): eventos PageCompletedProgress do Docling
+    # são encaminhados pela fila do subprocesso para o pai.
+    def _on_progress_event(event: Any) -> None:
+        if progress_queue is None:
+            return
+        try:
+            completed = int(getattr(event, "completed_pages", 0) or 0)
+            total = int(getattr(event, "total_pages", 0) or 0)
+            if completed > 0 or total > 0:
+                progress_queue.put(("page", completed, total))
+        except Exception:  # noqa: BLE001 — progresso nunca quebra a conversão
+            pass
+
+    result = converter.convert(
+        stream,
+        progress_callback=_on_progress_event if progress_queue is not None else None,
+    )
     document = result.document
 
     entries: list[dict[str, Any]] = []

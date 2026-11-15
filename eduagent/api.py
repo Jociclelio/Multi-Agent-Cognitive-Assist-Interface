@@ -60,6 +60,7 @@ DEFAULT_PORT = 8094
 LOOPBACK_HOSTS: frozenset[str] = frozenset({"127.0.0.1", "localhost", "::1"})
 AUTH_HEADER = "X-EduAgent-User"
 USER_HEADER = AUTH_HEADER
+COOKIE_USER_KEY = "eduagent_user"
 MAX_BODY_BYTES = 64 * 1024 * 1024  # 64 MiB teto HTTP para acomodar envelope de upload de 50 MiB
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # §6.1: limite normativo de 50 MiB por documento
 
@@ -497,6 +498,16 @@ class LoopbackAPI:
     def _require_user(self, handler: BaseHTTPRequestHandler) -> str | None:
         raw = (handler.headers.get(USER_HEADER) or "").strip()
         if not raw:
+            # Fallback explícito: navegações diretas do navegador (ex.: abrir
+            # o PDF original em nova aba) não carregam headers de fetch, mas
+            # carregam o cookie gravado pela UI com o usuário ativo da
+            # sessão — mesmo contexto, sem default implícito.
+            cookie = handler.headers.get("Cookie") or ""
+            for part in cookie.split(";"):
+                if part.strip().startswith(f"{COOKIE_USER_KEY}="):
+                    raw = part.strip().split("=", 1)[1].strip()
+                    break
+        if not raw:
             self._send_json(
                 handler,
                 HTTPStatus.BAD_REQUEST,
@@ -718,6 +729,15 @@ class LoopbackAPI:
                 self._send_json(handler, HTTPStatus.OK, self._build_health_payload())
                 return
 
+            # Estado ao vivo da geração corrente (fases reading/thinking/
+            # answering + deltas acumulados) — consumido pela UI enquanto o
+            # POST /turns está em voo.
+            if path == "/generation/live":
+                from eduagent.services.model_adapter import live_generation_state
+
+                self._send_json(handler, HTTPStatus.OK, live_generation_state())
+                return
+
             # Entrega estática da Interface Gráfica Local (GET / e GET /ui/*)
             if path in ("/", "/index.html"):
                 self._send_static(handler, "index.html")
@@ -756,7 +776,20 @@ class LoopbackAPI:
                 if user_id is None:
                     return
                 session_id = path[len("/sessions/") :]
-                self._handle_get_session_detail(handler, user_id, session_id)
+                course_filter = (query.get("course_id") or [None])[0]
+                self._handle_get_session_detail(
+                    handler, user_id, session_id, course_id=course_filter
+                )
+                return
+
+            if path.startswith("/documents/") and path.endswith("/original"):
+                # Serve o arquivo original da biblioteca do estudante
+                # (ownership verificado; fonte clicável nos cartões, §6.7).
+                user_id = self._require_user(handler)
+                if user_id is None:
+                    return
+                doc_id = path[len("/documents/") : -len("/original")]
+                self._handle_get_document_original(handler, user_id, doc_id)
                 return
 
             if path == "/operations":
@@ -824,6 +857,99 @@ class LoopbackAPI:
                     f"falha interna da API: {type(exc).__name__}: {exc}",
                 ),
             )
+
+    def _doc_display_name(self, user_id: str, doc_id: Any) -> str:
+        """Nome de exibição do documento (original_filename do manifest da
+        última versão; fallback: hash do arquivo). Com cache por chamada."""
+        cache = getattr(self, "_doc_name_cache", None)
+        if cache is None:
+            cache = {}
+            self._doc_name_cache = cache
+        key = str(doc_id or "")
+        if key in cache:
+            return cache[key]
+        rows = self._fetchall(
+            """
+            SELECT extractor_manifest FROM doc_versions
+            WHERE doc_id = ? AND user_id = ?
+            ORDER BY rowid DESC LIMIT 1
+            """,
+            (key, user_id),
+        )
+        name = ""
+        if rows:
+            manifest = _safe_json_loads(rows[0]["extractor_manifest"], {}) or {}
+            name = str(manifest.get("original_filename") or "")
+        if not name:
+            ref_rows = self._fetchall(
+                "SELECT original_ref FROM doc_versions WHERE doc_id = ? AND user_id = ? ORDER BY rowid DESC LIMIT 1",
+                (key, user_id),
+            )
+            name = (ref_rows[0]["original_ref"] or "").split("/")[-1] if ref_rows else key
+        cache[key] = name
+        return name
+
+    def _handle_get_document_original(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        doc_id: str,
+    ) -> None:
+        """Serve o arquivo original do acervo do estudante (fonte clicável
+        nos cartões de prática, §6.7). Ownership verificado; conteúdo e
+        Content-Type vêm da versão ativa/mais recente do documento."""
+        rows = self._fetchall(
+            """
+            SELECT v.original_ref, v.mime, v.status
+            FROM documents d
+            JOIN doc_versions v ON v.doc_id = d.id AND v.user_id = d.user_id
+            WHERE d.id = ? AND d.user_id = ?
+            ORDER BY v.rowid DESC
+            LIMIT 1
+            """,
+            (doc_id, user_id),
+        )
+        if not rows:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(
+                    ErrorCode.SOURCE_UNRESOLVED,
+                    "documento inexistente ou fora do ownership do usuário",
+                ),
+            )
+            return
+        original_ref = str(rows[0]["original_ref"] or "")
+        mime = str(rows[0]["mime"] or "application/octet-stream")
+        data_root = pathlib.Path(self.runtime.data_root).resolve()
+        user_dir = (data_root / user_id).resolve()
+        target = (data_root / original_ref).resolve()
+        try:
+            # confinamento duplo: dentro do data_root E do diretório do usuário
+            target.relative_to(data_root)
+            target.relative_to(user_dir)
+        except ValueError:
+            self._send_json(
+                handler,
+                HTTPStatus.FORBIDDEN,
+                _error_body(ErrorCode.TOOL_DENIED, "caminho fora do confinamento"),
+            )
+            return
+        if not target.exists():
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(ErrorCode.SOURCE_UNRESOLVED, "arquivo original ausente"),
+            )
+            return
+        data = target.read_bytes()
+        handler.send_response(HTTPStatus.OK)
+        handler.send_header("Content-Type", mime)
+        handler.send_header("Content-Length", str(len(data)))
+        handler.send_header("Content-Disposition", "inline")
+        handler.send_header("Cache-Control", "private, max-age=0")
+        handler.end_headers()
+        handler.wfile.write(data)
 
     def _handle_get_artifact(
         self,
@@ -1211,6 +1337,8 @@ class LoopbackAPI:
         handler: BaseHTTPRequestHandler,
         user_id: str,
         session_id: str,
+        *,
+        course_id: str | None = None,
     ) -> None:
         event_rows = self._fetchall(
             """
@@ -1238,19 +1366,27 @@ class LoopbackAPI:
                 }
             )
 
-        # Recupera itens e tentativas do usuário sem vazar gabarito quando revealed=0 (§7.3)
+        # Recupera itens e tentativas do usuário sem vazar gabarito quando revealed=0 (§7.3).
+        # Com ``course_id`` (disciplina ativa da UI), filtra itens pelas fontes
+        # documentais da disciplina — cada disciplina tem a sua conversa.
         item_rows = self._fetchall(
-            """
+            f"""
             SELECT i.id, i.family_id, i.version, i.prompt, i.answer_ref,
                    i.rubric_ref, i.source_refs_json,
                    a.id AS attempt_id, a.help_level, a.revealed, a.attempt_ordinal, a.independent
             FROM items i
             LEFT JOIN attempts a ON a.item_id = i.id AND a.user_id = i.user_id
             WHERE i.user_id = ?
+            {"" if not course_id else """
+            AND EXISTS (
+                SELECT 1 FROM json_each(i.source_refs_json) je, documents d
+                WHERE d.id = json_extract(je.value, '$.doc_id')
+                  AND d.course_id = ?
+            )"""}
             ORDER BY i.rowid DESC
             LIMIT 30
             """,
-            (user_id,),
+            (user_id, course_id) if course_id else (user_id,),
         )
         items_out: list[dict[str, Any]] = []
         for ir in item_rows:
@@ -1283,14 +1419,23 @@ class LoopbackAPI:
             )
 
         assessment_rows = self._fetchall(
-            """
+            f"""
             SELECT id, attempt_id, assessor_version, payload_json, assessment_revision
             FROM assessments
             WHERE attempt_user_id = ?
+            {"" if not course_id else """
+            AND EXISTS (
+                SELECT 1 FROM attempts at2, items i2,
+                     json_each(i2.source_refs_json) je2, documents d2
+                WHERE at2.id = assessments.attempt_id
+                  AND i2.id = at2.item_id
+                  AND d2.id = json_extract(je2.value, '$.doc_id')
+                  AND d2.course_id = ?
+            )"""}
             ORDER BY assessment_revision DESC
             LIMIT 20
             """,
-            (user_id,),
+            (user_id, course_id) if course_id else (user_id,),
         )
         assessments_out = [
             {
@@ -1307,7 +1452,8 @@ class LoopbackAPI:
         chunk_rows = self._fetchall(
             """
             SELECT c.id, c.version_id, c.block_refs_json, c.text,
-                   v.doc_id, v.original_ref, v.status AS version_status
+                   v.doc_id, v.original_ref, v.extractor_manifest,
+                   v.status AS version_status
             FROM chunks c
             JOIN doc_versions v ON v.id = c.version_id AND v.user_id = c.user_id
             WHERE c.user_id = ?
@@ -1322,6 +1468,13 @@ class LoopbackAPI:
                 "doc_id": str(r["doc_id"]),
                 "version_id": str(r["version_id"]),
                 "original_ref": str(r["original_ref"]),
+                "display_name": str(
+                    (_safe_json_loads(r["extractor_manifest"], {}) or {}).get(
+                        "original_filename"
+                    )
+                    or (r["original_ref"] or "").split("/")[-1]
+                    or str(r["doc_id"])
+                ),
                 "version_status": str(r["version_status"]),
                 "block_refs": _safe_json_loads(r["block_refs_json"], []),
                 "text": str(r["text"]),
@@ -1378,7 +1531,8 @@ class LoopbackAPI:
         )
         fact_rows = self._fetchall(
             """
-            SELECT id, kind, value_json, authority, recorded_at, status, revision
+            SELECT id, kind, value_json, authority, recorded_at, status, revision,
+                   source_refs_json
             FROM facts
             WHERE user_id = ? AND status IN ('candidate', 'ambiguous')
             ORDER BY recorded_at DESC
@@ -1424,6 +1578,13 @@ class LoopbackAPI:
                 "recorded_at": str(r["recorded_at"]),
                 "status": str(r["status"]),
                 "revision": int(r["revision"]),
+                "source_refs": [
+                    {
+                        **ref,
+                        "display_name": self._doc_display_name(user_id, ref.get("doc_id")),
+                    }
+                    for ref in _safe_json_loads(r["source_refs_json"], [])
+                ],
             }
             for r in fact_rows
         ]
@@ -1630,7 +1791,11 @@ class LoopbackAPI:
                        v.extractor_manifest, v.status AS version_status
                 FROM documents d
                 JOIN courses c ON c.id = d.course_id
-                LEFT JOIN doc_versions v ON v.doc_id = d.id AND v.user_id = d.user_id
+                LEFT JOIN doc_versions v ON v.id = (
+                    SELECT vv.id FROM doc_versions vv
+                    WHERE vv.doc_id = d.id AND vv.user_id = d.user_id
+                    ORDER BY vv.rowid DESC LIMIT 1
+                )
                 WHERE d.user_id = ? AND d.course_id = ?
                 ORDER BY d.rowid DESC
                 """,
@@ -1645,7 +1810,11 @@ class LoopbackAPI:
                        v.extractor_manifest, v.status AS version_status
                 FROM documents d
                 JOIN courses c ON c.id = d.course_id
-                LEFT JOIN doc_versions v ON v.doc_id = d.id AND v.user_id = d.user_id
+                LEFT JOIN doc_versions v ON v.id = (
+                    SELECT vv.id FROM doc_versions vv
+                    WHERE vv.doc_id = d.id AND vv.user_id = d.user_id
+                    ORDER BY vv.rowid DESC LIMIT 1
+                )
                 WHERE d.user_id = ?
                 ORDER BY d.rowid DESC
                 """,
@@ -1664,6 +1833,11 @@ class LoopbackAPI:
         chunk_counts = {
             str(r["version_id"]): int(r["chunk_count"]) for r in chunk_counts_rows
         }
+        progress_map: dict[str, dict[str, int]] = {}
+        try:
+            progress_map = self.runtime.ingestion.active_progress()
+        except AttributeError:
+            progress_map = {}
 
         documents = [
             {
@@ -1675,6 +1849,13 @@ class LoopbackAPI:
                 "sha256": r["sha256"],
                 "mime": r["mime"],
                 "original_ref": r["original_ref"],
+                "display_name": str(
+                    (_safe_json_loads(r["extractor_manifest"], {}) or {}).get(
+                        "original_filename"
+                    )
+                    or (r["original_ref"] or "").split("/")[-1]
+                    or str(r["doc_id"]),
+                ),
                 "version_status": (
                     "active"
                     if (
@@ -1685,6 +1866,7 @@ class LoopbackAPI:
                     else (r["version_status"] or "pending")
                 ),
                 "chunk_count": chunk_counts.get(str(r["version_id"]), 0),
+                "progress": progress_map.get(str(r["version_id"])),
                 "extractor_manifest": _safe_json_loads(r["extractor_manifest"], {}),
             }
             for r in doc_rows

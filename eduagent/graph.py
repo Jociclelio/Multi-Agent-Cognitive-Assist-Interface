@@ -172,6 +172,32 @@ def _require_service(service: Any, name: str, route: str) -> Any:
     return service
 
 
+# ---------------------------------------------------------------------------
+# Orçamento de artifact_refs do turno (§4: GraphState aceita até 256).
+# Deixamos folga para os refs de doc/versão e do tutor que vêm depois.
+# ---------------------------------------------------------------------------
+
+_ARTIFACT_REFS_BUDGET = 250
+
+
+def _artifact_refs_with_fact_budget(state: dict, persisted_fact_ids: Any) -> list:
+    """Refs do estado + refs de fato candidatos até o orçamento de §4.
+
+    Documentos tabelados geram centenas de fatos; o espelho de refs no
+    GraphState é limitado por contrato (§4). A lista completa de fatos
+    persistidos vive no estado de domínio (autoridade, §11) e em
+    ``extraction.persisted_fact_ids`` — nada de dado é perdido, só o
+    espelho de refs é limitado.
+    """
+    refs = list(state.get("artifact_refs") or [])
+    fact_refs = [
+        _ref_locator("fact", fid) for fid in (persisted_fact_ids or [])
+    ]
+    remaining = max(0, _ARTIFACT_REFS_BUDGET - len(refs))
+    refs.extend(fact_refs[:remaining])
+    return refs
+
+
 def _ref_locator(kind: str | None, id_: Any, version: int = 1) -> str:
     prefix = f"{kind}:" if kind else ""
     return f"{prefix}{_uuid.UUID(str(id_))}@{version}"
@@ -1338,11 +1364,15 @@ class EduAgentGraph:
                 "pending_items": len(extraction.pending_items),
                 "persisted_fact_ids": list(extraction.persisted_fact_ids),
             },
-            "artifact_refs": list(state.get("artifact_refs") or [])
-            + [
-                _ref_locator("fact", fid)
-                for fid in extraction.persisted_fact_ids
-            ],
+            # §4: GraphState aceita no máximo 256 artifact_refs. Documentos
+            # tabelados geram centenas de fatos candidatos — os refs de fato
+            # entram até o orçamento do turno; a lista completa fica
+            # persistida no estado de domínio (autoridade, §11) e em
+            # ``extraction.persisted_fact_ids``. Sem truncamento silencioso
+            # de dados: só do espelho de refs no estado.
+            "artifact_refs": _artifact_refs_with_fact_budget(
+                state, extraction.persisted_fact_ids
+            ),
         }
 
     def _node_ingest_validate(self, state: dict) -> dict:
