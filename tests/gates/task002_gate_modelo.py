@@ -41,6 +41,10 @@ Uso:
     --gguf runner-llm/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PTQ1_0.gguf \
     --out /tmp/opencode/task002/gate_report.json
 
+  Candidato alternativo (ex.: LFM3-Omni-2B): passar --repo, --revision,
+  --sha256 e --gguf do candidato; os defaults permanecem os do Bonsai 2
+  congelado na task 002.
+
 Biblioteca padrão apenas; sem acesso à rede externa.
 """
 
@@ -69,6 +73,8 @@ from eduagent.services.model_adapter import (
 
 PUBLISHED_SHA256 = "53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3"
 PUBLISHED_REVISION = "b072e1d3b35a0a630cece372c2127528e0994386"
+PUBLISHED_REPO = "prism-ml/Ternary-Bonsai-2-27B-gguf"
+PUBLISHED_ARQUIVO = "Ternary-Bonsai-2-27B-PTQ1_0.gguf"
 
 SIMPLE_SCHEMA = {
     "type": "object",
@@ -90,9 +96,15 @@ class Check:
 
 
 class GateReport:
-    def __init__(self) -> None:
+    def __init__(self, candidato: dict[str, str] | None = None) -> None:
         self.checks: list[Check] = []
         self.started = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        self.candidato = candidato or {
+            "repo": PUBLISHED_REPO,
+            "revision": PUBLISHED_REVISION,
+            "arquivo": PUBLISHED_ARQUIVO,
+            "sha256_publicado": PUBLISHED_SHA256,
+        }
 
     def add(self, check: Check) -> Check:
         self.checks.append(check)
@@ -117,12 +129,7 @@ class GateReport:
             "gate": "task002-modelo (mapa §3.1, §13.1)",
             "started_at": self.started,
             "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "modelo_candidato": {
-                "repo": "prism-ml/Ternary-Bonsai-2-27B-gguf",
-                "revision": PUBLISHED_REVISION,
-                "arquivo": "Ternary-Bonsai-2-27B-PTQ1_0.gguf",
-                "sha256_publicado": PUBLISHED_SHA256,
-            },
+            "modelo_candidato": dict(self.candidato),
             "checks": [
                 {
                     "id": c.gid,
@@ -190,7 +197,14 @@ class FakeAdapter:
 
 
 def run(args: argparse.Namespace) -> int:
-    report = GateReport()
+    report = GateReport(
+        candidato={
+            "repo": args.repo,
+            "revision": args.revision,
+            "arquivo": Path(args.gguf).name,
+            "sha256_publicado": args.sha256,
+        }
+    )
     capabilities = RuntimeCapabilities(
         json_schema=True,
         json_schema_evidence=(
@@ -243,7 +257,7 @@ def run(args: argparse.Namespace) -> int:
 
     # G2 — SHA-256 do GGUF conferido
     try:
-        actual = check_sha256(Path(args.gguf), PUBLISHED_SHA256)
+        actual = check_sha256(Path(args.gguf), args.sha256)
         report.add(
             Check("G2", "SHA-256 do GGUF conferido contra o publicado", True, True, {"sha256": actual})
         )
@@ -503,6 +517,13 @@ def main() -> int:
         default="runner-llm/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PTQ1_0.gguf",
     )
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--repo", default=PUBLISHED_REPO, help="repo HF do candidato")
+    parser.add_argument("--revision", default=PUBLISHED_REVISION, help="revisão fixada do candidato")
+    parser.add_argument(
+        "--sha256",
+        default=PUBLISHED_SHA256,
+        help="SHA-256 publicado do arquivo GGUF do candidato",
+    )
     parser.add_argument("--deadline-s", type=int, default=90, help="default de ensaio do mapa §3")
     parser.add_argument("--thinking", action="store_true", help="comparativo thinking (desenvolvimento)")
     parser.add_argument("--out", default="/tmp/opencode/task002/gate_report.json")
