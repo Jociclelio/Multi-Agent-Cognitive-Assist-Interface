@@ -2860,12 +2860,30 @@ class EduAgentGraph:
                 "(§10/§11)",
             )
         )
-        return {
+        updates = {
             "status": _STATUS_CANCELLED,
             "cancel_requested": True,
             "errors": list(state.get("errors") or [])
             + [error.model_dump(mode="json")],
         }
+        if (state.get("payload") or {}).get("cancel_activity"):
+            session = self._session_from_state(state)
+            if session.pending_item is not None:
+                session.cancelled_item_ids.add(session.pending_item.item_id)
+            # Abandona apenas o item ativo; a conversa do curso continua
+            # aberta para uma pergunta ou uma nova prática.
+            session.pending_item = None
+            session.pending_skill = ("explain", 1)
+            session.state = TutorTurn.TutorState.EXPLAIN
+            session.revealed = False
+            session.closed = False
+            updates["tutor_session"] = self._session_to_state(session)
+            updates["pending_item_ref"] = None
+            updates["result"] = {
+                "activity_cancelled": True,
+                "note": "exercício pendente cancelado; sessão mantida aberta",
+            }
+        return updates
 
     # ------------------------------------------------------------------
     # Terminal (§12: terminal com estado definido e artefatos válidos)
@@ -2907,6 +2925,9 @@ class EduAgentGraph:
             "help_level_by_item": dict(session.help_level_by_item),
             "revealed": session.revealed,
             "closed": session.closed,
+            "cancelled_item_ids": sorted(
+                str(item_id) for item_id in session.cancelled_item_ids
+            ),
             "family_solution_seen": sorted(
                 str(f) for f in session.family_solution_seen
             ),
@@ -2930,6 +2951,10 @@ class EduAgentGraph:
             help_level_by_item=dict(data.get("help_level_by_item") or {}),
             revealed=bool(data.get("revealed")),
             closed=bool(data.get("closed")),
+            cancelled_item_ids={
+                _uuid.UUID(item_id)
+                for item_id in (data.get("cancelled_item_ids") or [])
+            },
             family_solution_seen={
                 _uuid.UUID(f)
                 for f in (data.get("family_solution_seen") or [])

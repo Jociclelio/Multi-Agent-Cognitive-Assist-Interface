@@ -187,6 +187,9 @@
               📎 Anexar Material
             </button>
           </div>
+          <small id="topic-practice-note" class="topic-practice-note" hidden>
+            Selecione um tópico para criar um exercício.
+          </small>
 
           <div class="composer-input-row">
             <textarea
@@ -214,6 +217,7 @@
               <button type="button" id="btn-export-ics" class="btn-secondary btn-compact">Exportar .ics (/export)</button>
             </div>
           </div>
+          <div id="plan-generation-status" class="plan-generation-status" role="status" aria-live="polite" hidden></div>
           <div id="calendar-view-content" class="aux-grid"></div>
         </div>
       </section>
@@ -389,4 +393,3 @@
   <script type="module" src="/ui/app.js"></script>
 </body>
 </html>
-

@@ -985,6 +985,32 @@ class TestRotaCurate:
 
 
 class TestRotaCancel:
+    def test_cancel_activity_clears_only_pending_item(self, env):
+        ingest_and_index(env)
+        practice = env.graph.run_turn(
+            user_id=UID,
+            session_id=SESSION,
+            message="/practice",
+            intent="practice",
+            payload={"course_id": env.course, "topic_ids": [env.topic]},
+        )
+        assert practice.status == "waiting_student"
+        item_id = str(practice.state.pending_item_ref.id)
+
+        cancelled = env.graph.run_turn(
+            user_id=UID,
+            session_id=SESSION,
+            message="/cancel",
+            cancel_requested=True,
+            payload={"cancel_activity": True},
+        )
+        assert cancelled.status == "cancelled"
+        assert cancelled.state.pending_item_ref is None
+        tutor_session = state_of(env)["tutor_session"]
+        assert tutor_session["pending_item"] is None
+        assert tutor_session["closed"] is False
+        assert tutor_session["cancelled_item_ids"] == [item_id]
+
     def test_cancel_reconcilia_efeitos_e_termina_cancelled(self, tmp_path):
         env = open_stack(
             tmp_path,

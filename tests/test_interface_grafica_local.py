@@ -740,6 +740,18 @@ def test_ui_api_07_static_assets_and_traversal_protection(tmp_path: Path) -> Non
         assert "javascript" in hdr_js.get("content-type", "")
         js_text = raw_js.decode("utf-8")
         assert "sortCoursesDeterministically" in js_text
+        assert "syncPracticeTopicGate" in js_text
+        assert 'intent === "/practice" && !topicId && !hasPendingPracticeItem()' in js_text
+        assert 'intent === "/submit" && !hasPendingPracticeItem()' in js_text
+        assert 'id="topic-practice-note"' in html_text
+        assert '"pending_item_ref": cp_values.get("pending_item_ref")' in (
+            Path(api_mod.__file__).read_text(encoding="utf-8")
+        )
+        assert 'id="plan-generation-status"' in html_text
+        assert "calendar-week-grid" in js_text
+        assert "getVisibleWeekStart" in js_text
+        assert "O Planejador está analisando as demandas" in js_text
+        assert "calendar-event" in css_text
 
         # Zero CDNs externas
         external_re = re.compile(r"https?://(?!127\.0\.0\.1|localhost)", re.IGNORECASE)
@@ -911,4 +923,3 @@ def test_timezone_auto_detection_and_interactive_fallback(
     finally:
         server.stop()
         ctx.close()
-

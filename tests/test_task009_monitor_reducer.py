@@ -213,6 +213,30 @@ class TestMonitor:
         assert outcome.assessment.criterion_results[0].level == 0
         assert "tolerância" in outcome.assessment.criterion_results[0].reason
 
+    def test_numeric_answer_in_explanation_uses_explicit_final_result(self):
+        outcome = self.monitor.evaluate(
+            _monitor_input(
+                response="Então temos 7x9, que é 63.",
+                expected_answer="63",
+                unit=None,
+            )
+        )
+        assert outcome.accepted
+        assert outcome.assessment.correctness is Assessment.Correctness.CORRECT
+
+    def test_numeric_explanation_does_not_grade_first_operand_as_answer(self):
+        outcome = self.monitor.evaluate(
+            _monitor_input(
+                response="7x9",
+                expected_answer="63",
+                unit=None,
+            )
+        )
+        assert outcome.assessment.correctness is Assessment.Correctness.INCORRECT
+        assert "não é um valor numérico interpretável" in (
+            outcome.assessment.criterion_results[0].reason
+        )
+
     def test_m3_missing_unit_is_incorrect_with_misconception(self):
         outcome = self.monitor.evaluate(
             _monitor_input(response="90", tolerance=0.5, unit="s",

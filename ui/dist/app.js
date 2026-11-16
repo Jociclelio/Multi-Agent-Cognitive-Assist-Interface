@@ -222,6 +222,25 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;");
 }
 
+function renderTutorResponse(text) {
+  // SourceLocator emitido pelo Tutor: [doc:<uuid>@<versão>:p<página>:b<bloco>].
+  // Converte a referência técnica num link para o arquivo original/página.
+  const locator =
+    /\[?(doc:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})@\d+:p(\d+):b[^\]\s]*)\]?/gi;
+  let html = "";
+  let previous = 0;
+  const sourceText = String(text || "");
+  for (const match of sourceText.matchAll(locator)) {
+    html += escapeHtml(sourceText.slice(previous, match.index));
+    const [, , docId, page] = match;
+    const href = `/documents/${encodeURIComponent(docId)}/original#page=${page}`;
+    html += `<a class="tutor-citation" href="${href}" target="_blank" rel="noopener" title="Abrir documento original na página ${page}">📄 Fonte · p. ${page}</a>`;
+    previous = match.index + match[0].length;
+  }
+  html += escapeHtml(sourceText.slice(previous));
+  return html.replace(/\n/g, "<br>");
+}
+
 // ---------------------------------------------------------------------------
 // Estado em Memória do Cliente Browser
 // ---------------------------------------------------------------------------
@@ -249,6 +268,7 @@ const appState = {
   // Turnos locais renderizados a partir da resposta do POST /turns (o backend
   // não grava mensagens de chat como eventos de domínio; ver task interface 002).
   localTurns: [],
+  calendarWeekOffset: 0,
 };
 
 async function apiFetch(path, options = {}) {
@@ -533,6 +553,7 @@ function renderActiveCourseHeader() {
 
   if (!course) {
     if (titleEl) titleEl.textContent = "Selecione ou crie uma disciplina";
+    syncPracticeTopicGate();
     return;
   }
   if (titleEl) titleEl.textContent = course.title;
@@ -557,6 +578,78 @@ function renderActiveCourseHeader() {
         .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.title)}</option>`)
         .join("");
   }
+  syncPracticeTopicGate();
+}
+
+function hasPendingPracticeItem() {
+  const checkpoint = appState.sessionDetail?.checkpoint;
+  if (checkpoint && Object.hasOwn(checkpoint, "pending_item_ref")) {
+    return Boolean(checkpoint.pending_item_ref);
+  }
+  return (appState.sessionDetail?.items || []).some(
+    (item) => !item.attempt_id && !item.cancelled,
+  );
+}
+
+function pendingPracticeItemId() {
+  const ref = appState.sessionDetail?.checkpoint?.pending_item_ref;
+  if (typeof ref === "string" && ref.startsWith("item:")) {
+    return ref.slice("item:".length).split("@", 1)[0];
+  }
+  return null;
+}
+
+function syncPracticeTopicGate() {
+  const topicSelect = document.getElementById("topic-select");
+  const intentSelect = document.getElementById("intent-select");
+  const sendButton = document.getElementById("btn-send-turn");
+  const hintButton = document.getElementById("btn-request-hint");
+  const note = document.getElementById("topic-practice-note");
+  const hasTopic = Boolean(topicSelect?.value);
+  const hasPending = hasPendingPracticeItem();
+  const practiceNeedsTopic =
+    intentSelect?.value === "/practice" && !hasTopic && !hasPending;
+  const submitNeedsPending =
+    intentSelect?.value === "/submit" && !hasPending;
+
+  if (sendButton) {
+    sendButton.disabled = practiceNeedsTopic || submitNeedsPending;
+    const sendHint = submitNeedsPending
+      ? "Não há exercício pendente para responder."
+      : practiceNeedsTopic
+        ? "Selecione um tópico antes de criar um exercício."
+        : "";
+    sendButton.title = sendHint;
+    const sendGroup = sendButton.parentElement;
+    if (sendGroup) {
+      if (sendHint) sendGroup.dataset.hoverHint = sendHint;
+      else delete sendGroup.dataset.hoverHint;
+    }
+  }
+  if (hintButton) {
+    hintButton.disabled = !hasPending;
+    hintButton.title = hasPending
+      ? "Pedir a próxima dica do exercício pendente."
+      : "Inicie ou selecione uma atividade pendente para pedir dica.";
+  }
+  if (note) {
+    note.hidden = !(practiceNeedsTopic || submitNeedsPending);
+    note.textContent = submitNeedsPending
+      ? "Não há exercício pendente para responder."
+      : "Selecione um tópico para criar um exercício.";
+  }
+  document.querySelectorAll("[data-new-practice]").forEach((button) => {
+    button.disabled = !hasTopic;
+    const hint = hasTopic
+      ? "Preparar um novo exercício no campo de mensagem."
+      : "Selecione um tópico para criar um exercício.";
+    button.title = hint;
+    const actions = button.parentElement;
+    if (actions) {
+      if (!hasTopic) actions.dataset.hoverHint = hint;
+      else delete actions.dataset.hoverHint;
+    }
+  });
 }
 
 function renderSessionTimelineAndDrawer() {
@@ -567,27 +660,11 @@ function renderSessionTimelineAndDrawer() {
   const covBadge = document.getElementById("evidence-coverage-badge");
   if (!timeline) return;
 
-  const detail = appState.sessionDetail;
-  if (!detail) {
-    timeline.innerHTML = `<p class="muted-note">Carregando histórico da sessão...</p>`;
-    return;
-  }
+  const detail = appState.sessionDetail || {};
 
+  // events são o log de auditoria interno (§15), não mensagens de chat.
+  // Os payloads JSON e eventos de execução não devem aparecer ao estudante.
   const cardsHtml = [];
-  for (const ev of detail.events || []) {
-    const p = ev.payload || {};
-    const msg = p.message || p.text || p.summary || JSON.stringify(p);
-    const isStudent = ev.kind === "reading" || String(msg).startsWith("/");
-    cardsHtml.push(`
-      <article class="timeline-card ${isStudent ? "role-student" : "role-tutor"}">
-        <div class="card-header-meta">
-          <strong>${isStudent ? "Estudante" : "Agente (" + escapeHtml(ev.kind) + ")"}</strong>
-          <span>${escapeHtml(ev.occurred_at)}</span>
-        </div>
-        <div>${escapeHtml(msg)}</div>
-      </article>
-    `);
-  }
 
   // Turnos locais (resposta direta do POST /turns) vêm depois dos eventos
   // persistidos, em ordem de ocorrência.
@@ -596,7 +673,7 @@ function renderSessionTimelineAndDrawer() {
       cardsHtml.push(`
         <article class="timeline-card role-student">
           <div class="card-header-meta">
-            <strong>Estudante</strong>
+            <strong>${lt.pending ? "Estudante · Enviando…" : "Estudante"}</strong>
             <span>${escapeHtml(lt.occurredAt)}</span>
           </div>
           <div>${escapeHtml(lt.message)}</div>
@@ -620,14 +697,50 @@ function renderSessionTimelineAndDrawer() {
             <strong>Tutor Socrático &amp; Feynman (EduAgent-OS)</strong>
             <span>${escapeHtml(lt.occurredAt)}</span>
           </div>
-          <div>${escapeHtml(lt.responseText)}</div>
+          <div class="tutor-response">${renderTutorResponse(lt.responseText)}</div>
         </article>
       `);
     }
   }
 
-  for (const rawItem of detail.items || []) {
+  const sessionItems = detail.items || [];
+  const pendingItemId = pendingPracticeItemId();
+  const currentPendingItem = pendingItemId
+    ? sessionItems.find((candidate) => candidate.id === pendingItemId)
+    : detail.checkpoint &&
+        Object.hasOwn(detail.checkpoint, "pending_item_ref")
+      ? null
+      : sessionItems.find(
+          (candidate) => !candidate.attempt_id && !candidate.cancelled,
+        );
+  const currentActivity = currentPendingItem || null;
+  const previousActivities = currentActivity
+    ? sessionItems.filter((candidate) => candidate.id !== currentActivity.id)
+    : sessionItems;
+  for (const rawItem of currentActivity ? [currentActivity] : []) {
     const item = sanitizeLearningItemForDisplay(rawItem);
+    const isPendingItem =
+      !item.attempt_id && item.id === currentPendingItem?.id;
+    const assessment = (detail.assessments || []).find(
+      (candidate) => candidate.attempt_id && candidate.attempt_id === item.attempt_id,
+    );
+    const assessed = assessment?.payload?.assessment || assessment?.payload || {};
+    const correctness = assessed.correctness;
+    const assessmentReason =
+      assessed.criterion_results?.find((result) => result.reason)?.reason ||
+      assessed.reason ||
+      "";
+    const activityStatus = item.cancelled
+      ? "Exercício cancelado"
+      : item.attempt_id
+      ? correctness === "correct"
+        ? "✅ Resposta correta"
+        : correctness === "incorrect"
+          ? "↻ Resposta incorreta"
+          : "✓ Resposta registrada"
+      : isPendingItem
+        ? "⏳ Aguardando sua resposta"
+        : "Atividade anterior";
     const refsHtml = (item.source_refs || [])
       .map((ref, idx) => {
         const href = ref.doc_id
@@ -646,13 +759,67 @@ function renderSessionTimelineAndDrawer() {
     cardsHtml.push(`
       <article class="timeline-card role-item">
         <div class="card-header-meta">
-          <strong>🎯 Exercício Prático · Escada ${escapeHtml(item.help_level)}</strong>
-          <span>${item.independent ? "Elegível p/ domínio independente" : "Tentativa assistida"}</span>
+          <strong>🎯 Atividade atual · Dica ${escapeHtml(item.help_level)}</strong>
+          <span>${escapeHtml(activityStatus)}</span>
         </div>
         <p>${escapeHtml(item.prompt)}</p>
+        ${
+          item.attempt_id && assessmentReason
+            ? `<p class="activity-feedback">${correctness === "correct" ? "✅" : "ℹ️"} ${escapeHtml(assessmentReason)}</p>`
+            : ""
+        }
         ${answerHtml}
         <div>${refsHtml}</div>
+        ${
+          isPendingItem
+            ? `<div class="activity-actions">
+                <button type="button" class="btn-primary btn-compact" data-activity-intent="/submit">Responder</button>
+                <button type="button" class="btn-ghost btn-compact" data-activity-intent="/practice">💡 Pedir dica</button>
+                <button type="button" class="btn-ghost btn-compact" data-activity-intent="/ask">Fazer pergunta</button>
+                <button type="button" class="btn-ghost btn-compact activity-cancel-button" data-cancel-activity="${escapeHtml(item.id)}">Cancelar exercício</button>
+              </div>`
+            : ""
+        }
+        ${
+          (item.attempt_id || item.cancelled) &&
+          !currentPendingItem &&
+          item.id === currentActivity?.id
+            ? `<div class="activity-actions"><button type="button" class="btn-ghost btn-compact" data-new-practice="${escapeHtml(item.id)}">🎯 Novo exercício</button></div>`
+            : ""
+        }
       </article>
+    `);
+  }
+  if (previousActivities.length > 0) {
+    cardsHtml.unshift(`
+      <details class="activity-history">
+        <summary>Atividades anteriores (${previousActivities.length})</summary>
+        <div class="activity-history-list">
+          ${previousActivities
+            .map((oldItem) => {
+              const oldAssessment = (detail.assessments || []).find(
+                (candidate) => candidate.attempt_id && candidate.attempt_id === oldItem.attempt_id,
+              );
+              const oldResult =
+                oldAssessment?.payload?.assessment?.correctness ||
+                oldAssessment?.payload?.correctness;
+              const oldStatus = oldItem.cancelled
+                ? "Exercício cancelado"
+                : !oldItem.attempt_id
+                ? "Aguardando resposta"
+                : oldResult === "correct"
+                  ? "Resposta correta"
+                  : oldResult === "incorrect"
+                    ? "Resposta incorreta"
+                    : "Resposta registrada";
+              return `<article class="activity-history-item">
+                <span>${escapeHtml(oldStatus)} · Dica ${escapeHtml(oldItem.help_level)}</span>
+                <p>${escapeHtml(oldItem.prompt)}</p>
+              </article>`;
+            })
+            .join("")}
+        </div>
+      </details>
     `);
   }
 
@@ -668,6 +835,51 @@ function renderSessionTimelineAndDrawer() {
     `);
   }
   timeline.innerHTML = cardsHtml.join("");
+  syncPracticeTopicGate();
+
+  timeline.querySelectorAll("[data-activity-intent]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const intent = button.getAttribute("data-activity-intent");
+      const intentSelect = document.getElementById("intent-select");
+      if (intentSelect && intent) intentSelect.value = intent;
+      const composer = document.getElementById("composer-textarea");
+      composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      composer?.focus({ preventScroll: true });
+    });
+  });
+  timeline.querySelectorAll("[data-cancel-activity]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("Cancelar somente este exercício? A conversa da disciplina continuará aberta.")) return;
+      button.disabled = true;
+      try {
+        const result = await apiFetch(
+          `/turns/${encodeURIComponent(appState.activeSessionId)}/cancel`,
+          { method: "POST", body: { cancel_activity: true } },
+        );
+        if (result.status !== 200) {
+          throw new Error(result.data?.error?.message || "Não foi possível cancelar o exercício.");
+        }
+        await refreshCoreData();
+        const sessionRes = await apiFetch(
+          `/sessions/${encodeURIComponent(appState.activeSessionId)}?course_id=${encodeURIComponent(appState.selectedCourseId || "")}`,
+        );
+        if (sessionRes.status === 200) appState.sessionDetail = sessionRes.data;
+        renderSessionTimelineAndDrawer();
+      } catch (error) {
+        window.alert(String(error));
+        button.disabled = false;
+      }
+    });
+  });
+  timeline.querySelectorAll("[data-new-practice]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const intentSelect = document.getElementById("intent-select");
+      if (intentSelect) intentSelect.value = "/practice";
+      const composer = document.getElementById("composer-textarea");
+      composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      composer?.focus({ preventScroll: true });
+    });
+  });
 
   // Atualiza Gaveta de Evidências
   const pack = detail.evidence_pack || { coverage: "insufficient", chunks: [] };
@@ -752,9 +964,15 @@ function renderSessionTimelineAndDrawer() {
  * carrega `output.turn.text` ou erro tipado; eventos de chat não são
  * gravados no domínio, então `GET /sessions/{id}` não os devolve).
  */
-function recordLocalTurnFromResponse(message, data) {
-  const occurredAt = new Date().toISOString();
-  const turn = { message, occurredAt, responseText: null, errorText: null };
+function recordLocalTurnFromResponse(message, data, existingTurn = null) {
+  const turn = existingTurn || {
+    message,
+    occurredAt: new Date().toISOString(),
+    responseText: null,
+    errorText: null,
+    pending: false,
+  };
+  turn.pending = false;
   const out = data && typeof data === "object" ? data.output || {} : {};
   const err =
     (data && (data.error || (Array.isArray(data.errors) && data.errors[0]))) ||
@@ -784,8 +1002,10 @@ function recordLocalTurnFromResponse(message, data) {
   } else if (data && (data.status === "waiting" || data.status === "waiting_student")) {
     turn.responseText = "Turno registrado — aguardando ação do estudante.";
   }
-  appState.localTurns.push(turn);
-  if (appState.localTurns.length > 100) appState.localTurns.shift();
+  if (!existingTurn) {
+    appState.localTurns.push(turn);
+    if (appState.localTurns.length > 100) appState.localTurns.shift();
+  }
 }
 
 /**
@@ -956,6 +1176,18 @@ function stopLivePoll() {
 }
 
 async function postTurnAndRecord(message, payload) {
+  const turn = {
+    message,
+    occurredAt: new Date().toISOString(),
+    responseText: null,
+    errorText: null,
+    pending: true,
+  };
+  appState.localTurns.push(turn);
+  if (appState.localTurns.length > 100) appState.localTurns.shift();
+  renderSessionTimelineAndDrawer();
+  const timeline = document.getElementById("chat-timeline");
+  if (timeline) timeline.scrollTop = timeline.scrollHeight;
   startLivePoll();
   try {
     const res = await apiFetch("/turns", {
@@ -966,14 +1198,26 @@ async function postTurnAndRecord(message, payload) {
         payload,
       },
     });
-    recordLocalTurnFromResponse(message, res.data);
+    recordLocalTurnFromResponse(message, res.data, turn);
     renderSessionTimelineAndDrawer();
     await refreshCoreData();
+    const sessionRes = await apiFetch(
+      `/sessions/${encodeURIComponent(appState.activeSessionId)}?course_id=${encodeURIComponent(appState.selectedCourseId || "")}`,
+    );
+    if (sessionRes.status === 200) {
+      appState.sessionDetail = sessionRes.data;
+      renderSessionTimelineAndDrawer();
+    }
     // Gate de confirmação (§9/§6.3): turno pausado esperando o estudante
     if (res.data?.question || res.data?.interrupted) {
       renderApprovalGate(appState.activeSessionId, res.data.question);
     }
     return res.data;
+  } catch (error) {
+    turn.pending = false;
+    turn.errorText = `Não foi possível concluir o envio: ${error?.message || error}`;
+    renderSessionTimelineAndDrawer();
+    throw error;
   } finally {
     stopLivePoll();
   }
@@ -992,6 +1236,9 @@ async function selectCourse(courseId) {
   renderCoursesList();
   renderActiveCourseHeader();
   renderPomodoroWidget();
+  if (appState.activeView === "library") {
+    await loadAuxiliaryView("library");
+  }
   const { status, data } = await apiFetch(
     `/sessions/${encodeURIComponent(appState.activeSessionId)}?course_id=${encodeURIComponent(courseId || "")}`,
   );
@@ -1090,30 +1337,139 @@ async function refreshCoreData() {
   }
 }
 
+function datePartsInTimezone(date, timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+  };
+}
+
+function dateKeyInTimezone(date, timezone) {
+  const parts = datePartsInTimezone(date, timezone);
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function getVisibleWeekStart() {
+  const timezone = appState.health?.gates?.timezone || undefined;
+  const localToday = datePartsInTimezone(new Date(), timezone);
+  const start = new Date(Date.UTC(localToday.year, localToday.month - 1, localToday.day));
+  start.setUTCDate(
+    start.getUTCDate() - start.getUTCDay() + appState.calendarWeekOffset * 7,
+  );
+  return start;
+}
+
 async function loadAuxiliaryView(viewName) {
   if (viewName === "calendar") {
     const { status, data } = await apiFetch("/calendar");
     const el = document.getElementById("calendar-view-content");
     if (!el || status !== 200) return;
-    const demandsHtml = (data.demands || [])
-      .map(
-        (d) => `
-        <div class="info-card">
-          <strong>Demanda: ${escapeHtml(d.activity_kind || d.id)}</strong>
-          <span>Status: ${escapeHtml(d.status)} · Vencimento: ${escapeHtml(d.due_local_date || "sem data")}</span>
-        </div>
-      `,
-      )
+    const weekStart = getVisibleWeekStart();
+    const weekDates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setUTCDate(date.getUTCDate() + index);
+      return date;
+    });
+    const weekKeys = weekDates.map((date) => date.toISOString().slice(0, 10));
+    const timezone = appState.health?.gates?.timezone || undefined;
+    const demandsByDate = new Map();
+    for (const demand of data.demands || []) {
+      if (!demand.due_local_date) continue;
+      const dayDemands = demandsByDate.get(demand.due_local_date) || [];
+      dayDemands.push(demand);
+      demandsByDate.set(demand.due_local_date, dayDemands);
+    }
+    const blocksByDate = new Map();
+    for (const block of data.logical_blocks || []) {
+      const start = new Date(block.planned_start_utc);
+      const end = new Date(block.planned_end_utc);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+      const dateKey = dateKeyInTimezone(start, timezone);
+      if (!weekKeys.includes(dateKey)) continue;
+      const startParts = datePartsInTimezone(start, timezone);
+      const endParts = datePartsInTimezone(end, timezone);
+      const startMinute = startParts.hour * 60 + startParts.minute;
+      let endMinute = endParts.hour * 60 + endParts.minute;
+      if (dateKeyInTimezone(end, timezone) !== dateKey) endMinute = 23 * 60;
+      const visibleStart = Math.max(startMinute, 6 * 60);
+      const visibleEnd = Math.min(endMinute, 23 * 60);
+      if (visibleEnd <= visibleStart) continue;
+      const dayBlocks = blocksByDate.get(dateKey) || [];
+      dayBlocks.push({
+        ...block,
+        top: ((visibleStart - 6 * 60) / 60) * 64,
+        height: Math.max(((visibleEnd - visibleStart) / 60) * 64, 36),
+        localStart: startParts,
+        localEnd: endParts,
+      });
+      blocksByDate.set(dateKey, dayBlocks);
+    }
+    const dateLabel = new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "UTC",
+    });
+    const dayLabel = new Intl.DateTimeFormat("pt-BR", {
+      weekday: "short",
+      timeZone: "UTC",
+    });
+    const startLabel = dateLabel.format(weekDates[0]);
+    const endLabel = new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(weekDates[6]);
+    const todayKey = dateKeyInTimezone(new Date(), timezone);
+    const dayHeaders = weekDates
+      .map((date, index) => {
+        const key = weekKeys[index];
+        const dayDemands = demandsByDate.get(key) || [];
+        return `<div class="calendar-day-heading${key === todayKey ? " is-today" : ""}">
+          <strong>${escapeHtml(dayLabel.format(date).replace(".", ""))}</strong>
+          <span>${escapeHtml(dateLabel.format(date))}</span>
+          ${dayDemands
+            .map(
+              (demand) =>
+                `<small title="${escapeHtml(demand.activity_kind || "Demanda")}">📌 ${escapeHtml(demand.activity_kind || "Demanda")}</small>`,
+            )
+            .join("")}
+        </div>`;
+      })
       .join("");
-    const blocksHtml = (data.logical_blocks || [])
-      .map(
-        (b) => `
-        <div class="info-card">
-          <strong>Bloco Planejado: ${escapeHtml(b.summary || b.id)}</strong>
-          <span>${escapeHtml(b.planned_start_utc)} → ${escapeHtml(b.planned_end_utc)} (${escapeHtml(b.status)})</span>
-        </div>
-      `,
-      )
+    const timeLabels = Array.from({ length: 17 }, (_, index) => {
+      const hour = index + 6;
+      return `<div class="calendar-time-label">${String(hour).padStart(2, "0")}:00</div>`;
+    }).join("");
+    const dayColumns = weekKeys
+      .map((key) => {
+        const blocks = blocksByDate.get(key) || [];
+        return `<div class="calendar-day-column" data-date="${key}">
+          ${blocks
+            .map((block) => {
+              const startText = `${String(block.localStart.hour).padStart(2, "0")}:${String(block.localStart.minute).padStart(2, "0")}`;
+              const endText = `${String(block.localEnd.hour).padStart(2, "0")}:${String(block.localEnd.minute).padStart(2, "0")}`;
+              return `<article class="calendar-event" style="top:${block.top}px;height:${block.height}px" title="${escapeHtml(`${block.summary || "Bloco de estudo"} · ${startText}–${endText}`)}">
+                <strong>${escapeHtml(block.summary || "Bloco de estudo")}</strong>
+                <span>${startText}–${endText}</span>
+              </article>`;
+            })
+            .join("")}
+        </div>`;
+      })
       .join("");
     const exportsHtml = (data.exports || [])
       .map(
@@ -1125,11 +1481,44 @@ async function loadAuxiliaryView(viewName) {
       `,
       )
       .join("");
-    el.innerHTML =
-      demandsHtml + blocksHtml + exportsHtml ||
-      `<p class="muted-note">Nenhum bloco ou demanda cadastrada. Clique em "Gerar Proposta (/plan)".</p>`;
+    el.className = "calendar-content";
+    el.innerHTML = `
+      <div class="calendar-week-toolbar">
+        <button type="button" class="btn-ghost btn-compact" data-calendar-week="-1" aria-label="Semana anterior">‹</button>
+        <strong>${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}</strong>
+        <button type="button" class="btn-ghost btn-compact" data-calendar-week="1" aria-label="Próxima semana">›</button>
+        <button type="button" class="btn-secondary btn-compact" data-calendar-week="today">Hoje</button>
+      </div>
+      <div class="calendar-scroll">
+        <div class="calendar-week-grid">
+          <div class="calendar-week-head">
+            <div class="calendar-time-corner">${escapeHtml(timezone || "Horário local")}</div>
+            ${dayHeaders}
+          </div>
+          <div class="calendar-week-body">
+            <div class="calendar-time-axis">${timeLabels}</div>
+            ${dayColumns}
+          </div>
+        </div>
+      </div>
+      ${(data.demands || []).length === 0 && (data.logical_blocks || []).length === 0 ? `<p class="muted-note">Ainda não há demandas ou blocos nesta agenda. Gere uma proposta para visualizar os horários sugeridos.</p>` : ""}
+      ${exportsHtml ? `<div class="calendar-exports"><h4>Exportações</h4>${exportsHtml}</div>` : ""}
+    `;
+    el.querySelectorAll("[data-calendar-week]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const value = button.getAttribute("data-calendar-week");
+        appState.calendarWeekOffset =
+          value === "today"
+            ? 0
+            : appState.calendarWeekOffset + Number(value || 0);
+        await loadAuxiliaryView("calendar");
+      });
+    });
   } else if (viewName === "library") {
-    const { status, data } = await apiFetch("/library");
+    const courseQuery = appState.selectedCourseId
+      ? `?course_id=${encodeURIComponent(appState.selectedCourseId)}`
+      : "";
+    const { status, data } = await apiFetch(`/library${courseQuery}`);
     const el = document.getElementById("library-view-content");
     if (!el || status !== 200) return;
     const docs = data.documents || [];
@@ -1177,7 +1566,19 @@ async function loadAuxiliaryView(viewName) {
         }
         return `
         <div class="info-card doc-card">
-          <div class="doc-card-head"><strong>📄 ${escapeHtml(d.display_name || d.original_ref || d.doc_id)}</strong>${chip}</div>
+          <div class="doc-card-head">
+            <strong>📄 ${escapeHtml(d.display_name || d.original_ref || d.doc_id)}</strong>
+            <div class="doc-card-actions">
+              ${chip}
+              <details class="doc-action-menu">
+                <summary aria-label="Ações do documento" title="Ações">…</summary>
+                <div class="doc-action-popover">
+                  <a href="/documents/${encodeURIComponent(d.doc_id)}/original" target="_blank" rel="noopener">Abrir (PDF/texto)</a>
+                  <button type="button" data-delete-document="${escapeHtml(d.doc_id)}" data-document-name="${escapeHtml(d.display_name || d.doc_id)}">Excluir do acervo</button>
+                </div>
+              </details>
+            </div>
+          </div>
           <span>Disciplina: ${escapeHtml(d.course_title)} · Chunks: ${escapeHtml(String(d.chunk_count))}</span>
           ${bar}
         </div>
@@ -1188,6 +1589,23 @@ async function loadAuxiliaryView(viewName) {
       optimisticHtml + docsHtml ||
       optimisticHtml ||
       `<p class="muted-note">Nenhum documento ingerido ainda. Use o formulário acima (ou arraste e solta um arquivo) para enviar um PDF ou Markdown.</p>`;
+    el.querySelectorAll("[data-delete-document]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const docId = button.getAttribute("data-delete-document");
+        const name = button.getAttribute("data-document-name") || "este documento";
+        if (!docId || !window.confirm(`Excluir “${name}” do acervo? Esta ação não pode ser desfeita.`)) return;
+        button.disabled = true;
+        try {
+          const result = await apiFetch(`/documents/${encodeURIComponent(docId)}`, { method: "DELETE" });
+          if (result.status !== 200) throw new Error(result.data?.error?.message || "Não foi possível excluir.");
+          await loadAuxiliaryView("library");
+          await refreshCoreData();
+        } catch (error) {
+          window.alert(String(error));
+          button.disabled = false;
+        }
+      });
+    });
   // Atualiza automaticamente enquanto houver upload/ingestão em andamento
   // (cartões otimistas que o servidor já persistiu saem do espelho para não
   // duplicar — a linha real assume com o progresso por página).
@@ -1314,6 +1732,14 @@ async function loadAuxiliaryView(viewName) {
       }
     });
   }
+}
+
+function setPlanGenerationStatus(message, state = "info") {
+  const status = document.getElementById("plan-generation-status");
+  if (!status) return;
+  status.hidden = !message;
+  status.textContent = message;
+  status.className = `plan-generation-status${state === "loading" ? " is-loading" : ""}${state === "error" ? " is-error" : ""}`;
 }
 
 function renderFlashcardStage() {
@@ -1472,10 +1898,26 @@ function bindEvents() {
     ?.addEventListener("click", () => closePomodoroModal("start_break"));
 
   // Composer de Turno
+  document
+    .getElementById("topic-select")
+    ?.addEventListener("change", syncPracticeTopicGate);
+  document
+    .getElementById("intent-select")
+    ?.addEventListener("change", syncPracticeTopicGate);
+  syncPracticeTopicGate();
   document.getElementById("turn-composer-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const intent = document.getElementById("intent-select")?.value || "/ask";
     const topicId = document.getElementById("topic-select")?.value || "";
+    if (intent === "/practice" && !topicId && !hasPendingPracticeItem()) {
+      syncPracticeTopicGate();
+      document.getElementById("topic-select")?.focus();
+      return;
+    }
+    if (intent === "/submit" && !hasPendingPracticeItem()) {
+      syncPracticeTopicGate();
+      return;
+    }
     const textarea = document.getElementById("composer-textarea");
     const text = textarea ? textarea.value.trim() : "";
     const message = text ? `${intent} ${text}` : intent;
@@ -1563,10 +2005,42 @@ function bindEvents() {
 
   // Atalhos da visão de Agenda & Calendário (/plan e /export)
   document.getElementById("btn-generate-plan")?.addEventListener("click", async () => {
-    await postTurnAndRecord("/plan gerar proposta de cronograma semanal", {
-      course_id: appState.selectedCourseId || "",
-    });
-    await loadAuxiliaryView("calendar");
+    const button = document.getElementById("btn-generate-plan");
+    if (button?.disabled) return;
+    const originalLabel = button?.textContent || "Gerar Proposta (/plan)";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Gerando proposta…";
+    }
+    setPlanGenerationStatus(
+      "O Planejador está analisando as demandas e montando a proposta. Isso pode levar alguns instantes.",
+      "loading",
+    );
+    try {
+      const result = await postTurnAndRecord("/plan gerar proposta de cronograma semanal", {
+        course_id: appState.selectedCourseId || "",
+      });
+      const turnError =
+        Array.isArray(result?.errors) && result.errors.length
+          ? result.errors[0]?.message || "O Planejador não conseguiu concluir a proposta."
+          : null;
+      if (turnError || result?.status === "failed" || result?.status === "cancelled") {
+        throw new Error(turnError || "O Planejador não conseguiu concluir a proposta.");
+      }
+      setPlanGenerationStatus("Proposta recebida. Atualizando a agenda…", "loading");
+      await loadAuxiliaryView("calendar");
+      setPlanGenerationStatus("Proposta atualizada na agenda.", "success");
+    } catch (error) {
+      setPlanGenerationStatus(
+        `Não foi possível gerar a proposta: ${error?.message || error}`,
+        "error",
+      );
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
+    }
   });
 
   document.getElementById("btn-export-ics")?.addEventListener("click", async () => {
@@ -1789,4 +2263,3 @@ if (typeof document !== "undefined") {
     refreshCoreData();
   });
 }
-

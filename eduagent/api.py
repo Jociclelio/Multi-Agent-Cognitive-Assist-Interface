@@ -389,7 +389,7 @@ class LoopbackAPI:
             def do_OPTIONS(self) -> None:  # noqa: N802
                 self.send_response(int(HTTPStatus.NO_CONTENT))
                 self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
-                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
                 self.send_header(
                     "Access-Control-Allow-Headers",
                     f"Content-Type, {USER_HEADER}",
@@ -401,6 +401,9 @@ class LoopbackAPI:
 
             def do_POST(self) -> None:  # noqa: N802
                 api._handle_post(self)
+
+            def do_DELETE(self) -> None:  # noqa: N802
+                api._handle_delete(self)
 
         self._httpd = ThreadingHTTPServer((self.host, self.port), Handler)
         self._httpd.runtime = self.runtime  # type: ignore[attr-defined]
@@ -951,6 +954,48 @@ class LoopbackAPI:
         handler.end_headers()
         handler.wfile.write(data)
 
+    def _handle_delete_document(
+        self, handler: BaseHTTPRequestHandler, user_id: str, doc_id: str
+    ) -> None:
+        rows = self._fetchall(
+            """
+            SELECT v.original_ref
+            FROM documents d JOIN doc_versions v
+              ON v.doc_id = d.id AND v.user_id = d.user_id
+            WHERE d.id = ? AND d.user_id = ?
+            """,
+            (doc_id, user_id),
+        )
+        if not rows:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(ErrorCode.SOURCE_UNRESOLVED, "documento não encontrado"),
+            )
+            return
+        refs = {str(row["original_ref"] or "") for row in rows}
+        self.runtime.store.execute_write(
+            user_id,
+            [("DELETE FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))],
+        )
+        # Remove o original somente se outra versão não reutilizar o mesmo caminho.
+        data_root = pathlib.Path(self.runtime.data_root).resolve()
+        user_dir = (data_root / user_id).resolve()
+        for ref in refs:
+            remaining = self._fetchall(
+                "SELECT 1 FROM doc_versions WHERE user_id = ? AND original_ref = ? LIMIT 1",
+                (user_id, ref),
+            )
+            if remaining:
+                continue
+            target = (data_root / ref).resolve()
+            try:
+                target.relative_to(user_dir)
+            except ValueError:
+                continue
+            target.unlink(missing_ok=True)
+        self._send_json(handler, HTTPStatus.OK, {"status": "ok", "deleted": doc_id})
+
     def _handle_get_artifact(
         self,
         handler: BaseHTTPRequestHandler,
@@ -1483,19 +1528,32 @@ class LoopbackAPI:
         ]
 
         checkpoint = None
+        cancelled_item_ids: set[str] = set()
         try:
             tup = self.runtime.checkpointer.get_tuple(
                 {"configurable": {"thread_id": session_id}}
             )
             if tup is not None:
                 cp_values = (tup.checkpoint or {}).get("channel_values") or {}
+                tutor_session_checkpoint = cp_values.get("tutor_session") or {}
+                cancelled_item_ids = {
+                    str(item_id)
+                    for item_id in (
+                        tutor_session_checkpoint.get("cancelled_item_ids") or []
+                    )
+                }
                 checkpoint = {
                     "step": (tup.metadata or {}).get("step") if tup.metadata else None,
                     "status": cp_values.get("status"),
                     "interrupted": _json_safe(cp_values.get("pending_question")),
+                    "pending_item_ref": cp_values.get("pending_item_ref"),
+                    "cancelled_item_ids": sorted(cancelled_item_ids),
                 }
         except Exception:  # noqa: BLE001
             checkpoint = None
+
+        for item in items_out:
+            item["cancelled"] = item["id"] in cancelled_item_ids
 
         self._send_json(
             handler,
@@ -2319,6 +2377,9 @@ class LoopbackAPI:
                         session_id=session_id,
                         message="/cancel",
                         cancel_requested=True,
+                        payload={
+                            "cancel_activity": bool(body.get("cancel_activity"))
+                        },
                     )
                     self._send_json(
                         handler, HTTPStatus.OK, _serialize_turn(result, session_id)
@@ -2355,6 +2416,21 @@ class LoopbackAPI:
                     f"falha interna da API: {type(exc).__name__}: {exc}",
                 ),
             )
+
+    def _handle_delete(self, handler: BaseHTTPRequestHandler) -> None:
+        user_id = self._require_user(handler)
+        if user_id is None:
+            return
+        path = urlparse(handler.path).path.rstrip("/")
+        parts = [part for part in path.split("/") if part]
+        if len(parts) == 2 and parts[0] == "documents":
+            self._handle_delete_document(handler, user_id, parts[1])
+            return
+        self._send_json(
+            handler,
+            HTTPStatus.NOT_FOUND,
+            _error_body(ErrorCode.SOURCE_UNRESOLVED, f"rota não encontrada: {path}"),
+        )
 
 
 def serve_ui_forever(
