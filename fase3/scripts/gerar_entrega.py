@@ -14,7 +14,30 @@ import zipfile
 from verificar_documentos import ROOT, verify
 
 
-MAX_TOTAL_PAGES = 4  # 1 página de capa + no máximo 3 páginas de conteúdo
+MAX_CONTENT_PAGES = 3  # no máximo 3 páginas de conteúdo (capa e referências não contam)
+
+
+def _first_references_page(pdf_path: Path, total_pages: int) -> int:
+    """Página (1-based) onde começa a seção de referências bibliográficas.
+
+    Usa ``pdftotext`` para localizar o cabeçalho ``Referências`` gerado pelo
+    ``plainnat``/babel; se não encontrar, assume que não há página de
+    referências separada (retorna ``total_pages + 1``).
+    """
+    try:
+        for page in range(2, total_pages + 1):
+            result = subprocess.run(
+                ["pdftotext", "-f", str(page), "-l", str(page), "-layout", str(pdf_path), "-"],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=60,
+            )
+            if "Referências" in result.stdout:
+                return page
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return total_pages + 1
 
 
 def run(command: list[str], cwd: Path, env: dict[str, str]) -> str:
@@ -96,10 +119,21 @@ def build() -> None:
             )
         page_match = re.search(r"Output written on .*?\((\d+)\s+pages?", log, re.DOTALL)
         total_pages = int(page_match.group(1)) if page_match else 0
-        if total_pages == 0 or total_pages > MAX_TOTAL_PAGES:
+        if total_pages == 0:
+            raise RuntimeError("Não foi possível determinar o total de páginas do PDF.")
+
+        # Regra de contagem acordada com a dupla: capa e páginas de referências
+        # bibliográficas não entram no limite; o conteúdo (seções 1--7 +
+        # declaração de IA) deve caber em no máximo MAX_CONTENT_PAGES páginas.
+        pdf_path = out / "fase3_resultado_pratico.pdf"
+        refs_start_page = _first_references_page(pdf_path, total_pages)
+        references_pages = total_pages - refs_start_page + 1
+        content_pages = total_pages - 1 - references_pages  # desconta a capa
+        if content_pages > MAX_CONTENT_PAGES or content_pages < 0:
             raise RuntimeError(
-                f"Limite de páginas violado: total={total_pages} (máximo permitido: "
-                f"{MAX_TOTAL_PAGES} páginas totais = 1 capa + 3 páginas de conteúdo)."
+                f"Limite de páginas violado: total={total_pages}, capa=1, "
+                f"referências={references_pages} => conteúdo={content_pages} "
+                f"(máximo permitido: {MAX_CONTENT_PAGES} páginas de conteúdo)."
             )
         shutil.copy2(
             out / "fase3_resultado_pratico.pdf",
@@ -117,8 +151,9 @@ def build() -> None:
         "pdflatex + bibtex + pdflatex ×2; sem referência indefinida ou overfull"
     )
     verification["total_pages"] = total_pages
-    verification["content_pages_excluding_cover"] = total_pages - 1
-    verification["max_content_pages_allowed"] = 3
+    verification["references_pages"] = references_pages
+    verification["content_pages_excluding_cover_and_references"] = content_pages
+    verification["max_content_pages_allowed"] = MAX_CONTENT_PAGES
     (ROOT / "verificacao_documental.json").write_text(
         json.dumps(verification, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
