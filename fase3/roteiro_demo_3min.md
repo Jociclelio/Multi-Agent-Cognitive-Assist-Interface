@@ -3,6 +3,7 @@
 > **Disciplina:** MO810A/MC959A — Sistemas Multiagentes com Modelos de Linguagem (IC/UNICAMP — 2026)  
 > **Dupla:** Rafael Attilio Agricola (`RA 249245`) e Jociclelio Castro Macedo Junior (`RA 231722`)  
 > **Duração máxima obrigatória:** **3 minutos (180 segundos)**  
+> **Vídeo gravado:** <https://youtu.be/wRfUVfsvEAc>  
 > **Objetivo do vídeo:** Demonstrar a execução completa ponta a ponta da solução **EduAgent-OS v0.1**, explicando brevemente cada passo e evidenciando a interação coordenada entre os **5 agentes** (**Curador**, **Bibliotecário**, **Tutor**, **Monitor** e **Planejador**), o grafo `EduAgentGraph`, o uso de ferramentas determinísticas (`Docling`, `BM25 + BGE-M3 + RRF`, `CP-SAT`, `icalendar`) e o banco bitemporal `SQLite WAL`.
 
 ---
