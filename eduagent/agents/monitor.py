@@ -217,15 +217,33 @@ def _normalize(text: str) -> str:
 
 
 def _numeric_value(text: str) -> float | None:
-    """Valor numérico de ensaio: vírgula decimal quando não há ponto."""
-    stripped = text.strip().replace(" ", "")
-    if "," in stripped and "." not in stripped:
-        stripped = stripped.replace(",", ".")
+    """Extrai um resultado numérico sem confundir operandos com a resposta.
+
+    Respostas curtas ("63") continuam aceitas. Em justificativas com vários
+    números, só escolhemos o valor ligado a um marcador de resultado
+    (``=``, "é", "total", "resposta" etc.); sem marcador, a extração é
+    ambígua e o Monitor não deve tratar o primeiro operando como gabarito.
+    """
+    normalized = re.sub(r"(?<=\d),(?=\d)", ".", text.strip())
+    stripped = normalized.replace(" ", "")
     match = _NUMBER_RE.fullmatch(stripped)
     if match is not None:
         return float(match.group())
-    fallback = _NUMBER_RE.search(stripped)
-    return float(fallback.group()) if fallback is not None else None
+
+    number = r"[-+]?\d+(?:\.\d+)?"
+    result_marker = re.compile(
+        rf"(?:=|\b(?:is|equals?|answer|result|total|é|são|resposta|resultado)\b"
+        rf"(?:\s+(?:is|é|são))?\s*[:=]?)\s*({number})(?!\d)",
+        re.IGNORECASE,
+    )
+    marked = list(result_marker.finditer(normalized))
+    if marked:
+        return float(marked[-1].group(1))
+
+    candidates = list(_NUMBER_RE.finditer(normalized))
+    if len(candidates) == 1:
+        return float(candidates[0].group())
+    return None
 
 
 def _strip_unit(text: str, unit: str | None) -> str:

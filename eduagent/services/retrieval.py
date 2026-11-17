@@ -363,11 +363,34 @@ def chunk_blocks(
             piece = block.text[start:end]
             if header and window_index > 0:
                 piece = f"{header}\n{piece}"  # cabeçalho repetido (§6.4)
-            # Uma janela ~alvo esgota o chunk e não se mistura com outros
+            # Teto de caracteres por chunk (§6.4/contrato Chunk.text ≤ 4000):
+            # tabelas markdown são densas — 384 tokens podem passar do teto
+            # de chars, então a janela é sub-dividida em fronteiras seguras
+            # (fim de linha, senão espaço), sempre ≤ ``max_chars``.
+            pieces: list[tuple[str, tuple[int, int] | None]] = []
+            if len(piece) <= max_chars:
+                pieces.append((piece, (start, end)))
+            else:
+                cursor = 0
+                while cursor < len(piece):
+                    hard_end = min(cursor + max_chars, len(piece))
+                    cut = hard_end
+                    if hard_end < len(piece):
+                        nl = piece.rfind("\n", cursor, hard_end)
+                        sp = piece.rfind(" ", cursor, hard_end)
+                        boundary = max(nl, sp)
+                        if boundary > cursor:
+                            cut = boundary + (1 if piece[boundary] == "\n" else 0)
+                    sub = piece[cursor:cut].rstrip("\n")
+                    if sub.strip():
+                        pieces.append((sub, (start, end)))
+                    cursor = cut
+            # Cada sub-pedaço esgota o chunk e não se mistura com outros
             # blocos: materializa imediatamente como chunk próprio.
-            current = [(block, piece, (start, end))]
-            _flush(current)
-            current, current_tokens, current_chars = [], 0, 0
+            for sub_piece, offsets in pieces:
+                current = [(block, sub_piece, offsets)]
+                _flush(current)
+                current, current_tokens, current_chars = [], 0, 0
     _flush(current)
     return chunks
 

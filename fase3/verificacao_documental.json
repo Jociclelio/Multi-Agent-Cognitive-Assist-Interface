@@ -7,11 +7,11 @@
   "missing_citations": [],
   "required_sections": 7,
   "ai_declaration_present": true,
-  "local_links_checked": 7,
-  "delivery_pending": [
-    "SHA256SUMS.txt",
-    "fase3_resultado_pratico.pdf",
-    "fase3_resultado_pratico_rafael-attilio-agricola_jociclelio-castro-macedo-junior.pdf"
-  ]
+  "local_links_checked": 11,
+  "delivery_pending": [],
+  "compilation": "pdflatex + bibtex + pdflatex ×2; sem referência indefinida ou overfull",
+  "total_pages": 6,
+  "references_pages": 2,
+  "content_pages_excluding_cover_and_references": 3,
+  "max_content_pages_allowed": 3
 }
-

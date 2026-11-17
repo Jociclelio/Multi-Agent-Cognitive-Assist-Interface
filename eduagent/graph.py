@@ -172,6 +172,32 @@ def _require_service(service: Any, name: str, route: str) -> Any:
     return service
 
 
+# ---------------------------------------------------------------------------
+# Orçamento de artifact_refs do turno (§4: GraphState aceita até 256).
+# Deixamos folga para os refs de doc/versão e do tutor que vêm depois.
+# ---------------------------------------------------------------------------
+
+_ARTIFACT_REFS_BUDGET = 250
+
+
+def _artifact_refs_with_fact_budget(state: dict, persisted_fact_ids: Any) -> list:
+    """Refs do estado + refs de fato candidatos até o orçamento de §4.
+
+    Documentos tabelados geram centenas de fatos; o espelho de refs no
+    GraphState é limitado por contrato (§4). A lista completa de fatos
+    persistidos vive no estado de domínio (autoridade, §11) e em
+    ``extraction.persisted_fact_ids`` — nada de dado é perdido, só o
+    espelho de refs é limitado.
+    """
+    refs = list(state.get("artifact_refs") or [])
+    fact_refs = [
+        _ref_locator("fact", fid) for fid in (persisted_fact_ids or [])
+    ]
+    remaining = max(0, _ARTIFACT_REFS_BUDGET - len(refs))
+    refs.extend(fact_refs[:remaining])
+    return refs
+
+
 def _ref_locator(kind: str | None, id_: Any, version: int = 1) -> str:
     prefix = f"{kind}:" if kind else ""
     return f"{prefix}{_uuid.UUID(str(id_))}@{version}"
@@ -1338,11 +1364,15 @@ class EduAgentGraph:
                 "pending_items": len(extraction.pending_items),
                 "persisted_fact_ids": list(extraction.persisted_fact_ids),
             },
-            "artifact_refs": list(state.get("artifact_refs") or [])
-            + [
-                _ref_locator("fact", fid)
-                for fid in extraction.persisted_fact_ids
-            ],
+            # §4: GraphState aceita no máximo 256 artifact_refs. Documentos
+            # tabelados geram centenas de fatos candidatos — os refs de fato
+            # entram até o orçamento do turno; a lista completa fica
+            # persistida no estado de domínio (autoridade, §11) e em
+            # ``extraction.persisted_fact_ids``. Sem truncamento silencioso
+            # de dados: só do espelho de refs no estado.
+            "artifact_refs": _artifact_refs_with_fact_budget(
+                state, extraction.persisted_fact_ids
+            ),
         }
 
     def _node_ingest_validate(self, state: dict) -> dict:
@@ -2830,12 +2860,30 @@ class EduAgentGraph:
                 "(§10/§11)",
             )
         )
-        return {
+        updates = {
             "status": _STATUS_CANCELLED,
             "cancel_requested": True,
             "errors": list(state.get("errors") or [])
             + [error.model_dump(mode="json")],
         }
+        if (state.get("payload") or {}).get("cancel_activity"):
+            session = self._session_from_state(state)
+            if session.pending_item is not None:
+                session.cancelled_item_ids.add(session.pending_item.item_id)
+            # Abandona apenas o item ativo; a conversa do curso continua
+            # aberta para uma pergunta ou uma nova prática.
+            session.pending_item = None
+            session.pending_skill = ("explain", 1)
+            session.state = TutorTurn.TutorState.EXPLAIN
+            session.revealed = False
+            session.closed = False
+            updates["tutor_session"] = self._session_to_state(session)
+            updates["pending_item_ref"] = None
+            updates["result"] = {
+                "activity_cancelled": True,
+                "note": "exercício pendente cancelado; sessão mantida aberta",
+            }
+        return updates
 
     # ------------------------------------------------------------------
     # Terminal (§12: terminal com estado definido e artefatos válidos)
@@ -2877,6 +2925,9 @@ class EduAgentGraph:
             "help_level_by_item": dict(session.help_level_by_item),
             "revealed": session.revealed,
             "closed": session.closed,
+            "cancelled_item_ids": sorted(
+                str(item_id) for item_id in session.cancelled_item_ids
+            ),
             "family_solution_seen": sorted(
                 str(f) for f in session.family_solution_seen
             ),
@@ -2900,6 +2951,10 @@ class EduAgentGraph:
             help_level_by_item=dict(data.get("help_level_by_item") or {}),
             revealed=bool(data.get("revealed")),
             closed=bool(data.get("closed")),
+            cancelled_item_ids={
+                _uuid.UUID(item_id)
+                for item_id in (data.get("cancelled_item_ids") or [])
+            },
             family_solution_seen={
                 _uuid.UUID(f)
                 for f in (data.get("family_solution_seen") or [])

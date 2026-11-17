@@ -28,7 +28,7 @@ from eduagent.graph import EduAgentGraph
 from eduagent.services.assessment import AssessmentService
 from eduagent.services.calendar import CalendarService
 from eduagent.services.effects import EffectsService
-from eduagent.services.ingestion import IngestionService
+from eduagent.services.ingestion import IngestionLimits, IngestionService
 from eduagent.services.memory import MemoryService
 from eduagent.services.retrieval import RetrievalService
 from eduagent.services.scheduling import DemandService
@@ -61,7 +61,16 @@ def _default_extractor(config: dict[str, Any]) -> Any | None:
 
     if not docling_available():
         return None
-    return DoclingExtractor()
+    # Limites do §3 vindos do config/default.yaml (novo em 15/11/2026: antes o
+    # DoclingExtractor nascia com os defaults de ensaio — subprocess_mem_gib=4
+    # — e a chave ``ingestion.subprocess_mem_gib`` do YAML era configuração
+    # morta; o filho da extração segfaultava (SIGSEGV ip=0 no bootstrap do
+    # cv2, ENOMEM→NULL deref) sob RLIMIT_AS=4 GiB nesta máquina.)
+    limits = IngestionLimits.from_mapping(config)
+    return DoclingExtractor(
+        mem_gib=limits.subprocess_mem_gib,
+        timeout_s=limits.timeout_s,
+    )
 
 
 def load_config(path: Path | str | None = None) -> dict[str, Any]:
@@ -143,13 +152,27 @@ class RuntimeContext:
         demands = DemandService(store, effects, clock=clock_fn)
         calendar = CalendarService(store, effects, clock=clock_fn)
         planner = PlannerAgent(store, effects, clock=clock_fn)
-        ingestion = IngestionService(store, root, extractor=extractor or _default_extractor(effective_config))
+        ingestion = IngestionService(
+            store,
+            root,
+            extractor=extractor or _default_extractor(effective_config),
+            limits=IngestionLimits.from_mapping(effective_config),
+        )
         curator = CuratorAgent(store, ingestion=ingestion)
         retrieval = RetrievalService(store, root)
+        from eduagent.agents.tutor import TutorConfig
+
         tutor = (
             Tutor(
                 backend,
                 SkillCatalog.load(),
+                config=TutorConfig(
+                    llm_timeout_s=float(
+                        (effective_config.get("tutor") or {}).get(
+                            "llm_timeout_s", 900
+                        )
+                    ),
+                ),
                 item_sink=EventItemSink(store, effects, clock=clock_fn),
                 clock=clock_fn,
             )

@@ -171,14 +171,25 @@
               <option value="">Todos os tópicos da disciplina</option>
             </select>
 
-            <button type="button" id="btn-request-hint" class="btn-ghost btn-compact" title="Avançar escada de ajuda socrática (L0 → L1 → L2 → L3)">
-              💡 Pedir Dica (<span id="current-help-level-indicator">L0</span>)
+            <div class="hint-slider-block">
+              <input type="range" id="hint-slider" class="hint-slider" min="0" max="3" step="1" value="0" aria-label="Nível de dica socrática (L0 a L3)" />
+              <div class="hint-slider-marks" aria-hidden="true">
+                <span>L0</span><span>L1</span><span>L2</span><span>L3</span>
+              </div>
+              <div id="hint-level-description" class="hint-level-description"></div>
+            </div>
+
+            <button type="button" id="btn-request-hint" class="btn-ghost btn-compact" title="Pedir dica no nível selecionado na escada socrática">
+              💡 Pedir Dica
             </button>
 
             <button type="button" id="btn-quick-upload" class="btn-ghost btn-compact" title="Enviar PDF ou Markdown para esta disciplina">
               📎 Anexar Material
             </button>
           </div>
+          <small id="topic-practice-note" class="topic-practice-note" hidden>
+            Selecione um tópico para criar um exercício.
+          </small>
 
           <div class="composer-input-row">
             <textarea
@@ -206,6 +217,7 @@
               <button type="button" id="btn-export-ics" class="btn-secondary btn-compact">Exportar .ics (/export)</button>
             </div>
           </div>
+          <div id="plan-generation-status" class="plan-generation-status" role="status" aria-live="polite" hidden></div>
           <div id="calendar-view-content" class="aux-grid"></div>
         </div>
       </section>
@@ -222,10 +234,12 @@
               <input type="text" id="upload-filename" class="input-field" placeholder="Ex.: aula01_sistemas_multiagente.md" required />
               <textarea id="upload-content-text" class="input-textarea" rows="3" placeholder="Cole o conteúdo textual/Markdown ou selecione um arquivo local abaixo..."></textarea>
               <div class="upload-actions-row">
-                <input type="file" id="upload-file-input" class="file-input" accept=".pdf,.md,.txt,.html" />
+                <input type="file" id="upload-file-input" class="file-input" accept=".pdf,.md,.txt,.html" multiple />
                 <button type="submit" class="btn-primary btn-compact">Fazer Upload &amp; Ingerir (/ingest)</button>
               </div>
             </div>
+            <p class="drop-hint">💡 Arraste e solte um arquivo (PDF, MD, TXT, HTML) em qualquer lugar deste cartão para enviar e ingerir automaticamente.</p>
+            <div id="upload-status" class="upload-status" hidden aria-live="polite"></div>
           </form>
           <div id="library-view-content" class="aux-grid"></div>
         </div>
@@ -379,4 +393,3 @@
   <script type="module" src="/ui/app.js"></script>
 </body>
 </html>
-

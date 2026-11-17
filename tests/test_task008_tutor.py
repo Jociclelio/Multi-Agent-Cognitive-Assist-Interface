@@ -27,6 +27,8 @@ from eduagent.agents.tutor import (
     TutorConfig,
     TutorEvidence,
     TutorSession,
+    _PolicyViolation,
+    _separated,
     new_session,
 )
 from eduagent.contracts import (
@@ -748,6 +750,12 @@ class TestItemsC3:
         assert exc.value.code is ErrorCode.SCHEMA_INVALID
         assert "enunciado contém a solução" in exc.value.message
         assert items_count(store) == 0
+
+    def test_short_numeric_answer_is_not_rejected_as_incidental_overlap(self):
+        # "5" aparece como dado no enunciado, mas não foi revelado como resposta.
+        _separated("Há 5 maçãs. Quantas frutas há se juntarmos mais 3?", "8")
+        with pytest.raises(_PolicyViolation, match="enunciado contém a solução"):
+            _separated("Quanto é 2 + 3? O resultado é 5.", "5")
 
     def test_item_without_source_citation_fails_typed(self, store, sink):
         no_source = json.dumps(

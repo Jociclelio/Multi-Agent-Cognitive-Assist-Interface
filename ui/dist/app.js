@@ -222,6 +222,25 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;");
 }
 
+function renderTutorResponse(text) {
+  // SourceLocator emitido pelo Tutor: [doc:<uuid>@<versão>:p<página>:b<bloco>].
+  // Converte a referência técnica num link para o arquivo original/página.
+  const locator =
+    /\[?(doc:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})@\d+:p(\d+):b[^\]\s]*)\]?/gi;
+  let html = "";
+  let previous = 0;
+  const sourceText = String(text || "");
+  for (const match of sourceText.matchAll(locator)) {
+    html += escapeHtml(sourceText.slice(previous, match.index));
+    const [, , docId, page] = match;
+    const href = `/documents/${encodeURIComponent(docId)}/original#page=${page}`;
+    html += `<a class="tutor-citation" href="${href}" target="_blank" rel="noopener" title="Abrir documento original na página ${page}">📄 Fonte · p. ${page}</a>`;
+    previous = match.index + match[0].length;
+  }
+  html += escapeHtml(sourceText.slice(previous));
+  return html.replace(/\n/g, "<br>");
+}
+
 // ---------------------------------------------------------------------------
 // Estado em Memória do Cliente Browser
 // ---------------------------------------------------------------------------
@@ -235,6 +254,9 @@ const appState = {
   activeSessionId: "00000000-0000-0000-0000-000000000099",
   helpLevel: "L0",
   turnInFlight: false,
+  // Uploads enviados cuja resposta ainda não chegou: aparecem no topo da
+  // lista do Acervo com barra de progresso (otimista, §12).
+  optimisticUploads: [],
   health: null,
   sessionDetail: null,
   flashcards: [],
@@ -246,6 +268,7 @@ const appState = {
   // Turnos locais renderizados a partir da resposta do POST /turns (o backend
   // não grava mensagens de chat como eventos de domínio; ver task interface 002).
   localTurns: [],
+  calendarWeekOffset: 0,
 };
 
 async function apiFetch(path, options = {}) {
@@ -263,6 +286,145 @@ async function apiFetch(path, options = {}) {
   });
   const data = await response.json();
   return { status: response.status, data };
+}
+
+// Polling do Acervo: revalida a lista a cada 3 s enquanto houver ingestão
+// em andamento (documento com versão pending/indexed). Guarda contra pilhas
+// de timers duplicados.
+let libraryPollTimer = null;
+function scheduleLibraryPoll() {
+  if (libraryPollTimer) return;
+  libraryPollTimer = setTimeout(async () => {
+    libraryPollTimer = null;
+    const view = document.getElementById("view-library");
+    if (view && !view.hidden) {
+      await loadAuxiliaryView("library");
+    }
+  }, 3000);
+}
+
+function sanitizeFilename(name) {
+  // Sanitização para o confinamento da API (^[A-Za-z0-9._ -]{1,180}$):
+  // NFKC dobra caracteres de compatibilidade (ex.: "º" → "o", acentos → base)
+  // e sequências inválidas (com espaços adjacentes) viram um único "_".
+  // Nunca altera o arquivo — só o nome.
+  let base = String(name || "").normalize("NFKC");
+  base = base.replace(/[\s_]*[^A-Za-z0-9._ -]+[\s_]*/g, "_");
+  base = base.replace(/_{2,}/g, "_").replace(/^[_ ]+|[_ ]+$/g, "").trim();
+  if (!base) base = "documento.pdf";
+  // "_" residual encostando na extensão: "relat_rio_final_.pdf" → "relat_rio_final.pdf"
+  base = base.replace(/_+(\.\w+)$/, "$1");
+  return base.slice(0, 180);
+}
+
+function readUploadFileIntoForm(file) {
+  document.cookie = `eduagent_user=${appState.userId}; path=/; SameSite=Lax`;
+  const filenameInput = document.getElementById("upload-filename");  if (filenameInput) filenameInput.value = sanitizeFilename(file.name);
+  const safeName = sanitizeFilename(file.name);
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = String(reader.result || "");
+    const commaIdx = result.indexOf(",");
+    appState.pendingUploadBase64 = commaIdx >= 0 ? result.slice(commaIdx + 1) : null;
+  };
+  reader.readAsDataURL(file);
+  if (safeName.endsWith(".md") || safeName.endsWith(".txt") || safeName.endsWith(".tex")) {
+    const textReader = new FileReader();
+    textReader.onload = () => {
+      const textArea = document.getElementById("upload-content-text");
+      if (textArea && !textArea.value.trim()) {
+        textArea.value = String(textReader.result || "");
+      }
+    };
+    textReader.readAsText(file);
+  }
+}
+
+// Fila de uploads múltiplos: cada arquivo é enviado em sequência (um
+// subprocesso de extração por vez — evita N doclings competindo por CPU),
+// com cartão otimista na lista desde o enfileiramento.
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const commaIdx = result.indexOf(",");
+      resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : "");
+    };
+    reader.onerror = () => reject(new Error(`Falha ao ler ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function queueUploads(files) {
+  const statusEl = document.getElementById("upload-status");
+  if (!appState.selectedCourseId) {
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.innerHTML = `<small class="upload-err">✖ Selecione uma disciplina ativa antes de enviar (a ingestão é por disciplina).</small>`;
+    }
+    return;
+  }
+  appState.uploadQueue = appState.uploadQueue || [];
+  appState.optimisticUploads = appState.optimisticUploads || [];
+  for (const file of files) {
+    const name = sanitizeFilename(file.name);
+    appState.uploadQueue.push({ file, name });
+    appState.optimisticUploads.push(name);
+  }
+  if (statusEl) {
+    statusEl.hidden = false;
+    statusEl.innerHTML = `<small class="upload-ok">📄 ${files.length} arquivo(s) na fila de ingestão — acompanhe na lista abaixo.</small>`;
+  }
+  loadAuxiliaryView("library");
+  processUploadQueue();
+}
+
+async function processUploadQueue() {
+  if (appState.uploadQueueRunning) return;
+  appState.uploadQueueRunning = true;
+  const statusEl = document.getElementById("upload-status");
+  const total = appState.uploadQueue.length;
+  let done = 0;
+  while ((appState.uploadQueue || []).length > 0) {
+    const item = appState.uploadQueue.shift();
+    try {
+      const base64 = await fileToBase64(item.file);
+      const { status, data } = await apiFetch("/library/upload", {
+        method: "POST",
+        body: {
+          filename: item.name,
+          content_base64: base64 || undefined,
+          content_text: "# Material de estudo\nConteúdo inicial.",
+          course_id: appState.selectedCourseId,
+          auto_ingest: true,
+        },
+      });
+      if (status !== 200) {
+        if (statusEl) {
+          statusEl.innerHTML = `<small class="upload-err">✖ Falha ao ingerir ${escapeHtml(item.name)}: ${escapeHtml(data?.error?.message || `HTTP ${status}`)}</small>`;
+        }
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.innerHTML = `<small class="upload-err">✖ Falha ao ingerir ${escapeHtml(item.name)}: ${escapeHtml(String(err))}</small>`;
+      }
+    }
+    done += 1;
+    appState.optimisticUploads = (appState.optimisticUploads || []).filter(
+      (n) => n !== item.name,
+    );
+    if (statusEl && total > 1) {
+      statusEl.innerHTML = `<small class="upload-ok">Fila: ${done} de ${total} arquivo(s) processado(s)…</small>`;
+    }
+    await loadAuxiliaryView("library");
+    await refreshCoreData();
+  }
+  appState.uploadQueueRunning = false;
+  if (statusEl && total > 0) {
+    statusEl.innerHTML = `<small class="upload-ok">✔ Fila concluída: ${total} arquivo(s) enviado(s) para ingestão.</small>`;
+  }
+  await loadAuxiliaryView("library");
 }
 
 function savePomodoroToStorage() {
@@ -391,6 +553,7 @@ function renderActiveCourseHeader() {
 
   if (!course) {
     if (titleEl) titleEl.textContent = "Selecione ou crie uma disciplina";
+    syncPracticeTopicGate();
     return;
   }
   if (titleEl) titleEl.textContent = course.title;
@@ -415,6 +578,78 @@ function renderActiveCourseHeader() {
         .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.title)}</option>`)
         .join("");
   }
+  syncPracticeTopicGate();
+}
+
+function hasPendingPracticeItem() {
+  const checkpoint = appState.sessionDetail?.checkpoint;
+  if (checkpoint && Object.hasOwn(checkpoint, "pending_item_ref")) {
+    return Boolean(checkpoint.pending_item_ref);
+  }
+  return (appState.sessionDetail?.items || []).some(
+    (item) => !item.attempt_id && !item.cancelled,
+  );
+}
+
+function pendingPracticeItemId() {
+  const ref = appState.sessionDetail?.checkpoint?.pending_item_ref;
+  if (typeof ref === "string" && ref.startsWith("item:")) {
+    return ref.slice("item:".length).split("@", 1)[0];
+  }
+  return null;
+}
+
+function syncPracticeTopicGate() {
+  const topicSelect = document.getElementById("topic-select");
+  const intentSelect = document.getElementById("intent-select");
+  const sendButton = document.getElementById("btn-send-turn");
+  const hintButton = document.getElementById("btn-request-hint");
+  const note = document.getElementById("topic-practice-note");
+  const hasTopic = Boolean(topicSelect?.value);
+  const hasPending = hasPendingPracticeItem();
+  const practiceNeedsTopic =
+    intentSelect?.value === "/practice" && !hasTopic && !hasPending;
+  const submitNeedsPending =
+    intentSelect?.value === "/submit" && !hasPending;
+
+  if (sendButton) {
+    sendButton.disabled = practiceNeedsTopic || submitNeedsPending;
+    const sendHint = submitNeedsPending
+      ? "Não há exercício pendente para responder."
+      : practiceNeedsTopic
+        ? "Selecione um tópico antes de criar um exercício."
+        : "";
+    sendButton.title = sendHint;
+    const sendGroup = sendButton.parentElement;
+    if (sendGroup) {
+      if (sendHint) sendGroup.dataset.hoverHint = sendHint;
+      else delete sendGroup.dataset.hoverHint;
+    }
+  }
+  if (hintButton) {
+    hintButton.disabled = !hasPending;
+    hintButton.title = hasPending
+      ? "Pedir a próxima dica do exercício pendente."
+      : "Inicie ou selecione uma atividade pendente para pedir dica.";
+  }
+  if (note) {
+    note.hidden = !(practiceNeedsTopic || submitNeedsPending);
+    note.textContent = submitNeedsPending
+      ? "Não há exercício pendente para responder."
+      : "Selecione um tópico para criar um exercício.";
+  }
+  document.querySelectorAll("[data-new-practice]").forEach((button) => {
+    button.disabled = !hasTopic;
+    const hint = hasTopic
+      ? "Preparar um novo exercício no campo de mensagem."
+      : "Selecione um tópico para criar um exercício.";
+    button.title = hint;
+    const actions = button.parentElement;
+    if (actions) {
+      if (!hasTopic) actions.dataset.hoverHint = hint;
+      else delete actions.dataset.hoverHint;
+    }
+  });
 }
 
 function renderSessionTimelineAndDrawer() {
@@ -425,27 +660,11 @@ function renderSessionTimelineAndDrawer() {
   const covBadge = document.getElementById("evidence-coverage-badge");
   if (!timeline) return;
 
-  const detail = appState.sessionDetail;
-  if (!detail) {
-    timeline.innerHTML = `<p class="muted-note">Carregando histórico da sessão...</p>`;
-    return;
-  }
+  const detail = appState.sessionDetail || {};
 
+  // events são o log de auditoria interno (§15), não mensagens de chat.
+  // Os payloads JSON e eventos de execução não devem aparecer ao estudante.
   const cardsHtml = [];
-  for (const ev of detail.events || []) {
-    const p = ev.payload || {};
-    const msg = p.message || p.text || p.summary || JSON.stringify(p);
-    const isStudent = ev.kind === "reading" || String(msg).startsWith("/");
-    cardsHtml.push(`
-      <article class="timeline-card ${isStudent ? "role-student" : "role-tutor"}">
-        <div class="card-header-meta">
-          <strong>${isStudent ? "Estudante" : "Agente (" + escapeHtml(ev.kind) + ")"}</strong>
-          <span>${escapeHtml(ev.occurred_at)}</span>
-        </div>
-        <div>${escapeHtml(msg)}</div>
-      </article>
-    `);
-  }
 
   // Turnos locais (resposta direta do POST /turns) vêm depois dos eventos
   // persistidos, em ordem de ocorrência.
@@ -454,7 +673,7 @@ function renderSessionTimelineAndDrawer() {
       cardsHtml.push(`
         <article class="timeline-card role-student">
           <div class="card-header-meta">
-            <strong>Estudante</strong>
+            <strong>${lt.pending ? "Estudante · Enviando…" : "Estudante"}</strong>
             <span>${escapeHtml(lt.occurredAt)}</span>
           </div>
           <div>${escapeHtml(lt.message)}</div>
@@ -478,19 +697,61 @@ function renderSessionTimelineAndDrawer() {
             <strong>Tutor Socrático &amp; Feynman (EduAgent-OS)</strong>
             <span>${escapeHtml(lt.occurredAt)}</span>
           </div>
-          <div>${escapeHtml(lt.responseText)}</div>
+          <div class="tutor-response">${renderTutorResponse(lt.responseText)}</div>
         </article>
       `);
     }
   }
 
-  for (const rawItem of detail.items || []) {
+  const sessionItems = detail.items || [];
+  const pendingItemId = pendingPracticeItemId();
+  const currentPendingItem = pendingItemId
+    ? sessionItems.find((candidate) => candidate.id === pendingItemId)
+    : detail.checkpoint &&
+        Object.hasOwn(detail.checkpoint, "pending_item_ref")
+      ? null
+      : sessionItems.find(
+          (candidate) => !candidate.attempt_id && !candidate.cancelled,
+        );
+  const currentActivity = currentPendingItem || null;
+  const previousActivities = currentActivity
+    ? sessionItems.filter((candidate) => candidate.id !== currentActivity.id)
+    : sessionItems;
+  for (const rawItem of currentActivity ? [currentActivity] : []) {
     const item = sanitizeLearningItemForDisplay(rawItem);
+    const isPendingItem =
+      !item.attempt_id && item.id === currentPendingItem?.id;
+    const assessment = (detail.assessments || []).find(
+      (candidate) => candidate.attempt_id && candidate.attempt_id === item.attempt_id,
+    );
+    const assessed = assessment?.payload?.assessment || assessment?.payload || {};
+    const correctness = assessed.correctness;
+    const assessmentReason =
+      assessed.criterion_results?.find((result) => result.reason)?.reason ||
+      assessed.reason ||
+      "";
+    const activityStatus = item.cancelled
+      ? "Exercício cancelado"
+      : item.attempt_id
+      ? correctness === "correct"
+        ? "✅ Resposta correta"
+        : correctness === "incorrect"
+          ? "↻ Resposta incorreta"
+          : "✓ Resposta registrada"
+      : isPendingItem
+        ? "⏳ Aguardando sua resposta"
+        : "Atividade anterior";
     const refsHtml = (item.source_refs || [])
-      .map(
-        (ref, idx) =>
-          `<button type="button" class="source-ref-btn" data-focus-chunk="${escapeHtml(ref.chunk_id || idx)}">[Fonte #${idx + 1}]</button>`,
-      )
+      .map((ref, idx) => {
+        const href = ref.doc_id
+          ? `/documents/${encodeURIComponent(ref.doc_id)}/original${
+              ref.physical_page ? `#page=${ref.physical_page}` : ""
+            }`
+          : null;
+        return href
+          ? `<a class="source-ref-btn" href="${href}" target="_blank" rel="noopener" title="Abrir o documento original na página citada">[Fonte #${idx + 1}]</a>`
+          : `<button type="button" class="source-ref-btn" data-focus-chunk="${escapeHtml(ref.chunk_id || idx)}">[Fonte #${idx + 1}]</button>`;
+      })
       .join("");
     const answerHtml = item.expected_answer
       ? `<div class="info-card"><strong>Gabarito Revelado (L3):</strong> ${escapeHtml(item.expected_answer)}</div>`
@@ -498,13 +759,67 @@ function renderSessionTimelineAndDrawer() {
     cardsHtml.push(`
       <article class="timeline-card role-item">
         <div class="card-header-meta">
-          <strong>🎯 Exercício Prático · Escada ${escapeHtml(item.help_level)}</strong>
-          <span>${item.independent ? "Elegível p/ domínio independente" : "Tentativa assistida"}</span>
+          <strong>🎯 Atividade atual · Dica ${escapeHtml(item.help_level)}</strong>
+          <span>${escapeHtml(activityStatus)}</span>
         </div>
         <p>${escapeHtml(item.prompt)}</p>
+        ${
+          item.attempt_id && assessmentReason
+            ? `<p class="activity-feedback">${correctness === "correct" ? "✅" : "ℹ️"} ${escapeHtml(assessmentReason)}</p>`
+            : ""
+        }
         ${answerHtml}
         <div>${refsHtml}</div>
+        ${
+          isPendingItem
+            ? `<div class="activity-actions">
+                <button type="button" class="btn-primary btn-compact" data-activity-intent="/submit">Responder</button>
+                <button type="button" class="btn-ghost btn-compact" data-activity-intent="/practice">💡 Pedir dica</button>
+                <button type="button" class="btn-ghost btn-compact" data-activity-intent="/ask">Fazer pergunta</button>
+                <button type="button" class="btn-ghost btn-compact activity-cancel-button" data-cancel-activity="${escapeHtml(item.id)}">Cancelar exercício</button>
+              </div>`
+            : ""
+        }
+        ${
+          (item.attempt_id || item.cancelled) &&
+          !currentPendingItem &&
+          item.id === currentActivity?.id
+            ? `<div class="activity-actions"><button type="button" class="btn-ghost btn-compact" data-new-practice="${escapeHtml(item.id)}">🎯 Novo exercício</button></div>`
+            : ""
+        }
       </article>
+    `);
+  }
+  if (previousActivities.length > 0) {
+    cardsHtml.unshift(`
+      <details class="activity-history">
+        <summary>Atividades anteriores (${previousActivities.length})</summary>
+        <div class="activity-history-list">
+          ${previousActivities
+            .map((oldItem) => {
+              const oldAssessment = (detail.assessments || []).find(
+                (candidate) => candidate.attempt_id && candidate.attempt_id === oldItem.attempt_id,
+              );
+              const oldResult =
+                oldAssessment?.payload?.assessment?.correctness ||
+                oldAssessment?.payload?.correctness;
+              const oldStatus = oldItem.cancelled
+                ? "Exercício cancelado"
+                : !oldItem.attempt_id
+                ? "Aguardando resposta"
+                : oldResult === "correct"
+                  ? "Resposta correta"
+                  : oldResult === "incorrect"
+                    ? "Resposta incorreta"
+                    : "Resposta registrada";
+              return `<article class="activity-history-item">
+                <span>${escapeHtml(oldStatus)} · Dica ${escapeHtml(oldItem.help_level)}</span>
+                <p>${escapeHtml(oldItem.prompt)}</p>
+              </article>`;
+            })
+            .join("")}
+        </div>
+      </details>
     `);
   }
 
@@ -520,6 +835,51 @@ function renderSessionTimelineAndDrawer() {
     `);
   }
   timeline.innerHTML = cardsHtml.join("");
+  syncPracticeTopicGate();
+
+  timeline.querySelectorAll("[data-activity-intent]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const intent = button.getAttribute("data-activity-intent");
+      const intentSelect = document.getElementById("intent-select");
+      if (intentSelect && intent) intentSelect.value = intent;
+      const composer = document.getElementById("composer-textarea");
+      composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      composer?.focus({ preventScroll: true });
+    });
+  });
+  timeline.querySelectorAll("[data-cancel-activity]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("Cancelar somente este exercício? A conversa da disciplina continuará aberta.")) return;
+      button.disabled = true;
+      try {
+        const result = await apiFetch(
+          `/turns/${encodeURIComponent(appState.activeSessionId)}/cancel`,
+          { method: "POST", body: { cancel_activity: true } },
+        );
+        if (result.status !== 200) {
+          throw new Error(result.data?.error?.message || "Não foi possível cancelar o exercício.");
+        }
+        await refreshCoreData();
+        const sessionRes = await apiFetch(
+          `/sessions/${encodeURIComponent(appState.activeSessionId)}?course_id=${encodeURIComponent(appState.selectedCourseId || "")}`,
+        );
+        if (sessionRes.status === 200) appState.sessionDetail = sessionRes.data;
+        renderSessionTimelineAndDrawer();
+      } catch (error) {
+        window.alert(String(error));
+        button.disabled = false;
+      }
+    });
+  });
+  timeline.querySelectorAll("[data-new-practice]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const intentSelect = document.getElementById("intent-select");
+      if (intentSelect) intentSelect.value = "/practice";
+      const composer = document.getElementById("composer-textarea");
+      composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      composer?.focus({ preventScroll: true });
+    });
+  });
 
   // Atualiza Gaveta de Evidências
   const pack = detail.evidence_pack || { coverage: "insufficient", chunks: [] };
@@ -534,7 +894,7 @@ function renderSessionTimelineAndDrawer() {
         .map(
           (ch) => `
           <div class="evidence-chunk-card" id="chunk-${escapeHtml(ch.chunk_id)}">
-            <div><strong>${escapeHtml(ch.original_ref)}</strong> · <small>${escapeHtml(ch.version_status)}</small></div>
+            <div><strong>📄 ${escapeHtml(ch.display_name || ch.original_ref)}</strong> · <small>${escapeHtml(ch.version_status)}</small></div>
             <p>${escapeHtml(ch.text)}</p>
           </div>
         `,
@@ -604,9 +964,15 @@ function renderSessionTimelineAndDrawer() {
  * carrega `output.turn.text` ou erro tipado; eventos de chat não são
  * gravados no domínio, então `GET /sessions/{id}` não os devolve).
  */
-function recordLocalTurnFromResponse(message, data) {
-  const occurredAt = new Date().toISOString();
-  const turn = { message, occurredAt, responseText: null, errorText: null };
+function recordLocalTurnFromResponse(message, data, existingTurn = null) {
+  const turn = existingTurn || {
+    message,
+    occurredAt: new Date().toISOString(),
+    responseText: null,
+    errorText: null,
+    pending: false,
+  };
+  turn.pending = false;
   const out = data && typeof data === "object" ? data.output || {} : {};
   const err =
     (data && (data.error || (Array.isArray(data.errors) && data.errors[0]))) ||
@@ -636,8 +1002,10 @@ function recordLocalTurnFromResponse(message, data) {
   } else if (data && (data.status === "waiting" || data.status === "waiting_student")) {
     turn.responseText = "Turno registrado — aguardando ação do estudante.";
   }
-  appState.localTurns.push(turn);
-  if (appState.localTurns.length > 100) appState.localTurns.shift();
+  if (!existingTurn) {
+    appState.localTurns.push(turn);
+    if (appState.localTurns.length > 100) appState.localTurns.shift();
+  }
 }
 
 /**
@@ -645,31 +1013,234 @@ function recordLocalTurnFromResponse(message, data) {
  * (contrato compartilhado por todos os disparadores de turno da UI: composer,
  * dica gradual, Pomodoro, plano e exportação).
  */
-async function postTurnAndRecord(message, payload) {
-  const res = await apiFetch("/turns", {
-    method: "POST",
-    body: {
-      session_id: appState.activeSessionId,
-      message,
-      payload,
-    },
+let livePollTimer = null;
+let lastLiveState = { phase: "reading", text: "", reasoning: "" };
+
+// Cartão de gate (§9/§6.3): turno waiting_student com interrupt — o usuário
+// aprova/recusa direto na timeline; a retomada é POST /turns/{id}/resume.
+function renderApprovalGate(sessionId, question) {
+  removeApprovalGate();
+  const timeline = document.getElementById("chat-timeline");
+  if (!timeline) return;
+  const card = document.createElement("article");
+  card.id = "approval-gate-card";
+  card.className = "timeline-card role-tutor approval-gate";
+  const qText =
+    (question && (question.question || question.message)) ||
+    JSON.stringify(question);
+  const preview = question && question.preview ? question.preview : null;
+  card.innerHTML = `
+    <div class="card-header-meta"><strong>⏸ Aguardando sua confirmação</strong></div>
+    <div class="approval-question">${escapeHtml(String(qText))}</div>
+    ${
+      preview
+        ? `<pre class="approval-preview">${escapeHtml(JSON.stringify(preview, null, 2))}</pre>`
+        : ""
+    }
+    <div class="approval-actions">
+      <button type="button" class="btn-primary btn-compact" data-answer="yes">✅ Aprovar</button>
+      <button type="button" class="btn-ghost btn-compact" data-answer="no">✖ Recusar</button>
+    </div>`;
+  card.querySelectorAll("[data-answer]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const approved = btn.getAttribute("data-answer") === "yes";
+      card.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      try {
+        const res = await apiFetch(
+          `/turns/${encodeURIComponent(sessionId)}/resume`,
+          {
+            method: "POST",
+            body: { approved, confirmed: approved },
+          },
+        );
+        removeApprovalGate();
+        if (res.data) recordLocalTurnFromResponse("", res.data);
+        renderSessionTimelineAndDrawer();
+        await refreshCoreData();
+      } catch (_err) {
+        card.querySelectorAll("button").forEach((b) => (b.disabled = false));
+      }
+    });
   });
-  recordLocalTurnFromResponse(message, res.data);
+  timeline.appendChild(card);
+  timeline.scrollTop = timeline.scrollHeight;
+}
+
+function removeApprovalGate() {
+  document.getElementById("approval-gate-card")?.remove();
+}
+const LIVE_PHASE_LABEL = {
+  reading: "📖 Lendo o contexto da sessão",
+  thinking: "💭 Pensando",
+  answering: "✍️ Gerando a resposta",
+};
+const LIVE_PREFS_KEY = "eduagent_live_prefs_v1";
+
+function getLivePrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(LIVE_PREFS_KEY)) || {};
+  } catch (_err) {
+    return {};
+  }
+}
+
+function setLivePref(key, value) {
+  try {
+    const prefs = getLivePrefs();
+    prefs[key] = value;
+    localStorage.setItem(LIVE_PREFS_KEY, JSON.stringify(prefs));
+  } catch (_err) {
+    // storage indisponível: preferências ficam só na sessão
+  }
+}
+
+function renderLiveBubble(state) {
+  const timeline = document.getElementById("chat-timeline");
+  if (!timeline) return;
+  let bubble = document.getElementById("live-turn-bubble");
+  if (!bubble) {
+    bubble = document.createElement("article");
+    bubble.id = "live-turn-bubble";
+    bubble.className = "timeline-card role-tutor live-bubble";
+    bubble.addEventListener("click", () => {
+      // Clique no balão revela/oculta o stream bruto quando escondido
+      if (bubble.dataset.isjson === "1") {
+        bubble.dataset.revealed = bubble.dataset.revealed === "1" ? "0" : "1";
+        renderLiveBubble(lastLiveState);
+      }
+    });
+    timeline.appendChild(bubble);
+  }
+  const prefs = getLivePrefs();
+  const phase = state.phase || "reading";
+  const label = LIVE_PHASE_LABEL[phase] || "⏳ Trabalhando";
+  const raw = String(state.text || "");
+  const reasoning = String(state.reasoning || "");
+  const isJson = raw.trimStart().startsWith("{");
+  const revealed = bubble.dataset.revealed === "1";
+  const showRawLive = prefs.showLiveText === true;
+  const dots = `<span class="live-dots"><span></span><span></span><span></span></span>`;
+  let body = "";
+  if (phase === "thinking" && reasoning) {
+    if (prefs.showThinking === true) {
+      body = `<div class="live-text live-reasoning">${escapeHtml(reasoning.slice(-600))}</div>`;
+    }
+  } else if (phase === "answering" && raw) {
+    if (isJson) {
+      // Saída estruturada (json_schema): oculta por padrão — clique revela
+      body = `<div class="live-structured-note">estruturando a resposta… ${raw.length} caracteres${
+        showRawLive || revealed
+          ? `</div><div class="live-text live-reasoning">${escapeHtml(raw)}</div>`
+          : ` — <em>clique no balão para ver o texto bruto</em></div>`
+      }`;
+    } else {
+      body = `<div class="live-text">${escapeHtml(raw)}<span class="live-caret"></span></div>`;
+    }
+  }
+  bubble.dataset.isjson = isJson ? "1" : "0";
+  bubble.innerHTML = `
+    <div class="card-header-meta">
+      <strong>Agente (gerando)</strong>${dots}
+    </div>
+    <div class="live-phase">${label}</div>
+    ${body}`;
+  timeline.scrollTop = timeline.scrollHeight;
+}
+
+function removeLiveBubble() {
+  document.getElementById("live-turn-bubble")?.remove();
+}
+
+function startLivePoll() {
+  stopLivePoll();
+  lastLiveState = { phase: "reading", text: "", reasoning: "" };
+  livePollTimer = setInterval(async () => {
+    try {
+      const { status, data } = await apiFetch("/generation/live");
+      if (status === 200) {
+        lastLiveState = data;
+        renderLiveBubble(data);
+      }
+    } catch (_err) {
+      // silencioso: o POST /turns entrega o resultado final
+    }
+  }, 400);
+}
+
+function stopLivePoll() {
+  if (livePollTimer) {
+    clearInterval(livePollTimer);
+    livePollTimer = null;
+  }
+  removeLiveBubble();
+}
+
+async function postTurnAndRecord(message, payload) {
+  const turn = {
+    message,
+    occurredAt: new Date().toISOString(),
+    responseText: null,
+    errorText: null,
+    pending: true,
+  };
+  appState.localTurns.push(turn);
+  if (appState.localTurns.length > 100) appState.localTurns.shift();
   renderSessionTimelineAndDrawer();
-  await refreshCoreData();
-  return res.data;
+  const timeline = document.getElementById("chat-timeline");
+  if (timeline) timeline.scrollTop = timeline.scrollHeight;
+  startLivePoll();
+  try {
+    const res = await apiFetch("/turns", {
+      method: "POST",
+      body: {
+        session_id: appState.activeSessionId,
+        message,
+        payload,
+      },
+    });
+    recordLocalTurnFromResponse(message, res.data, turn);
+    renderSessionTimelineAndDrawer();
+    await refreshCoreData();
+    const sessionRes = await apiFetch(
+      `/sessions/${encodeURIComponent(appState.activeSessionId)}?course_id=${encodeURIComponent(appState.selectedCourseId || "")}`,
+    );
+    if (sessionRes.status === 200) {
+      appState.sessionDetail = sessionRes.data;
+      renderSessionTimelineAndDrawer();
+    }
+    // Gate de confirmação (§9/§6.3): turno pausado esperando o estudante
+    if (res.data?.question || res.data?.interrupted) {
+      renderApprovalGate(appState.activeSessionId, res.data.question);
+    }
+    return res.data;
+  } catch (error) {
+    turn.pending = false;
+    turn.errorText = `Não foi possível concluir o envio: ${error?.message || error}`;
+    renderSessionTimelineAndDrawer();
+    throw error;
+  } finally {
+    stopLivePoll();
+  }
 }
 
 async function selectCourse(courseId) {
   appState.selectedCourseId = courseId;
   const course = appState.courses.find((c) => c.id === courseId) || null;
+  appState.selectedCourseTitle = course?.title || null;
+  // Cada disciplina tem a sua própria conversa: a sessão do turno é
+  // derivada do id da disciplina (UUID estável — mesma disciplina sempre
+  // reabre a mesma linha do tempo; disciplinas nunca se misturam).
+  appState.activeSessionId = courseId || "00000000-0000-0000-0000-000000000099";
   appState.pomodoro = createPomodoroState(course);
   savePomodoroToStorage();
   renderCoursesList();
   renderActiveCourseHeader();
   renderPomodoroWidget();
+  if (appState.activeView === "library") {
+    await loadAuxiliaryView("library");
+  }
   const { status, data } = await apiFetch(
-    `/sessions/${encodeURIComponent(appState.activeSessionId)}`,
+    `/sessions/${encodeURIComponent(appState.activeSessionId)}?course_id=${encodeURIComponent(courseId || "")}`,
   );
   if (status === 200) {
     appState.sessionDetail = data;
@@ -766,30 +1337,139 @@ async function refreshCoreData() {
   }
 }
 
+function datePartsInTimezone(date, timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+  };
+}
+
+function dateKeyInTimezone(date, timezone) {
+  const parts = datePartsInTimezone(date, timezone);
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function getVisibleWeekStart() {
+  const timezone = appState.health?.gates?.timezone || undefined;
+  const localToday = datePartsInTimezone(new Date(), timezone);
+  const start = new Date(Date.UTC(localToday.year, localToday.month - 1, localToday.day));
+  start.setUTCDate(
+    start.getUTCDate() - start.getUTCDay() + appState.calendarWeekOffset * 7,
+  );
+  return start;
+}
+
 async function loadAuxiliaryView(viewName) {
   if (viewName === "calendar") {
     const { status, data } = await apiFetch("/calendar");
     const el = document.getElementById("calendar-view-content");
     if (!el || status !== 200) return;
-    const demandsHtml = (data.demands || [])
-      .map(
-        (d) => `
-        <div class="info-card">
-          <strong>Demanda: ${escapeHtml(d.activity_kind || d.id)}</strong>
-          <span>Status: ${escapeHtml(d.status)} · Vencimento: ${escapeHtml(d.due_local_date || "sem data")}</span>
-        </div>
-      `,
-      )
+    const weekStart = getVisibleWeekStart();
+    const weekDates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setUTCDate(date.getUTCDate() + index);
+      return date;
+    });
+    const weekKeys = weekDates.map((date) => date.toISOString().slice(0, 10));
+    const timezone = appState.health?.gates?.timezone || undefined;
+    const demandsByDate = new Map();
+    for (const demand of data.demands || []) {
+      if (!demand.due_local_date) continue;
+      const dayDemands = demandsByDate.get(demand.due_local_date) || [];
+      dayDemands.push(demand);
+      demandsByDate.set(demand.due_local_date, dayDemands);
+    }
+    const blocksByDate = new Map();
+    for (const block of data.logical_blocks || []) {
+      const start = new Date(block.planned_start_utc);
+      const end = new Date(block.planned_end_utc);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+      const dateKey = dateKeyInTimezone(start, timezone);
+      if (!weekKeys.includes(dateKey)) continue;
+      const startParts = datePartsInTimezone(start, timezone);
+      const endParts = datePartsInTimezone(end, timezone);
+      const startMinute = startParts.hour * 60 + startParts.minute;
+      let endMinute = endParts.hour * 60 + endParts.minute;
+      if (dateKeyInTimezone(end, timezone) !== dateKey) endMinute = 23 * 60;
+      const visibleStart = Math.max(startMinute, 6 * 60);
+      const visibleEnd = Math.min(endMinute, 23 * 60);
+      if (visibleEnd <= visibleStart) continue;
+      const dayBlocks = blocksByDate.get(dateKey) || [];
+      dayBlocks.push({
+        ...block,
+        top: ((visibleStart - 6 * 60) / 60) * 64,
+        height: Math.max(((visibleEnd - visibleStart) / 60) * 64, 36),
+        localStart: startParts,
+        localEnd: endParts,
+      });
+      blocksByDate.set(dateKey, dayBlocks);
+    }
+    const dateLabel = new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "UTC",
+    });
+    const dayLabel = new Intl.DateTimeFormat("pt-BR", {
+      weekday: "short",
+      timeZone: "UTC",
+    });
+    const startLabel = dateLabel.format(weekDates[0]);
+    const endLabel = new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(weekDates[6]);
+    const todayKey = dateKeyInTimezone(new Date(), timezone);
+    const dayHeaders = weekDates
+      .map((date, index) => {
+        const key = weekKeys[index];
+        const dayDemands = demandsByDate.get(key) || [];
+        return `<div class="calendar-day-heading${key === todayKey ? " is-today" : ""}">
+          <strong>${escapeHtml(dayLabel.format(date).replace(".", ""))}</strong>
+          <span>${escapeHtml(dateLabel.format(date))}</span>
+          ${dayDemands
+            .map(
+              (demand) =>
+                `<small title="${escapeHtml(demand.activity_kind || "Demanda")}">📌 ${escapeHtml(demand.activity_kind || "Demanda")}</small>`,
+            )
+            .join("")}
+        </div>`;
+      })
       .join("");
-    const blocksHtml = (data.logical_blocks || [])
-      .map(
-        (b) => `
-        <div class="info-card">
-          <strong>Bloco Planejado: ${escapeHtml(b.summary || b.id)}</strong>
-          <span>${escapeHtml(b.planned_start_utc)} → ${escapeHtml(b.planned_end_utc)} (${escapeHtml(b.status)})</span>
-        </div>
-      `,
-      )
+    const timeLabels = Array.from({ length: 17 }, (_, index) => {
+      const hour = index + 6;
+      return `<div class="calendar-time-label">${String(hour).padStart(2, "0")}:00</div>`;
+    }).join("");
+    const dayColumns = weekKeys
+      .map((key) => {
+        const blocks = blocksByDate.get(key) || [];
+        return `<div class="calendar-day-column" data-date="${key}">
+          ${blocks
+            .map((block) => {
+              const startText = `${String(block.localStart.hour).padStart(2, "0")}:${String(block.localStart.minute).padStart(2, "0")}`;
+              const endText = `${String(block.localEnd.hour).padStart(2, "0")}:${String(block.localEnd.minute).padStart(2, "0")}`;
+              return `<article class="calendar-event" style="top:${block.top}px;height:${block.height}px" title="${escapeHtml(`${block.summary || "Bloco de estudo"} · ${startText}–${endText}`)}">
+                <strong>${escapeHtml(block.summary || "Bloco de estudo")}</strong>
+                <span>${startText}–${endText}</span>
+              </article>`;
+            })
+            .join("")}
+        </div>`;
+      })
       .join("");
     const exportsHtml = (data.exports || [])
       .map(
@@ -801,26 +1481,140 @@ async function loadAuxiliaryView(viewName) {
       `,
       )
       .join("");
-    el.innerHTML =
-      demandsHtml + blocksHtml + exportsHtml ||
-      `<p class="muted-note">Nenhum bloco ou demanda cadastrada. Clique em "Gerar Proposta (/plan)".</p>`;
+    el.className = "calendar-content";
+    el.innerHTML = `
+      <div class="calendar-week-toolbar">
+        <button type="button" class="btn-ghost btn-compact" data-calendar-week="-1" aria-label="Semana anterior">‹</button>
+        <strong>${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}</strong>
+        <button type="button" class="btn-ghost btn-compact" data-calendar-week="1" aria-label="Próxima semana">›</button>
+        <button type="button" class="btn-secondary btn-compact" data-calendar-week="today">Hoje</button>
+      </div>
+      <div class="calendar-scroll">
+        <div class="calendar-week-grid">
+          <div class="calendar-week-head">
+            <div class="calendar-time-corner">${escapeHtml(timezone || "Horário local")}</div>
+            ${dayHeaders}
+          </div>
+          <div class="calendar-week-body">
+            <div class="calendar-time-axis">${timeLabels}</div>
+            ${dayColumns}
+          </div>
+        </div>
+      </div>
+      ${(data.demands || []).length === 0 && (data.logical_blocks || []).length === 0 ? `<p class="muted-note">Ainda não há demandas ou blocos nesta agenda. Gere uma proposta para visualizar os horários sugeridos.</p>` : ""}
+      ${exportsHtml ? `<div class="calendar-exports"><h4>Exportações</h4>${exportsHtml}</div>` : ""}
+    `;
+    el.querySelectorAll("[data-calendar-week]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const value = button.getAttribute("data-calendar-week");
+        appState.calendarWeekOffset =
+          value === "today"
+            ? 0
+            : appState.calendarWeekOffset + Number(value || 0);
+        await loadAuxiliaryView("calendar");
+      });
+    });
   } else if (viewName === "library") {
-    const { status, data } = await apiFetch("/library");
+    const courseQuery = appState.selectedCourseId
+      ? `?course_id=${encodeURIComponent(appState.selectedCourseId)}`
+      : "";
+    const { status, data } = await apiFetch(`/library${courseQuery}`);
     const el = document.getElementById("library-view-content");
     if (!el || status !== 200) return;
-    const docsHtml = (data.documents || [])
+    const docs = data.documents || [];
+    // Cartões otimistas que o servidor já persistiu saem do espelho (a linha
+    // real assume, com o progresso por página) para não duplicar.
+    const serverNames = new Set(docs.map((d) => d.display_name));
+    const pendingOptimistic = (appState.optimisticUploads || []).filter(
+      (n) => !serverNames.has(n),
+    );
+    const optimisticHtml = pendingOptimistic
       .map(
-        (d) => `
-        <div class="info-card">
-          <strong>📄 ${escapeHtml(d.original_ref || d.doc_id)}</strong>
-          <span>Disciplina: ${escapeHtml(d.course_title)} · Status: <code>${escapeHtml(d.version_status)}</code> · Chunks: ${escapeHtml(d.chunk_count)}</span>
+        (name) => `
+        <div class="info-card doc-card">
+          <div class="doc-card-head"><strong>📄 ${escapeHtml(name)}</strong><span class="status-chip status-ingesting">⏳ Enviando</span></div>
+          <span>Disciplina: ${escapeHtml(appState.selectedCourseTitle || "disciplina ativa")}</span>
+          <div class="ingest-progress" role="progressbar" aria-label="Enviando documento"><div class="ingest-progress-fill"></div></div>
+          <small class="muted-note">Upload em andamento — o progresso da ingestão aparece aqui assim que o servidor responder.</small>
         </div>
       `,
       )
       .join("");
+    const docsHtml = docs
+      .map((d) => {
+        const active = d.version_status === "active";
+        const failed = d.version_status === "failed";
+        const prog = d.progress || null;
+        const hasPages = prog && Number(prog.total_pages) > 0;
+        const pct = hasPages
+          ? Math.min(100, Math.round((100 * Number(prog.pages_done)) / Number(prog.total_pages)))
+          : null;
+        const chip = active
+          ? `<span class="status-chip status-active">✔ Ativo</span>`
+          : failed
+            ? `<span class="status-chip status-failed">✖ Falhou</span>`
+            : `<span class="status-chip status-ingesting">⏳ Ingerindo</span>`;
+        let bar = "";
+        if (!active) {
+          const fillStyle = pct !== null ? ` style="width: ${pct}%; animation: none;"` : "";
+          const label = failed
+            ? `<small class="muted-note">A extração falhou — reenvie o arquivo para tentar de novo.</small>`
+            : pct !== null
+              ? `<small class="muted-note">Página ${escapeHtml(String(prog.pages_done))} de ${escapeHtml(String(prog.total_pages))} (${pct}%)${pct >= 100 ? " — indexando embeddings…" : ""}</small>`
+              : `<small class="muted-note">Preparando extração (Curador + Bibliotecário) — a lista atualiza automaticamente.</small>`;
+          bar = `<div class="ingest-progress${pct !== null ? " determinate" : ""}${failed ? " failed" : ""}" role="progressbar" aria-label="Progresso da ingestão"${pct !== null ? ` aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"` : ""}><div class="ingest-progress-fill"${fillStyle}></div></div>${label}`;
+        }
+        return `
+        <div class="info-card doc-card">
+          <div class="doc-card-head">
+            <strong>📄 ${escapeHtml(d.display_name || d.original_ref || d.doc_id)}</strong>
+            <div class="doc-card-actions">
+              ${chip}
+              <details class="doc-action-menu">
+                <summary aria-label="Ações do documento" title="Ações">…</summary>
+                <div class="doc-action-popover">
+                  <a href="/documents/${encodeURIComponent(d.doc_id)}/original" target="_blank" rel="noopener">Abrir (PDF/texto)</a>
+                  <button type="button" data-delete-document="${escapeHtml(d.doc_id)}" data-document-name="${escapeHtml(d.display_name || d.doc_id)}">Excluir do acervo</button>
+                </div>
+              </details>
+            </div>
+          </div>
+          <span>Disciplina: ${escapeHtml(d.course_title)} · Chunks: ${escapeHtml(String(d.chunk_count))}</span>
+          ${bar}
+        </div>
+      `;
+      })
+      .join("");
     el.innerHTML =
-      docsHtml ||
-      `<p class="muted-note">Nenhum documento ingerido ainda. Use o formulário acima para enviar um PDF ou Markdown.</p>`;
+      optimisticHtml + docsHtml ||
+      optimisticHtml ||
+      `<p class="muted-note">Nenhum documento ingerido ainda. Use o formulário acima (ou arraste e solta um arquivo) para enviar um PDF ou Markdown.</p>`;
+    el.querySelectorAll("[data-delete-document]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const docId = button.getAttribute("data-delete-document");
+        const name = button.getAttribute("data-document-name") || "este documento";
+        if (!docId || !window.confirm(`Excluir “${name}” do acervo? Esta ação não pode ser desfeita.`)) return;
+        button.disabled = true;
+        try {
+          const result = await apiFetch(`/documents/${encodeURIComponent(docId)}`, { method: "DELETE" });
+          if (result.status !== 200) throw new Error(result.data?.error?.message || "Não foi possível excluir.");
+          await loadAuxiliaryView("library");
+          await refreshCoreData();
+        } catch (error) {
+          window.alert(String(error));
+          button.disabled = false;
+        }
+      });
+    });
+  // Atualiza automaticamente enquanto houver upload/ingestão em andamento
+  // (cartões otimistas que o servidor já persistiu saem do espelho para não
+  // duplicar — a linha real assume com o progresso por página).
+  if (
+    docs.some((d) => d.version_status !== "active" && d.version_status !== "failed") ||
+    pendingOptimistic.length > 0
+  ) {
+    scheduleLibraryPoll();
+  }
   } else if (viewName === "review") {
     const { status, data } = await apiFetch("/review/flashcards");
     const el = document.getElementById("review-view-content");
@@ -851,14 +1645,23 @@ async function loadAuxiliaryView(viewName) {
     const el = document.getElementById("operations-view-content");
     if (!el || status !== 200) return;
     const factsHtml = (data.pending_facts || [])
-      .map(
-        (f) => `
-        <div class="info-card">
-          <strong>Fato ${escapeHtml(f.status)}: ${escapeHtml(f.kind)}</strong>
-          <pre>${escapeHtml(JSON.stringify(f.value))}</pre>
+      .map((f) => {
+        const v = f.value || {};
+        const original = v.original_expression ?? "—";
+        const normalized = v.normalized_value ?? "—";
+        const source = (f.source_refs || [])[0] || {};
+        const page = source.physical_page ? ` · p. ${source.physical_page}` : "";
+        const docName = source.doc_id ? (source.display_name || "documento") : "";        return `
+        <div class="info-card fact-card">
+          <div class="doc-card-head">
+            <strong>${escapeHtml(String(f.kind))}: “${escapeHtml(String(original))}”</strong>
+            <span class="status-chip status-ingesting">${escapeHtml(String(f.status))}</span>
+          </div>
+          <span>Valor normalizado: <code>${escapeHtml(String(normalized))}</code> · Precisão: ${escapeHtml(String(v.precision ?? "—"))}</span>
+          <small class="muted-note">Fonte: ${escapeHtml(docName)}${escapeHtml(page)} · autoridade: ${escapeHtml(String(f.authority))} · registrado em ${escapeHtml(String(f.recorded_at).slice(0, 16))}</small>
         </div>
-      `,
-      )
+      `;
+      })
       .join("");
     const plansHtml = (data.unapproved_plans || [])
       .map(
@@ -883,6 +1686,21 @@ async function loadAuxiliaryView(viewName) {
         <span>Status: <code>${escapeHtml(gates.model_status || "desconhecido")}</code></span>
       </div>
       <div class="info-card">
+        <strong>Preferências de Geração ao Vivo</strong>
+        <span>Como exibir a geração do modelo durante o turno (barrinha "Agente (gerando)").</span>
+        <div class="modal-actions">
+          <label class="live-pref-row">
+            <input type="checkbox" id="pref-show-live-text" ${getLivePrefs().showLiveText === true ? "checked" : ""} />
+            Mostrar o texto sendo gerado ao vivo (sem precisar clicar no balão)
+          </label>
+          <label class="live-pref-row">
+            <input type="checkbox" id="pref-show-thinking" ${getLivePrefs().showThinking === true ? "checked" : ""} />
+            Mostrar o <em>thinking</em> (raciocínio) sendo gerado, quando existir
+          </label>
+        </div>
+        <small class="muted-note">Com as opções desligadas, a saída estruturada fica oculta durante a geração — clique no balão para espiar. As preferências ficam salvas neste navegador.</small>
+      </div>
+      <div class="info-card">
         <strong>Fuso Horário &amp; Conectores</strong>
         <span>Timezone: <code>${escapeHtml(String(gates.timezone))}</code> (${escapeHtml(gates.timezone_source || "unresolved")}) · Web: <code>${escapeHtml(gates.web_connector)}</code></span>
         <div class="modal-actions">
@@ -895,6 +1713,12 @@ async function loadAuxiliaryView(viewName) {
         <span>SQLite ${escapeHtml(gates.sqlite_version)} · Revisão de Domínio #${escapeHtml(gates.domain_revision)}</span>
       </div>
     `;
+    document.getElementById("pref-show-live-text")?.addEventListener("change", (ev) => {
+      setLivePref("showLiveText", ev.target.checked);
+    });
+    document.getElementById("pref-show-thinking")?.addEventListener("change", (ev) => {
+      setLivePref("showThinking", ev.target.checked);
+    });
     document.getElementById("btn-save-timezone")?.addEventListener("click", async () => {
       const tzVal = document.getElementById("settings-timezone-input")?.value.trim();
       if (!tzVal) return;
@@ -908,6 +1732,14 @@ async function loadAuxiliaryView(viewName) {
       }
     });
   }
+}
+
+function setPlanGenerationStatus(message, state = "info") {
+  const status = document.getElementById("plan-generation-status");
+  if (!status) return;
+  status.hidden = !message;
+  status.textContent = message;
+  status.className = `plan-generation-status${state === "loading" ? " is-loading" : ""}${state === "error" ? " is-error" : ""}`;
 }
 
 function renderFlashcardStage() {
@@ -1066,10 +1898,26 @@ function bindEvents() {
     ?.addEventListener("click", () => closePomodoroModal("start_break"));
 
   // Composer de Turno
+  document
+    .getElementById("topic-select")
+    ?.addEventListener("change", syncPracticeTopicGate);
+  document
+    .getElementById("intent-select")
+    ?.addEventListener("change", syncPracticeTopicGate);
+  syncPracticeTopicGate();
   document.getElementById("turn-composer-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const intent = document.getElementById("intent-select")?.value || "/ask";
     const topicId = document.getElementById("topic-select")?.value || "";
+    if (intent === "/practice" && !topicId && !hasPendingPracticeItem()) {
+      syncPracticeTopicGate();
+      document.getElementById("topic-select")?.focus();
+      return;
+    }
+    if (intent === "/submit" && !hasPendingPracticeItem()) {
+      syncPracticeTopicGate();
+      return;
+    }
     const textarea = document.getElementById("composer-textarea");
     const text = textarea ? textarea.value.trim() : "";
     const message = text ? `${intent} ${text}` : intent;
@@ -1100,15 +1948,39 @@ function bindEvents() {
     await refreshCoreData();
   });
 
-  // Botão de progressão na Escada Socrática (L0 -> L1 -> L2 -> L3)
-  document.getElementById("btn-request-hint")?.addEventListener("click", async () => {
-    appState.helpLevel = nextHelpLevel(appState.helpLevel);
+  // Escada Socrática: slider horizontal L0..L3 (volume-style) + botão de envio
+  const hintSlider = document.getElementById("hint-slider");
+  function updateHintSliderUI() {
+    const levels = ["L0", "L1", "L2", "L3"];
+    const level = appState.helpLevel;
+    const idx = Math.max(0, levels.indexOf(level));
+    if (hintSlider && hintSlider.value !== String(idx)) {
+      hintSlider.value = String(idx);
+    }
+    const info = describeHelpLevel(level);
     const indicator = document.getElementById("current-help-level-indicator");
-    const info = describeHelpLevel(appState.helpLevel);
     if (indicator) {
       indicator.textContent = info.badge;
       indicator.title = info.title;
     }
+    const desc = document.getElementById("hint-level-description");
+    if (desc) {
+      desc.innerHTML = `<strong>${escapeHtml(info.badge)}</strong> — ${escapeHtml(info.title)}`;
+    }
+    if (hintSlider) {
+      const pct = (idx / 3) * 100;
+      hintSlider.style.background = `linear-gradient(to right, var(--accent, #4a90d9) ${pct}%, rgba(128,128,128,0.25) ${pct}%)`;
+    }
+  }
+  hintSlider?.addEventListener("input", () => {
+    const idx = Number(hintSlider.value) || 0;
+    appState.helpLevel = ["L0", "L1", "L2", "L3"][idx] || "L0";
+    updateHintSliderUI();
+  });
+  updateHintSliderUI();
+
+  // Botão de dica: envia o turno no nível selecionado pelo slider
+  document.getElementById("btn-request-hint")?.addEventListener("click", async () => {
     const topicId = document.getElementById("topic-select")?.value || "";
     const lastItem = (appState.sessionDetail?.items || []).slice(-1)[0];
     await postTurnAndRecord(
@@ -1133,10 +2005,42 @@ function bindEvents() {
 
   // Atalhos da visão de Agenda & Calendário (/plan e /export)
   document.getElementById("btn-generate-plan")?.addEventListener("click", async () => {
-    await postTurnAndRecord("/plan gerar proposta de cronograma semanal", {
-      course_id: appState.selectedCourseId || "",
-    });
-    await loadAuxiliaryView("calendar");
+    const button = document.getElementById("btn-generate-plan");
+    if (button?.disabled) return;
+    const originalLabel = button?.textContent || "Gerar Proposta (/plan)";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Gerando proposta…";
+    }
+    setPlanGenerationStatus(
+      "O Planejador está analisando as demandas e montando a proposta. Isso pode levar alguns instantes.",
+      "loading",
+    );
+    try {
+      const result = await postTurnAndRecord("/plan gerar proposta de cronograma semanal", {
+        course_id: appState.selectedCourseId || "",
+      });
+      const turnError =
+        Array.isArray(result?.errors) && result.errors.length
+          ? result.errors[0]?.message || "O Planejador não conseguiu concluir a proposta."
+          : null;
+      if (turnError || result?.status === "failed" || result?.status === "cancelled") {
+        throw new Error(turnError || "O Planejador não conseguiu concluir a proposta.");
+      }
+      setPlanGenerationStatus("Proposta recebida. Atualizando a agenda…", "loading");
+      await loadAuxiliaryView("calendar");
+      setPlanGenerationStatus("Proposta atualizada na agenda.", "success");
+    } catch (error) {
+      setPlanGenerationStatus(
+        `Não foi possível gerar a proposta: ${error?.message || error}`,
+        "error",
+      );
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
+    }
   });
 
   document.getElementById("btn-export-ics")?.addEventListener("click", async () => {
@@ -1152,59 +2056,118 @@ function bindEvents() {
     await loadAuxiliaryView("operations");
   });
 
-  // Seletor de arquivo local na Biblioteca
+  // Seletor de arquivo local na Biblioteca (múltiplo: fila; único: formulário)
   document.getElementById("upload-file-input")?.addEventListener("change", (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const filenameInput = document.getElementById("upload-filename");
-    if (filenameInput && !filenameInput.value.trim()) {
-      filenameInput.value = file.name;
+    const files = [...(e.target.files || [])];
+    if (!files.length) return;
+    if (files.length > 1) {
+      queueUploads(files);
+    } else {
+      readUploadFileIntoForm(files[0]);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      const commaIdx = result.indexOf(",");
-      appState.pendingUploadBase64 = commaIdx >= 0 ? result.slice(commaIdx + 1) : null;
-    };
-    reader.readAsDataURL(file);
-
-    if (
-      file.name.endsWith(".md") ||
-      file.name.endsWith(".txt") ||
-      file.name.endsWith(".tex")
-    ) {
-      const textReader = new FileReader();
-      textReader.onload = () => {
-        const textArea = document.getElementById("upload-content-text");
-        if (textArea && !textArea.value.trim()) {
-          textArea.value = String(textReader.result || "");
-        }
-      };
-      textReader.readAsText(file);
-    }
+    e.target.value = "";
   });
 
-  // Upload na Biblioteca
+  // Upload na Biblioteca (otimista: feedback imediato; a lista pola sozinha)
   document.getElementById("library-upload-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const filename = document.getElementById("upload-filename")?.value.trim();
+    const rawName = document.getElementById("upload-filename")?.value.trim();
     const contentText = document.getElementById("upload-content-text")?.value || "";
-    if (!filename) return;
-    await apiFetch("/library/upload", {
-      method: "POST",
-      body: {
-        filename,
-        content_base64: appState.pendingUploadBase64 || undefined,
-        content_text: contentText || "# Material de estudo\nConteúdo inicial.",
-        course_id: appState.selectedCourseId,
-        auto_ingest: Boolean(appState.selectedCourseId),
-      },
-    });
+    if (!rawName) return;
+    const filename = sanitizeFilename(rawName);
+    const filenameInput = document.getElementById("upload-filename");
+    if (filenameInput && filename !== rawName) {
+      filenameInput.value = filename; // reflete o nome sanitizado ao usuário
+    }
+    const statusEl = document.getElementById("upload-status");
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (!appState.selectedCourseId && statusEl) {
+      statusEl.hidden = false;
+      statusEl.innerHTML = `<small class="upload-err">✖ Selecione uma disciplina ativa antes de enviar (a ingestão é por disciplina).</small>`;
+      return;
+    }
+    if (submitBtn) submitBtn.disabled = true;
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.innerHTML = `
+        <div class="ingest-progress"><div class="ingest-progress-fill"></div></div>
+        <small>Enviando e ingerindo <strong>${escapeHtml(filename)}</strong> — a extração de PDFs grandes pode levar alguns minutos…</small>`;
+    }
+    // Cartão otimista no topo da lista (§12: feedback imediato, sem fingir
+    // progresso que ainda não existe — a barra fica "Enviando" até o
+    // servidor confirmar e o progresso real assumir).
+    appState.optimisticUploads = appState.optimisticUploads || [];
+    appState.optimisticUploads.push(filename);
+    await loadAuxiliaryView("library");
+    let ok = false;
+    let errMsg = "";
+    try {
+      const { status, data } = await apiFetch("/library/upload", {
+        method: "POST",
+        body: {
+          filename,
+          content_base64: appState.pendingUploadBase64 || undefined,
+          content_text: contentText || "# Material de estudo\nConteúdo inicial.",
+          course_id: appState.selectedCourseId,
+          auto_ingest: Boolean(appState.selectedCourseId),
+        },
+      });
+      ok = status === 200;
+      if (!ok) {
+        errMsg = data?.error?.message || `HTTP ${status}`;
+      }
+    } catch (err) {
+      errMsg = String(err);
+    }
+    if (statusEl) {
+      statusEl.innerHTML = ok
+        ? `<small class="upload-ok">✔ Upload concluído para <strong>${escapeHtml(filename)}</strong> — acompanhe a ingestão na lista abaixo.</small>`
+        : `<small class="upload-err">✖ Falha no upload de ${escapeHtml(filename)}: ${escapeHtml(errMsg)}</small>`;
+    }
+    if (submitBtn) submitBtn.disabled = false;
     appState.pendingUploadBase64 = null;
+    appState.optimisticUploads = (appState.optimisticUploads || []).filter(
+      (n) => n !== filename,
+    );
     await refreshCoreData();
     await loadAuxiliaryView("library");
   });
 
+  // Arrastar e soltar arquivos no cartão do Acervo
+  const uploadCard = document.getElementById("library-upload-form");
+  if (uploadCard) {
+    ["dragenter", "dragover"].forEach((evName) =>
+      uploadCard.addEventListener(evName, (e) => {
+        e.preventDefault();
+        uploadCard.classList.add("dragover");
+      }),
+    );
+    uploadCard.addEventListener("dragleave", (e) => {
+      if (e.target === uploadCard) uploadCard.classList.remove("dragover");
+    });
+    uploadCard.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadCard.classList.remove("dragover");
+      const files = [...(e.dataTransfer?.files || [])];
+      if (!files.length) return;
+      const statusEl = document.getElementById("upload-status");
+      if (!appState.selectedCourseId && statusEl) {
+        statusEl.hidden = false;
+        statusEl.innerHTML = `<small class="upload-err">✖ Selecione uma disciplina ativa antes de soltar o arquivo (a ingestão é por disciplina).</small>`;
+        return;
+      }
+      if (files.length > 1) {
+        queueUploads(files);
+        return;
+      }
+      readUploadFileIntoForm(files[0]);
+      const readyEl = document.getElementById("upload-status");
+      if (readyEl) {
+        readyEl.hidden = false;
+        readyEl.innerHTML = `<small class="upload-ok">📄 <strong>${escapeHtml(sanitizeFilename(files[0].name))}</strong> pronto — clique em <strong>Fazer Upload &amp; Ingerir</strong> para enviar.</small>`;
+      }
+    });
+  }
   // Modal Nova Disciplina
   const newCourseDialog = document.getElementById("new-course-dialog");
   document.getElementById("btn-new-course")?.addEventListener("click", () => {
@@ -1293,8 +2256,10 @@ function bindEvents() {
 
 if (typeof document !== "undefined") {
   window.addEventListener("DOMContentLoaded", () => {
+    // Cookie do usuário ativo: navegações diretas (abrir PDF da fonte em
+    // nova aba) carregam o contexto sem precisar de headers de fetch.
+    document.cookie = `eduagent_user=${appState.userId}; path=/; SameSite=Lax`;
     bindEvents();
     refreshCoreData();
   });
 }
-

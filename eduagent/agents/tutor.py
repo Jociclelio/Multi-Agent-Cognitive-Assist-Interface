@@ -481,6 +481,7 @@ class TutorSession:
     help_level_by_item: dict[str, int] = field(default_factory=dict)
     revealed: bool = False
     closed: bool = False
+    cancelled_item_ids: set[_uuid.UUID] = field(default_factory=set)
     family_solution_seen: set[_uuid.UUID] = field(default_factory=set)
     history: list[TutorTurn] = field(default_factory=list)
 
@@ -713,12 +714,28 @@ def _separated(prompt: str, solution: str) -> None:
     s = " ".join(solution.casefold().split())
     if not s:
         raise _PolicyViolation("solução vazia")
-    if s in p:
+    # Overlap literal curto causa falsos positivos comuns em itens numéricos:
+    # por exemplo, gabarito "5" e enunciado que menciona cinco objetos ou
+    # gabarito "a" presente em praticamente qualquer palavra. Para valores
+    # curtos, só rejeitar quando o enunciado os apresenta explicitamente como
+    # resposta/resultado; soluções textuais substanciais continuam exigindo
+    # ausência integral do enunciado.
+    short_solution_leak = False
+    if len(s) < 20 or len(s.split()) < 4:
+        answer_markers = r"(?:resposta|gabarito|solu[cç][aã]o|resultado|total)"
+        short_solution_leak = bool(
+            re.search(
+                rf"\b{answer_markers}\b\s*(?:é|:|=)\s*{re.escape(s)}\b",
+                p,
+            )
+            or re.search(rf"=\s*{re.escape(s)}\b", p)
+        )
+    if s in p and (len(s) >= 20 and len(s.split()) >= 4 or short_solution_leak):
         raise _PolicyViolation(
             "o enunciado contém a solução (gabarito deve ficar separado do "
             "prompt, mapa §8)"
         )
-    if p and p in s:
+    if len(p) >= 20 and len(p.split()) >= 4 and p in s:
         raise _PolicyViolation(
             "a solução contém o enunciado inteiro (separação insuficiente)"
         )
@@ -1582,10 +1599,13 @@ class Tutor:
             )
         else:
             policy = (
-                "Política: o enunciado (prompt) NÃO contém a solução nem "
-                "partes dela; gabarito em 'expected_answer' e rubrica por "
-                "critério em 'rubric'; fonte obrigatória via índices de "
-                "'citations'."
+                "Política: crie um exercício novo, ancorado no conceito das "
+                "fontes. Não copie exemplos resolvidos nem suas respostas. "
+                "O enunciado (prompt) NÃO contém a solução; mantenha o "
+                "gabarito somente em 'expected_answer' e a rubrica por "
+                "critério em 'rubric'. Fonte obrigatória via índices de "
+                "'citations'. Para matemática, pergunte uma operação nova e "
+                "não mostre o cálculo nem o resultado no enunciado."
             )
             shape = (
                 '{"prompt": "<enunciado sem a solução>", '
