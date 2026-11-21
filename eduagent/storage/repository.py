@@ -390,6 +390,23 @@ class DomainStore:
                 tx.execute(sql, params)
         return self.domain_revision(user_id)
 
+    def execute_system_write(
+        self, statements: list[tuple[str, tuple[Any, ...]]]
+    ) -> None:
+        """Escrita de metadado GLOBAL (sem dono — ex.: ``doc_classifications``,
+        endereçada por sha256 do conteúdo): transação imediata sem usuário e
+        sem ``domain_revision``. NÃO usar para artefatos de domínio do §5."""
+        conn = self._conn
+        with self._lock:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                for sql, params in statements:
+                    conn.execute(sql, params)
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
+
     def commit_operation(
         self,
         user_id: str,

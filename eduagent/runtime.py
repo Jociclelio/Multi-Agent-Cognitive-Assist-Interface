@@ -28,6 +28,10 @@ from eduagent.graph import EduAgentGraph
 from eduagent.services.assessment import AssessmentService
 from eduagent.services.calendar import CalendarService
 from eduagent.services.course_suggest import CourseSuggestionService, SuggestLimits
+from eduagent.services.doc_classifier import (
+    ClassifierLimits,
+    DocumentClassifierService,
+)
 from eduagent.services.effects import EffectsService
 from eduagent.services.ingestion import IngestionLimits, IngestionService
 from eduagent.services.memory import MemoryService
@@ -109,6 +113,7 @@ class RuntimeContext:
     calendar: CalendarService
     telemetry_dir: Path
     course_suggestions: CourseSuggestionService
+    doc_classifier: DocumentClassifierService
     _closed: bool = field(default=False, repr=False)
 
     @classmethod
@@ -208,13 +213,49 @@ class RuntimeContext:
             data_root=root,
             telemetry_dir=telemetry_dir if telemetry else None,
         )
-        # Rascunhos de matérias do fluxo "+Nova" (migração 0008): mesmo
-        # backend/extrator do runtime; sem backend admite apenas a aba
-        # manual (MODEL_NOT_ADMITTED na sugestão, fail-closed §3.1).
+        # Classificador rápido (Fase 1 do +Nova e etiquetagem do acervo):
+        # mesmo backend do runtime; extrator PRÓPRIO com timeout curto — a
+        # ingestão completa pode esperar 30 min de Docling, a classificação
+        # não (fallback: visão sobre as páginas renderizadas). Cache por
+        # sha256 (migração 0010).
+        classify_choice = str(
+            (effective_config.get("ingestion") or {}).get("extractor", "docling")
+        )
+        classify_extractor = extractor
+        if classify_choice != "none" and extractor is None:
+            try:
+                from eduagent.services.ingestion import (
+                    DoclingExtractor,
+                    docling_available,
+                )
+
+                if docling_available():
+                    ing_limits = IngestionLimits.from_mapping(effective_config)
+                    classify_extractor = DoclingExtractor(
+                        mem_gib=ing_limits.subprocess_mem_gib,
+                        timeout_s=float(
+                            (effective_config.get("doc_classify") or {}).get(
+                                "extract_timeout_s", 120
+                            )
+                        ),
+                    )
+            except Exception:  # noqa: BLE001
+                classify_extractor = extractor
+        doc_classifier = DocumentClassifierService(
+            store,
+            root,
+            extractor=classify_extractor,
+            backend=backend,
+            limits=ClassifierLimits.from_mapping(effective_config),
+            clock=clock_fn,
+        )
+        # Rascunhos de matérias do fluxo "+Nova" (migração 0008): mesma
+        # Fase 1 do classificador + agregação (Fase 2); sem backend admite
+        # apenas a aba manual (MODEL_NOT_ADMITTED na sugestão, fail-closed §3.1).
         course_suggestions = CourseSuggestionService(
             store,
             root,
-            extractor=extractor,
+            classifier=doc_classifier,
             backend=backend,
             limits=SuggestLimits.from_mapping(effective_config),
             clock=clock_fn,
@@ -229,6 +270,7 @@ class RuntimeContext:
             calendar=calendar,
             telemetry_dir=telemetry_dir,
             course_suggestions=course_suggestions,
+            doc_classifier=doc_classifier,
         )
 
     def close(self) -> None:

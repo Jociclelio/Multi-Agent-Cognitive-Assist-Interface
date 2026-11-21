@@ -1,36 +1,32 @@
 """Sugestão de matérias a partir de arquivos soltos na UI (fluxo "+Nova").
 
-Fluxo (decisão de produto registrada em 21/11/2026):
+Fluxo em duas fases (decisão registrada em 21/11/2026):
 
-1. A UI envia os arquivos ao ``POST /courses/suggestions``; os bytes ficam em
-   **staging** no diretório de dados (``<user>/staging/<suggestion_id>/``).
-2. O serviço extrai uma **amostra de texto** de cada arquivo (Docling, primeiras
-   páginas — o objetivo é classificar, não indexar; a ingestão completa
-   re-extrai o documento inteiro depois, pelo caminho normal do Curador).
-3. Uma única chamada ao **modelo de visão do runtime configurado** (mesmo
-   adaptador da tutoria, sem ``json_schema`` presumido — parse/validação locais
-   obrigatórios, mapa §3.1) agrupa os arquivos em matérias propostas com
-   título e tópicos.
-4. Cada matéria proposta é persistida como rascunho ``pending`` em
-   ``course_suggestions`` (migração 0008) e aparece no rail da UI como
-   **"esperando aprovação"**. O estudante revisa no popup (título/tópicos
-   editáveis, arquivos visualizáveis) e confirma — aí a matéria real é criada
-   e a ingestão dos arquivos dispara pelo caminho normal — ou descarta.
+- **Fase 1 — classificação por arquivo** (``classify_staged``): cada arquivo
+  solto é guardado em staging (``<user>/staging/<batch_id>/<arquivo>``) e
+  classificado pelo ``DocumentClassifierService`` (uma chamada ao modelo do
+  runtime; resultado cacheado por sha256 em ``doc_classifications``).
+- **Fase 2 — agregação** (``aggregate_batch``): uma chamada ao modelo recebe o
+  dossiê de TODOS os arquivos do batch (classe + hints de disciplina + tópicos
+  vistos + amostra/headings) e decide quantas matérias criar, o título
+  (``CÓDIGO — Nome oficial`` quando houver código) e os tópicos — com o
+  programa/ementa como fonte canônica e proibição de tópicos genéricos.
+- Cada matéria proposta vira rascunho ``pending`` (migração 0008) listado no
+  rail como "esperando aprovação"; confirmar cria a matéria e ingere os
+  arquivos de staging pelo caminho normal do Curador, ou descarta.
 
-Fail-closed: sem backend admitido, a sugestão recusa com erro tipado
-(``MODEL_NOT_ADMITTED``) e a UI cai para a aba manual. Sem extrator
-(Docling ausente), a análise degrada para nomes de arquivo — nunca falha
-silenciosamente: a resposta registra ``sample_chars`` por arquivo.
+Fail-closed: sem backend admitido, a Fase 1 recusa com ``MODEL_NOT_ADMITTED``
+e a UI cai para a aba manual. Staging expira (sweep por mtime, TTL de ensaio).
 
-Todos os valores numéricos abaixo são DEFAULTS DE ENSAIO a calibrar — não são
-resultados medidos (mapa §3).
+Todos os valores numéricos são DEFAULTS DE ENSAIO a calibrar — não resultados
+medidos (mapa §3).
 """
 
 from __future__ import annotations
 
 import json
-import mimetypes
 import shutil
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -39,29 +35,30 @@ from typing import Any, Callable
 
 from eduagent.contracts import EduAgentError, ErrorCode
 from eduagent.policy import resolve_owned_path
-from eduagent.services.model_adapter import NON_THINKING_SAMPLER, Sampler
 
 DIAGNOSTIC = "eduagent/services/course_suggest.py"
-
-#: Amostra: primeiras páginas extraídas por arquivo (default de ensaio).
-SAMPLE_PAGES = 10
-
-#: Teto de caracteres de texto enviados por arquivo ao modelo (ensaio).
-SAMPLE_CHARS_PER_FILE = 1500
 
 #: TTL do rascunho pendente (ensaio): após expirar, confirmar recusa 410.
 TTL_HOURS = 24
 
-#: Teto de arquivos por pedido de sugestão (ensaio; corpo HTTP tem teto próprio).
-MAX_FILES_PER_REQUEST = 10
+#: TTL de limpeza do staging por mtime (ensaio).
+STAGING_TTL_HOURS = 48
+
+#: Teto de arquivos por batch (ensaio).
+MAX_FILES_PER_BATCH = 10
 
 _INGEST_FN = Callable[[str, str, bytes, str], dict[str, Any]]
 
+CLASS_LABELS = {
+    "programa": "📋 Programa",
+    "cronograma": "🗓️ Cronograma",
+    "lista_exercicios": "📝 Lista de exercícios",
+    "material_didatico": "📚 Material didático",
+    "outro": "📄 Outro",
+}
+
 
 def _parse_json_object(text: str) -> dict[str, Any]:
-    """Parser local tolerante (mesmo contrato do Tutor, mapa §3.1): um único
-    objeto JSON, cercas de código toleradas por robustez com runtimes que
-    ignoram a instrução de formato."""
     stripped = text.strip()
     if stripped.startswith("```"):
         stripped = stripped.strip("`")
@@ -84,27 +81,18 @@ def _parse_json_object(text: str) -> dict[str, Any]:
         ) from exc
     if not isinstance(data, dict):
         raise EduAgentError(
-            ErrorCode.SCHEMA_INVALID,
-            "resposta do modelo não é um objeto",
-            diagnostic=DIAGNOSTIC,
+            ErrorCode.SCHEMA_INVALID, "resposta do modelo não é um objeto"
         )
     return data
-
-
-def _guess_mime(filename: str) -> str:
-    guessed, _ = mimetypes.guess_type(filename)
-    return guessed or "application/octet-stream"
 
 
 @dataclass(frozen=True)
 class SuggestLimits:
     """Limites de ensaio da sugestão (mapa §3: defaults a calibrar)."""
 
-    sample_pages: int = SAMPLE_PAGES
-    sample_chars_per_file: int = SAMPLE_CHARS_PER_FILE
     llm_timeout_s: float = 300.0
     ttl_hours: int = TTL_HOURS
-    max_files: int = MAX_FILES_PER_REQUEST
+    max_files: int = MAX_FILES_PER_BATCH
 
     @classmethod
     def from_mapping(cls, config: dict[str, Any] | None) -> "SuggestLimits":
@@ -112,13 +100,9 @@ class SuggestLimits:
         if not isinstance(section, dict):
             section = {}
         return cls(
-            sample_pages=int(section.get("sample_pages", SAMPLE_PAGES)),
-            sample_chars_per_file=int(
-                section.get("sample_chars_per_file", SAMPLE_CHARS_PER_FILE)
-            ),
             llm_timeout_s=float(section.get("timeout_s", 300.0)),
             ttl_hours=int(section.get("ttl_hours", TTL_HOURS)),
-            max_files=int(section.get("max_files", MAX_FILES_PER_REQUEST)),
+            max_files=int(section.get("max_files", MAX_FILES_PER_BATCH)),
         )
 
 
@@ -130,103 +114,293 @@ class CourseSuggestionService:
         store: Any,
         data_root: Path | str,
         *,
-        extractor: Any | None = None,
+        classifier: Any | None = None,
         backend: Any | None = None,
         limits: SuggestLimits | None = None,
         clock: Callable[[], datetime] | None = None,
-        sampler: Sampler | None = None,
+        sampler: Any | None = None,
     ) -> None:
         self._store = store
         self._root = Path(data_root)
-        self._extractor = extractor
+        self._classifier = classifier
         self._backend = backend
         self._limits = limits or SuggestLimits()
         self._clock = clock or (lambda: datetime.now(timezone.utc))
-        self._sampler = sampler or NON_THINKING_SAMPLER
+        self._sampler = sampler
 
-    # -- staging ---------------------------------------------------------
+    # -- staging -------------------------------------------------------------
 
-    def _staging_dir(self, user_id: str, suggestion_id: str) -> Path:
-        """Diretório de staging confinado ao dono (§15.1)."""
-        return resolve_owned_path(
-            self._root, user_id, f"staging/{suggestion_id}"
+    def _staging_root(self, user_id: str) -> Path:
+        return resolve_owned_path(self._root, user_id, "staging")
+
+    def _batch_dir(self, user_id: str, batch_id: str) -> Path:
+        return resolve_owned_path(self._root, user_id, f"staging/{batch_id}")
+
+    def staged_file_path(
+        self, user_id: str, suggestion_id: str, filename: str
+    ) -> Path:
+        """Caminho confinado de um arquivo em staging (preview na UI).
+
+        Com arquivos por batch, o path real vem do ``staged_rel`` em
+        ``files_json``; ``suggestion_id`` é mantido na assinatura para
+        compatibilidade (o batch é resolvido pelo registro da sugestão).
+        """
+        suggestion = self.get_pending(user_id, suggestion_id)
+        for meta in suggestion["files"]:
+            if str(meta.get("filename")) == filename:
+                rel = str(meta.get("staged_rel") or "")
+                if rel:
+                    return resolve_owned_path(self._root, user_id, rel)
+        raise EduAgentError(
+            ErrorCode.SOURCE_UNRESOLVED,
+            f"arquivo não pertence a esta sugestão: {filename}",
+            diagnostic=DIAGNOSTIC,
         )
 
-    # -- análise (amostra + modelo) ---------------------------------------
+    def _sweep_staging(self, user_id: str) -> None:
+        """Remove batches de staging mais velhos que o TTL (limpeza barata)."""
+        root = self._staging_root(user_id)
+        if not root.exists():
+            return
+        cutoff = time.time() - STAGING_TTL_HOURS * 3600
+        for child in root.iterdir():
+            try:
+                if child.is_dir() and child.stat().st_mtime < cutoff:
+                    shutil.rmtree(child, ignore_errors=True)
+            except OSError:
+                continue
 
-    def _extract_sample(self, filename: str, raw: bytes) -> str:
-        """Amostra de texto do arquivo; sem extrator → string vazia (a análise
-        degrada para o nome do arquivo, registrado na resposta)."""
-        if self._extractor is None or not raw:
-            return ""
-        try:
-            extracted = self._extractor.extract(
-                raw,
-                _guess_mime(filename),
-                max_pages=self._limits.sample_pages,
+    # -- Fase 1: classifica e stageda um arquivo --------------------------------
+
+    def classify_staged(
+        self, user_id: str, filename: str, raw: bytes, batch_id: str | None
+    ) -> dict[str, Any]:
+        """Guarda o arquivo em staging e classifica (Fase 1).
+
+        Retorna o dossiê do arquivo (classe, hints, tópicos vistos) + o
+        ``batch_id`` (criado na primeira chamada e reutilizado nas demais).
+        """
+        if not raw:
+            raise EduAgentError(
+                ErrorCode.SCHEMA_INVALID, "arquivo vazio", diagnostic=DIAGNOSTIC
             )
-        except EduAgentError:
-            return ""
-        chunks: list[str] = []
-        budget = self._limits.sample_chars_per_file
-        for page in extracted.pages:
-            for block in page.blocks:
-                text = (block.text or "").strip()
-                if not text:
-                    continue
-                chunks.append(text)
-                budget -= len(text)
-                if budget <= 0:
-                    break
-            if budget <= 0:
-                break
-        return "\n".join(chunks)[: self._limits.sample_chars_per_file]
+        if self._classifier is None:
+            raise EduAgentError(
+                ErrorCode.INTERNAL_FAILURE,
+                "classificador indisponível nesta instalação",
+                diagnostic=DIAGNOSTIC,
+            )
+        self._sweep_staging(user_id)
+        batch = batch_id or str(uuid.uuid4())
+        batch_dir = self._batch_dir(user_id, batch)
+        existing = [p.name for p in batch_dir.iterdir()] if batch_dir.exists() else []
+        if filename not in existing and len(existing) >= self._limits.max_files:
+            raise EduAgentError(
+                ErrorCode.RESOURCE_LIMIT,
+                f"máximo de {self._limits.max_files} arquivos por análise",
+                details={"max_files": self._limits.max_files},
+                diagnostic=DIAGNOSTIC,
+            )
+        batch_dir.mkdir(parents=True, exist_ok=True)
+        target = resolve_owned_path(
+            self._root, user_id, f"staging/{batch}/{filename}"
+        )
+        target.write_bytes(raw)
+        meta = self._classifier.classify_bytes(filename, raw)
+        return {
+            "batch_id": batch,
+            "file": {
+                "filename": filename,
+                "size_bytes": len(raw),
+                "sha256": meta["sha256"],
+                "doc_class": meta["doc_class"],
+                "class_label": CLASS_LABELS.get(meta["doc_class"], "📄 Outro"),
+                "confidence": meta["confidence"],
+                "disciplina_hints": meta["disciplina_hints"],
+                "topics_seen": meta["topics_seen"],
+            },
+        }
 
-    def _call_model(self, entries: list[dict[str, Any]]) -> dict[str, Any]:
-        """Uma chamada ao modelo de visão do runtime configurado; valida o
-        objeto localmente (parse/schema obrigatórios SEMPRE, mapa §3.1)."""
+    # -- Fase 2: agrega o batch em propostas --------------------------------------
+
+    def aggregate_batch(self, user_id: str, batch_id: str) -> list[dict[str, Any]]:
+        """Lê o staging do batch + classificações e cria rascunhos pendentes."""
         if self._backend is None:
             raise EduAgentError(
                 ErrorCode.MODEL_NOT_ADMITTED,
-                "sugestão de matérias exige modelo admitido (mapa §3.1); "
-                "use a aba manual do popup",
+                "agregação exige modelo admitido (mapa §3.1); use a aba manual",
                 diagnostic=DIAGNOSTIC,
             )
-        file_sections: list[str] = []
-        for idx, entry in enumerate(entries, start=1):
-            sample = entry["sample"] or "(sem texto extraído — classifique "
-            "pelo nome do arquivo)"
-            file_sections.append(
-                f"[ARQUIVO {idx}] {entry['filename']}\n{sample}"
+        batch_dir = self._batch_dir(user_id, batch_id)
+        if not batch_dir.exists() or not any(batch_dir.iterdir()):
+            raise EduAgentError(
+                ErrorCode.SOURCE_UNRESOLVED,
+                "batch de staging não encontrado — reenvie os arquivos",
+                diagnostic=DIAGNOSTIC,
+            )
+        entries: list[dict[str, Any]] = []
+        for path in sorted(batch_dir.iterdir()):
+            if not path.is_file():
+                continue
+            raw = path.read_bytes()
+            meta = self._classifier.classify_bytes(path.name, raw)
+            entries.append(
+                {
+                    "filename": path.name,
+                    "raw": raw,
+                    "staged_rel": f"staging/{batch_id}/{path.name}",
+                    "doc_class": meta["doc_class"],
+                    "disciplina_hints": meta["disciplina_hints"],
+                    "topics_seen": meta["topics_seen"],
+                    "pages_scanned": meta["pages_scanned"],
+                }
+            )
+        if not entries:
+            raise EduAgentError(
+                ErrorCode.SOURCE_UNRESOLVED,
+                "batch vazio", diagnostic=DIAGNOSTIC
+            )
+        if len(entries) > self._limits.max_files:
+            raise EduAgentError(
+                ErrorCode.RESOURCE_LIMIT,
+                f"máximo de {self._limits.max_files} arquivos por análise",
+                diagnostic=DIAGNOSTIC,
+            )
+        analysis = self._aggregate(entries)
+
+        now = self._clock()
+        expires = now + timedelta(hours=self._limits.ttl_hours)
+        created: list[dict[str, Any]] = []
+        for course_idx, course in enumerate(analysis["courses"], start=1):
+            member_files = [
+                entries[a["file"] - 1]
+                for a in analysis["assignments"]
+                if a["course"] == course_idx
+            ]
+            if not member_files:
+                # Matéria sem arquivo atribuído não vira rascunho (ruído de
+                # agrupamento do modelo nunca aparece na UI).
+                continue
+            # Tópicos vazios do modelo → backfill com topics_seen dos arquivos
+            # (programa primeiro — fonte canônica; depois material didático).
+            if not course["topics"]:
+                by_prio = sorted(
+                    member_files,
+                    key=lambda e: (
+                        0 if e["doc_class"] == "programa"
+                        else 1 if e["doc_class"] == "material_didatico"
+                        else 2
+                    ),
+                )
+                seen: list[str] = []
+                for e in by_prio:
+                    for t in e["topics_seen"]:
+                        if t not in seen:
+                            seen.append(t)
+                course["topics"] = seen[:10]
+            suggestion_id = str(uuid.uuid4())
+            files_meta = [
+                {
+                    "filename": e["filename"],
+                    "size_bytes": len(e["raw"]),
+                    "doc_class": e["doc_class"],
+                    "class_label": CLASS_LABELS.get(e["doc_class"], "📄 Outro"),
+                    "staged_rel": e["staged_rel"],
+                }
+                for e in member_files
+            ]
+            self._store.execute_write(
+                user_id,
+                [
+                    (
+                        "INSERT INTO course_suggestions"
+                        "(id, user_id, title, topics_json, files_json, status, "
+                        "created_at, expires_at) VALUES (?, ?, ?, ?, ?, "
+                        "'pending', ?, ?)",
+                        (
+                            suggestion_id,
+                            user_id,
+                            course["title"],
+                            json.dumps(course["topics"], ensure_ascii=False),
+                            json.dumps(files_meta, ensure_ascii=False),
+                            now.isoformat(),
+                            expires.isoformat(),
+                        ),
+                    )
+                ],
+                bump_domain_revision=False,
+            )
+            created.append(
+                {
+                    "id": suggestion_id,
+                    "title": course["title"],
+                    "topics": course["topics"],
+                    "files": files_meta,
+                    "status": "pending",
+                    "created_at": now.isoformat(),
+                    "expires_at": expires.isoformat(),
+                }
+            )
+        return created
+
+    # -- modelo (Fase 2) ------------------------------------------------------
+
+    def _aggregate(self, entries: list[dict[str, Any]]) -> dict[str, Any]:
+        dossiers: list[str] = []
+        for idx, e in enumerate(entries, start=1):
+            hints = ", ".join(e["disciplina_hints"]) or "(nenhum)"
+            topics = "; ".join(e["topics_seen"]) or "(nenhum)"
+            dossiers.append(
+                f"[ARQUIVO {idx}] {e['filename']}\n"
+                f"  classe: {e['doc_class']}\n"
+                f"  disciplina vista: {hints}\n"
+                f"  tópicos vistos: {topics}"
             )
         prompt = (
-            "Você agrupa materiais de estudo em matérias (disciplinas).\n"
-            "Para cada arquivo você recebe o nome e uma amostra do início do "
-            "conteúdo.\n\n"
+            "Você cria a(s) matéria(s) (disciplinas) a partir do dossiê de "
+            "materiais já classificados.\n\n"
+            "Dossiê dos arquivos:\n" + "\n\n".join(dossiers) + "\n\n"
             "Responda com UM ÚNICO objeto JSON (sem cercas de código), no "
             "formato exato:\n"
             '{"courses": [{"title": "<nome da matéria>", "topics": '
-            '["<tópico>", ...]}], "assignments": [{"file": <índice do '
-            '"arquivo", int>, "course": <índice da matéria, int>}]}'
-            "\n\nRegras: agrupe arquivos da MESMA matéria juntos; crie quantas "
-            "matérias forem detectadas (pode ser uma só); títulos e tópicos "
-            "em português; 3 a 8 tópicos por matéria.\n\n"
-            "Arquivos:\n" + "\n\n".join(file_sections)
+            '["<tópico>", ...]}], "assignments": [{"file": <índice do arquivo, '
+            'int>, "course": <índice da matéria, int>}]}\n\n'
+            "Regras:\n"
+            "- Agrupe arquivos da MESMA matéria juntos; crie quantas matérias "
+            "forem detectadas (pode ser uma só).\n"
+            "- TÍTULO: use o nome oficial da disciplina; se houver código "
+            "(ex.: MC8322), use o formato 'CÓDIGO — Nome'. NUNCA 'Disciplina "
+            "<código>' nem '(2026)' sozinho.\n"
+            "- TÓPICOS: o arquivo classe 'programa' (ementa) é a fonte "
+            "canônica — use os temas do conteúdo programático. Headings de "
+            "material_didático complementam. lista_exercicios não cria tópico "
+            "novo. PROIBIDO 'Conteúdo do Capítulo N' sem o assunto real.\n"
+            "- 3 a 10 tópicos por matéria, em português, com o nome próprio do "
+            "assunto."
         )
         result = self._backend.generate(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            messages=[{"role": "user", "content": prompt}],
             schema=None,
-            sampler=self._sampler,
+            sampler=self._sampler or self._default_sampler(),
             deadline=self._limits.llm_timeout_s,
             seed=0,
         )
         data = _parse_json_object(result.text)
         return self._validate_model_payload(data, len(entries))
+
+    def _default_sampler(self) -> Any:
+        from eduagent.services.model_adapter import Sampler
+
+        # Perfil de agregação (ensaio): baixa temperatura — saída estrutural.
+        return Sampler(
+            temperature=0.2,
+            top_p=0.9,
+            top_k=20,
+            min_p=0.0,
+            presence_penalty=0.0,
+            repeat_penalty=1.0,
+            thinking=False,
+        )
 
     def _validate_model_payload(
         self, data: dict[str, Any], file_count: int
@@ -282,110 +456,7 @@ class CourseSuggestionService:
                 norm_assignments.append({"file": file_idx, "course": 1})
         return {"courses": norm_courses, "assignments": norm_assignments}
 
-    # -- API do serviço ----------------------------------------------------
-
-    def suggest(
-        self, user_id: str, files: list[tuple[str, bytes]]
-    ) -> list[dict[str, Any]]:
-        """Analisa os arquivos e cria rascunhos pendentes (um por matéria)."""
-        if not files:
-            raise EduAgentError(
-                ErrorCode.SCHEMA_INVALID,
-                "nenhum arquivo enviado para análise",
-                diagnostic=DIAGNOSTIC,
-            )
-        if len(files) > self._limits.max_files:
-            raise EduAgentError(
-                ErrorCode.RESOURCE_LIMIT,
-                f"máximo de {self._limits.max_files} arquivos por análise",
-                details={"max_files": self._limits.max_files},
-                diagnostic=DIAGNOSTIC,
-            )
-        entries: list[dict[str, Any]] = []
-        for filename, raw in files:
-            sample = self._extract_sample(filename, raw)
-            entries.append(
-                {"filename": filename, "raw": raw, "sample": sample}
-            )
-        analysis = self._call_model(entries)
-
-        now = self._clock()
-        expires = now + timedelta(hours=self._limits.ttl_hours)
-        created: list[dict[str, Any]] = []
-        for course_idx, course in enumerate(analysis["courses"], start=1):
-            member_files = [
-                entries[a["file"] - 1]
-                for a in analysis["assignments"]
-                if a["course"] == course_idx
-            ]
-            if not member_files:
-                # Matéria sem arquivo atribuído não vira rascunho (ruído de
-                # agrupamento do modelo nunca aparece na UI).
-                continue
-            suggestion_id = str(uuid.uuid4())
-            staging = self._staging_dir(user_id, suggestion_id)
-            staging.mkdir(parents=True, exist_ok=True)
-            files_meta: list[dict[str, Any]] = []
-            for entry in member_files:
-                target = self._staged_file_path(
-                    user_id, suggestion_id, entry["filename"]
-                )
-                target.write_bytes(entry["raw"])
-                files_meta.append(
-                    {
-                        "filename": entry["filename"],
-                        "size_bytes": len(entry["raw"]),
-                        "sample_chars": len(entry["sample"]),
-                    }
-                )
-            self._store.execute_write(
-                user_id,
-                [
-                    (
-                        "INSERT INTO course_suggestions"
-                        "(id, user_id, title, topics_json, files_json, status, "
-                        "created_at, expires_at) VALUES (?, ?, ?, ?, ?, "
-                        "'pending', ?, ?)",
-                        (
-                            suggestion_id,
-                            user_id,
-                            course["title"],
-                            json.dumps(course["topics"], ensure_ascii=False),
-                            json.dumps(files_meta, ensure_ascii=False),
-                            now.isoformat(),
-                            expires.isoformat(),
-                        ),
-                    )
-                ],
-                bump_domain_revision=False,
-            )
-            created.append(
-                {
-                    "id": suggestion_id,
-                    "title": course["title"],
-                    "topics": course["topics"],
-                    "files": files_meta,
-                    "status": "pending",
-                    "created_at": now.isoformat(),
-                    "expires_at": expires.isoformat(),
-                }
-            )
-        return created
-
-    def staged_file_path(
-        self, user_id: str, suggestion_id: str, filename: str
-    ) -> Path:
-        """Caminho confinado de um arquivo em staging (preview na UI)."""
-        return resolve_owned_path(
-            self._root,
-            user_id,
-            f"staging/{suggestion_id}/{filename}",
-        )
-
-    def _staged_file_path(
-        self, user_id: str, suggestion_id: str, filename: str
-    ) -> Path:
-        return self.staged_file_path(user_id, suggestion_id, filename)
+    # -- listagem / revisão / confirm / reject ------------------------------------
 
     def list_pending(self, user_id: str) -> list[dict[str, Any]]:
         """Rascunhos pendentes não expirados, mais recentes primeiro."""
@@ -454,7 +525,14 @@ class CourseSuggestionService:
         suggestion = self.get_pending(user_id, suggestion_id)
         staged: list[dict[str, Any]] = []
         for meta in suggestion["files"]:
-            path = self._staged_file_path(user_id, suggestion_id, str(meta["filename"]))
+            rel = str(meta.get("staged_rel") or "")
+            if not rel:
+                raise EduAgentError(
+                    ErrorCode.SOURCE_UNRESOLVED,
+                    f"arquivo sem caminho de staging: {meta.get('filename')}",
+                    diagnostic=DIAGNOSTIC,
+                )
+            path = resolve_owned_path(self._root, user_id, rel)
             if not path.exists():
                 raise EduAgentError(
                     ErrorCode.SOURCE_UNRESOLVED,
@@ -507,7 +585,8 @@ class CourseSuggestionService:
             target.write_bytes(raw)
             result = ingest_fn(user_id, entry["filename"], raw, course_id)
             ingest_results.append({"filename": entry["filename"], **result})
-        shutil.rmtree(self._staging_dir(user_id, suggestion_id), ignore_errors=True)
+            entry["path"].unlink(missing_ok=True)
+        self._rmdir_if_empty(self._staging_root(user_id))
         return {
             "course": {
                 "id": course_id,
@@ -519,8 +598,8 @@ class CourseSuggestionService:
         }
 
     def reject(self, user_id: str, suggestion_id: str) -> None:
-        """Descarta o rascunho e remove o staging (sem apagar aprovados)."""
-        self.get_pending(user_id, suggestion_id)
+        """Descarta o rascunho e remove seus arquivos de staging."""
+        suggestion = self.get_pending(user_id, suggestion_id)
         self._store.execute_write(
             user_id,
             [
@@ -532,10 +611,36 @@ class CourseSuggestionService:
             ],
             bump_domain_revision=False,
         )
-        shutil.rmtree(self._staging_dir(user_id, suggestion_id), ignore_errors=True)
+        root = self._staging_root(user_id)
+        for meta in suggestion["files"]:
+            rel = str(meta.get("staged_rel") or "")
+            if rel:
+                try:
+                    resolve_owned_path(self._root, user_id, rel).unlink(
+                        missing_ok=True
+                    )
+                except EduAgentError:
+                    continue
+        self._rmdir_if_empty(root)
+
+    def _rmdir_if_empty(self, root: Path) -> None:
+        """Remove diretórios de staging vazios (batch pode servir várias
+        sugestões — só some quando o último arquivo sai)."""
+        try:
+            for child in root.iterdir():
+                if child.is_dir() and not any(child.iterdir()):
+                    child.rmdir()
+            while root != root.parent:
+                if any(root.iterdir()):
+                    return
+                root.rmdir()
+                root = root.parent
+        except OSError:
+            return
 
 
 __all__ = [
     "CourseSuggestionService",
     "SuggestLimits",
+    "CLASS_LABELS",
 ]

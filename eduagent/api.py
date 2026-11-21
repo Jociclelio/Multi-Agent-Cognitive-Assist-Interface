@@ -2145,6 +2145,14 @@ class LoopbackAPI:
                     ingestion.activate_version(user_id, str(doc_id), str(version_id))
                 except Exception:  # noqa: BLE001
                     pass
+        # Etiqueta o acervo (classificação rápida por sha256, migração 0010):
+        # best-effort — falha aqui NÃO falha a ingestão.
+        try:
+            self.runtime.doc_classifier.classify_bytes_if_needed(
+                filename, raw_bytes
+            )
+        except Exception:  # noqa: BLE001
+            pass
         return _serialize_turn(turn_res, session_id)
 
     def _handle_get_course_suggestions(
@@ -2166,92 +2174,21 @@ class LoopbackAPI:
         user_id: str,
         body: dict[str, Any],
     ) -> None:
-        """Analisa arquivos e cria rascunhos pendentes (modelo de visão do
-        runtime configurado; erros tipados propagam — MODEL_NOT_ADMITTED etc.)."""
-        raw_files = body.get("files")
-        if not isinstance(raw_files, list) or not raw_files:
+        """Fase 2 do +Nova: agrega um batch já classificado (staging) em
+        rascunhos pendentes. Body: {batch_id}."""
+        batch_id = str(body.get("batch_id") or "").strip()
+        if not batch_id or "/" in batch_id or ".." in batch_id:
             self._send_json(
                 handler,
                 HTTPStatus.BAD_REQUEST,
                 _error_body(
                     ErrorCode.SCHEMA_INVALID,
-                    "campo 'files' é obrigatório (lista de "
-                    "{filename, content_base64})",
+                    "campo 'batch_id' é obrigatório (vem de "
+                    "/courses/suggestions/classify)",
                 ),
             )
             return
-        decoded: list[tuple[str, bytes]] = []
-        for entry in raw_files:
-            if not isinstance(entry, dict):
-                self._send_json(
-                    handler,
-                    HTTPStatus.BAD_REQUEST,
-                    _error_body(
-                        ErrorCode.SCHEMA_INVALID,
-                        "cada item de 'files' deve ser objeto "
-                        "{filename, content_base64}",
-                    ),
-                )
-                return
-            raw_filename = str(entry.get("filename") or "").strip()
-            if (
-                not raw_filename
-                or "/" in raw_filename
-                or "\\" in raw_filename
-                or ".." in raw_filename
-                or not _SAFE_FILENAME.match(raw_filename)
-            ):
-                self._send_json(
-                    handler,
-                    HTTPStatus.FORBIDDEN,
-                    _error_body(
-                        ErrorCode.TOOL_DENIED,
-                        "nome de arquivo inválido ou fora do confinamento "
-                        "permitido",
-                        details={"filename": raw_filename},
-                    ),
-                )
-                return
-            content_b64 = entry.get("content_base64")
-            if not isinstance(content_b64, str):
-                self._send_json(
-                    handler,
-                    HTTPStatus.BAD_REQUEST,
-                    _error_body(
-                        ErrorCode.SCHEMA_INVALID,
-                        f"content_base64 ausente em '{raw_filename}'",
-                    ),
-                )
-                return
-            try:
-                raw_bytes = base64.b64decode(content_b64, validate=True)
-            except Exception as exc:  # noqa: BLE001
-                self._send_json(
-                    handler,
-                    HTTPStatus.BAD_REQUEST,
-                    _error_body(
-                        ErrorCode.SCHEMA_INVALID,
-                        f"content_base64 inválido em '{raw_filename}': {exc}",
-                    ),
-                )
-                return
-            if len(raw_bytes) > MAX_UPLOAD_BYTES:
-                self._send_json(
-                    handler,
-                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
-                    _error_body(
-                        ErrorCode.RESOURCE_LIMIT,
-                        f"documento excede o limite de 50 MiB "
-                        f"({len(raw_bytes)} bytes)",
-                        details={
-                            "size_bytes": len(raw_bytes),
-                            "max_bytes": MAX_UPLOAD_BYTES,
-                        },
-                    ),
-                )
-                return
-            decoded.append((raw_filename, raw_bytes))
-        created = self.runtime.course_suggestions.suggest(user_id, decoded)
+        created = self.runtime.course_suggestions.aggregate_batch(user_id, batch_id)
         self._send_json(
             handler,
             HTTPStatus.OK,
@@ -2262,6 +2199,136 @@ class LoopbackAPI:
                     f"{len(created)} matéria(s) proposta(s) — aguardando "
                     "aprovação no rail de disciplinas"
                 ),
+            },
+        )
+
+    def _handle_post_course_suggestion_classify(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Fase 1 do +Nova: um arquivo por chamada — staging + classificação
+        rápida. Body: {filename, content_base64, batch_id?}."""
+        raw_filename = str(body.get("filename") or "").strip()
+        if (
+            not raw_filename
+            or "/" in raw_filename
+            or "\\" in raw_filename
+            or ".." in raw_filename
+            or not _SAFE_FILENAME.match(raw_filename)
+        ):
+            self._send_json(
+                handler,
+                HTTPStatus.FORBIDDEN,
+                _error_body(
+                    ErrorCode.TOOL_DENIED,
+                    "nome de arquivo inválido ou fora do confinamento permitido",
+                    details={"filename": raw_filename},
+                ),
+            )
+            return
+        content_b64 = body.get("content_base64")
+        if not isinstance(content_b64, str):
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(
+                    ErrorCode.SCHEMA_INVALID,
+                    f"content_base64 ausente em '{raw_filename}'",
+                ),
+            )
+            return
+        try:
+            raw_bytes = base64.b64decode(content_b64, validate=True)
+        except Exception as exc:  # noqa: BLE001
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(
+                    ErrorCode.SCHEMA_INVALID,
+                    f"content_base64 inválido em '{raw_filename}': {exc}",
+                ),
+            )
+            return
+        if len(raw_bytes) > MAX_UPLOAD_BYTES:
+            self._send_json(
+                handler,
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                _error_body(
+                    ErrorCode.RESOURCE_LIMIT,
+                    f"documento excede o limite de 50 MiB ({len(raw_bytes)} bytes)",
+                    details={"size_bytes": len(raw_bytes), "max_bytes": MAX_UPLOAD_BYTES},
+                ),
+            )
+            return
+        batch_id = body.get("batch_id")
+        batch_id = str(batch_id).strip() if isinstance(batch_id, str) and batch_id.strip() else None
+        result = self.runtime.course_suggestions.classify_staged(
+            user_id, raw_filename, raw_bytes, batch_id
+        )
+        self._send_json(handler, HTTPStatus.OK, {"status": "ok", **result})
+
+    def _handle_post_library_classify_pending(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Backfill: classifica versões ativas do acervo sem classificação
+        (uma chamada de modelo por sha256 novo; best-effort por documento)."""
+        rows = self._fetchall(
+            """
+            SELECT v.id AS version_id, v.sha256, v.original_ref,
+                   d.id AS doc_id, d.course_id
+            FROM documents d
+            JOIN doc_versions v ON v.doc_id = d.id AND v.user_id = d.user_id
+            WHERE d.user_id = ? AND v.status IN ('active', 'indexed')
+              AND v.sha256 IS NOT NULL
+            GROUP BY v.sha256
+            """,
+            (user_id,),
+        )
+        classifier = self.runtime.doc_classifier
+        pending = [
+            r
+            for r in rows
+            if classifier.get_by_sha256(str(r["sha256"])) is None
+        ]
+        if not pending:
+            self._send_json(
+                handler,
+                HTTPStatus.OK,
+                {"status": "ok", "classified": 0, "pending": 0},
+            )
+            return
+        data_root = pathlib.Path(self.runtime.data_root).resolve()
+        user_dir = (data_root / user_id).resolve()
+        classified = 0
+        failed = 0
+        for row in pending:
+            ref = str(row["original_ref"] or "")
+            target = (data_root / ref).resolve()
+            try:
+                target.relative_to(user_dir)
+            except ValueError:
+                continue
+            if not target.exists():
+                continue
+            try:
+                result = classifier.classify_bytes(ref.rsplit("/", 1)[-1], target.read_bytes())
+                classified += 1
+            except EduAgentError:
+                failed += 1
+                continue
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {
+                "status": "ok",
+                "classified": classified,
+                "failed": failed,
+                "pending": max(0, len(pending) - classified - failed),
             },
         )
 
@@ -2732,6 +2799,18 @@ class LoopbackAPI:
                 self._handle_post_course_suggestions(handler, user_id, body)
                 return
 
+            if path == "/courses/suggestions/classify":
+                self._handle_post_course_suggestion_classify(
+                    handler, user_id, body
+                )
+                return
+
+            if path == "/library/classify-pending":
+                self._handle_post_library_classify_pending(
+                    handler, user_id, body
+                )
+                return
+
             if path.startswith("/courses/") and path.endswith("/archive"):
                 course_id = path[len("/courses/") : -len("/archive")]
                 self._handle_post_course_archive(handler, user_id, course_id, body)
@@ -2832,24 +2911,32 @@ class LoopbackAPI:
                 ),
             )
 
-    def _handle_delete(self, handler: BaseHTTPRequestHandler) -> None:
+    def _handle_delete(self, handler: BaseHTTPRequestHandler, *args) -> None:
         user_id = self._require_user(handler)
         if user_id is None:
             return
         path = urlparse(handler.path).path.rstrip("/")
         parts = [part for part in path.split("/") if part]
-        if len(parts) == 2 and parts[0] == "documents":
-            self._handle_delete_document(handler, user_id, parts[1])
-            return
-        if len(parts) == 2 and parts[0] == "courses":
-            self._handle_delete_course(handler, user_id, parts[1])
-            return
-        if (
-            len(parts) == 3
-            and parts[0] == "courses"
-            and parts[1] == "suggestions"
-        ):
-            self._handle_delete_course_suggestion(handler, user_id, parts[2])
+        try:
+            if len(parts) == 2 and parts[0] == "documents":
+                self._handle_delete_document(handler, user_id, parts[1])
+                return
+            if len(parts) == 2 and parts[0] == "courses":
+                self._handle_delete_course(handler, user_id, parts[1])
+                return
+            if (
+                len(parts) == 3
+                and parts[0] == "courses"
+                and parts[1] == "suggestions"
+            ):
+                self._handle_delete_course_suggestion(handler, user_id, parts[2])
+                return
+        except EduAgentError as exc:
+            self._send_json(
+                handler,
+                HTTP_STATUS_BY_ERROR.get(exc.code, 500),
+                {"status": "failed", "error": exc.to_dict()},
+            )
             return
         self._send_json(
             handler,

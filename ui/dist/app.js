@@ -491,6 +491,7 @@ function openSuggestionReview(suggestion) {
         (f) => `
           <li class="nc-file-item">
             <a class="nc-file-name" href="/courses/suggestions/${encodeURIComponent(suggestion.id)}/files/${encodeURIComponent(f.filename)}" target="_blank" rel="noopener" title="Abrir conteúdo do arquivo">📄 ${escapeHtml(f.filename)}</a>
+            <span class="nc-class-chip">${escapeHtml(f.class_label || "📄 Outro")}</span>
             <span class="nc-file-size">${((f.size_bytes || 0) / 1024 / 1024).toFixed(2)} MB</span>
           </li>
         `,
@@ -2492,50 +2493,63 @@ function bindEvents() {
     if (!files.length) return;
     const statusEl = document.getElementById("nc-analyze-status");
     const analyzeBtn = document.getElementById("nc-analyze-btn");
-    const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
-    if (totalBytes > 48 * 1024 * 1024 && statusEl) {
-      statusEl.hidden = false;
-      statusEl.innerHTML = `<small class="upload-err">✖ Total de ${(totalBytes / 1024 / 1024).toFixed(1)} MB excede o teto de 48 MB por análise — envie em menos arquivos por vez.</small>`;
-      return;
-    }
     if (analyzeBtn) analyzeBtn.disabled = true;
-    if (statusEl) {
-      statusEl.hidden = false;
-      statusEl.innerHTML = `
-        <div class="ingest-progress"><div class="ingest-progress-fill"></div></div>
-        <small>Analisando ${files.length} arquivo(s) com o modelo local — extração e agrupamento podem levar alguns minutos…</small>`;
-    }
     try {
-      const payload = [];
-      for (const file of files) {
-        payload.push({
-          filename: sanitizeFilename(file.name),
-          content_base64: await readAsBase64(file),
+      // Fase 1: um arquivo por chamada — progresso arquivo a arquivo; o
+      // servidor faz staging + classificação rápida (cacheada por sha256).
+      let batchId = null;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`${file.name} excede o limite de 50 MB`);
+        }
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.innerHTML = `
+            <div class="ingest-progress determinate"><div class="ingest-progress-fill" style="width: ${Math.round((100 * i) / files.length)}%; animation: none;"></div></div>
+            <small>Classificando ${i + 1}/${files.length}: <strong>${escapeHtml(file.name)}</strong>…</small>`;
+        }
+        const b64 = await readAsBase64(file);
+        const { status, data } = await apiFetch("/courses/suggestions/classify", {
+          method: "POST",
+          body: {
+            filename: sanitizeFilename(file.name),
+            content_base64: b64,
+            batch_id: batchId,
+          },
         });
+        if (status !== 200) {
+          throw new Error(data?.error?.message || `HTTP ${status}`);
+        }
+        batchId = data.batch_id;
       }
-      const { status, data } = await apiFetch("/courses/suggestions", {
+      // Fase 2: agregação — decide matérias, título e tópicos.
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.innerHTML = `
+          <div class="ingest-progress"><div class="ingest-progress-fill"></div></div>
+          <small>Agrupando matérias e montando título/tópicos…</small>`;
+      }
+      const agg = await apiFetch("/courses/suggestions", {
         method: "POST",
-        body: { files: payload },
+        body: { batch_id: batchId },
       });
-      if (status === 200) {
-        const count = (data.suggestions || []).length;
-        appState.ncFiles = [];
-        if (newCourseDialog && newCourseDialog.open) newCourseDialog.close();
-        await refreshCoreData();
-        if (statusEl) {
-          statusEl.hidden = false;
-          statusEl.innerHTML = `<small class="upload-ok">✔ ${count} matéria(s) sugerida(s) — revise no rail, marcadas como <strong>esperando aprovação</strong>.</small>`;
-        }
-      } else {
-        if (statusEl) {
-          statusEl.hidden = false;
-          statusEl.innerHTML = `<small class="upload-err">✖ ${escapeHtml(data?.error?.message || `HTTP ${status}`)} — use a aba <strong>Manual</strong> se quiser criar sem análise.</small>`;
-        }
+      if (agg.status !== 200) {
+        throw new Error(agg.data?.error?.message || `HTTP ${agg.status}`);
+      }
+      const count = (agg.data.suggestions || []).length;
+      appState.ncFiles = [];
+      renderNcFileList();
+      if (newCourseDialog && newCourseDialog.open) newCourseDialog.close();
+      await refreshCoreData();
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.innerHTML = `<small class="upload-ok">✔ ${count} matéria(s) sugerida(s) — revise no rail, marcadas como <strong>esperando aprovação</strong>.</small>`;
       }
     } catch (err) {
       if (statusEl) {
         statusEl.hidden = false;
-        statusEl.innerHTML = `<small class="upload-err">✖ Falha na análise: ${escapeHtml(String(err))}</small>`;
+        statusEl.innerHTML = `<small class="upload-err">✖ ${escapeHtml(String(err))} — use a aba <strong>Manual</strong> se quiser criar sem análise.</small>`;
       }
     } finally {
       if (analyzeBtn) analyzeBtn.disabled = false;

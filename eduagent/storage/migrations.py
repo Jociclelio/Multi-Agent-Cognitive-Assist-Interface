@@ -815,6 +815,35 @@ ALTER TABLE courses ADD COLUMN archived_at TEXT;
 """
 
 
+def _migration_0010() -> str:
+    """Classificação de documentos do acervo (Fase 1 do fluxo +Nova).
+
+    Tabela endereçada por **sha256 do conteúdo**: a mesma material ingerido
+    duas vezes (ou como arquivo solto no +Nova e depois ingerido) reutiliza a
+    classificação — uma chamada de modelo por conteúdo, nunca por cópia. O
+    classificador rápido roda após a ingestão de cada documento (best-effort)
+    e no backfill do acervo; ``doc_class`` segue a taxonomia fechada do
+    classificador (programa/cronograma/lista_exercicios/material_didatico/
+    outro). ``disciplina_hints``/``topics`` alimentam a Fase 2 (agregação).
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- doc_classifications: classificação rápida por sha256 do conteúdo
+-- ---------------------------------------------------------------------------
+CREATE TABLE doc_classifications (
+    sha256                TEXT PRIMARY KEY,
+    doc_class             TEXT NOT NULL
+        CHECK (doc_class IN ('programa','cronograma','lista_exercicios',
+                             'material_didatico','outro')),
+    confidence            TEXT NOT NULL CHECK (confidence IN ('alta','media','baixa')),
+    disciplina_hints_json TEXT NOT NULL DEFAULT '[]',
+    topics_json           TEXT NOT NULL DEFAULT '[]',
+    pages_scanned         INTEGER NOT NULL DEFAULT 0,
+    classified_at         TEXT NOT NULL
+);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -889,6 +918,14 @@ def _load_builtin() -> None:
             "courses.archived_at: arquivamento lógico de matérias (fluxo "
             "Acervo — apagar ou arquivar)",
             _migration_0009(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            10,
+            "doc_classifications: classificação rápida de documentos por "
+            "sha256 (Fase 1 do +Nova e do acervo)",
+            _migration_0010(),
         )
     )
 
