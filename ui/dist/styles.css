@@ -1754,10 +1754,10 @@ a.nc-file-name:hover {
   padding: 2px 8px;
 }
 
-/* Cartão do rail: "…" das ações inline com o título, no topo */
+/* Cartão do rail: "…" das ações no fim da linha do título (direita) */
 .course-menu {
   flex: 0 0 auto;
-  margin-right: 6px;
+  margin-left: auto;
 }
 
 .course-menu summary {
@@ -1766,6 +1766,12 @@ a.nc-file-name:hover {
   font-weight: 700;
   list-style: none;
   user-select: none;
+}
+
+/* summary na borda direita: popover abre para a esquerda (dentro do rail) */
+.course-menu .doc-action-popover {
+  left: auto;
+  right: 0;
 }
 
 .course-menu summary::-webkit-details-marker {
@@ -1780,12 +1786,6 @@ a.nc-file-name:hover {
 
 .doc-action-popover button.danger {
   color: #f87171;
-}
-
-/* Popover das ações no rail abre à direita (o summary está na borda esquerda) */
-.course-menu .doc-action-popover {
-  left: 0;
-  right: auto;
 }
 
 .doc-action-popover button {

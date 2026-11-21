@@ -544,6 +544,8 @@ function renderCoursesList() {
       return `
         <div class="course-card ${selected}" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}" tabindex="0">
           <div class="course-card-top">
+            <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
+            <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
             <details class="doc-action-menu course-menu">
               <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
               <div class="doc-action-popover">
@@ -551,8 +553,6 @@ function renderCoursesList() {
                 <button type="button" class="danger" data-delete-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}">Apagar disciplina</button>
               </div>
             </details>
-            <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
-            <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
           </div>
           <p class="course-card-preview">${escapeHtml(course.last_turn_preview)}</p>
           <div class="course-card-meta">
@@ -1710,41 +1710,36 @@ async function loadAuxiliaryView(viewName) {
       })
       .join("");
 
-    // Strip de disciplinas com ações (arquivar / apagar / desarquivar) —
-    // archivadas vêm de /courses?include_archived=1 cruzado com o estado ativo.
+    // Ações de disciplina vivem no rail (… à direita do nome). No Acervo só
+    // aparece o grupo "Arquivadas" (quando existir) — de lá se desarquiva.
     let coursesHtml = "";
     const allRes = await apiFetch("/courses?include_archived=1");
     if (allRes.status === 200 && Array.isArray(allRes.data.courses)) {
       const activeIds = new Set((appState.courses || []).map((c) => c.id));
       const all = allRes.data.courses;
-      const activeCourses = all.filter((c) => activeIds.has(c.id));
       const archivedCourses = all.filter((c) => !activeIds.has(c.id));
-      const courseChip = (c, archived) => `
-        <div class="lib-course-chip${archived ? " is-archived" : ""}${c.id === appState.selectedCourseId ? " is-selected" : ""}">
-          <button type="button" class="lib-course-name" data-lib-select-course="${escapeHtml(c.id)}" title="${archived ? "Arquivada" : "Selecionar disciplina"}">${escapeHtml(c.title)}${archived ? " · arquivada" : ""}</button>
-          ${archived ? `
-          <details class="doc-action-menu">
-            <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
-            <div class="doc-action-popover">
-              <button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="false">Desarquivar</button>
-              <button type="button" class="danger" data-delete-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}">Apagar disciplina</button>
-            </div>
-          </details>` : ""}
-        </div>
-      `;
-      coursesHtml = `
-        <div class="lib-courses-block">
-          <h3 class="lib-courses-heading">Disciplinas</h3>
-          <div class="lib-course-chips">
-            ${activeCourses.map((c) => courseChip(c, false)).join("") || `<p class="muted-note">Nenhuma disciplina ativa.</p>`}
+      if (archivedCourses.length) {
+        const archivedChip = (c) => `
+          <div class="lib-course-chip is-archived${c.id === appState.selectedCourseId ? " is-selected" : ""}">
+            <button type="button" class="lib-course-name" data-lib-select-course="${escapeHtml(c.id)}" title="Disciplina arquivada">${escapeHtml(c.title)} · arquivada</button>
+            <details class="doc-action-menu">
+              <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
+              <div class="doc-action-popover">
+                <button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="false">Desarquivar</button>
+                <button type="button" class="danger" data-delete-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}">Apagar disciplina</button>
+              </div>
+            </details>
           </div>
-          ${archivedCourses.length ? `
-          <h4 class="lib-courses-heading">Arquivadas</h4>
-          <div class="lib-course-chips">
-            ${archivedCourses.map((c) => courseChip(c, true)).join("")}
-          </div>` : ""}
-        </div>
-      `;
+        `;
+        coursesHtml = `
+          <div class="lib-courses-block">
+            <h4 class="lib-courses-heading">Arquivadas</h4>
+            <div class="lib-course-chips">
+              ${archivedCourses.map(archivedChip).join("")}
+            </div>
+          </div>
+        `;
+      }
     }
 
     el.innerHTML =
