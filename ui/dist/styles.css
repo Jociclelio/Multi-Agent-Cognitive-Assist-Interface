@@ -1754,18 +1754,10 @@ a.nc-file-name:hover {
   padding: 2px 8px;
 }
 
-/* Cartão do rail: "…" das ações à esquerda + conteúdo clicável */
-.course-card {
-  flex-direction: row;
-  align-items: stretch;
-  padding: 0;
-  gap: 0;
-}
-
+/* Cartão do rail: "…" das ações inline com o título, no topo */
 .course-menu {
-  align-self: center;
   flex: 0 0 auto;
-  padding-left: 4px;
+  margin-right: 6px;
 }
 
 .course-menu summary {
@@ -1773,7 +1765,6 @@ a.nc-file-name:hover {
   cursor: pointer;
   font-weight: 700;
   list-style: none;
-  padding: 2px 7px;
   user-select: none;
 }
 
@@ -1781,25 +1772,11 @@ a.nc-file-name:hover {
   display: none;
 }
 
+/* curso: card inteiro é o alvo de clique; sem botão interno */
 .course-card-main {
-  appearance: none;
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  font: inherit;
-  gap: 6px;
-  min-width: 0;
-  padding: 10px 12px;
-  text-align: start;
+  display: none;
 }
 
-.course-card.is-suggestion .course-card-main {
-  cursor: pointer;
-}
 
 .doc-action-popover button.danger {
   color: #f87171;

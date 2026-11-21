@@ -521,17 +521,15 @@ function renderCoursesList() {
   const suggestionCards = suggestions
     .map(
       (s) => `
-        <div class="course-card is-suggestion">
-          <button type="button" class="course-card-main" data-suggestion-id="${escapeHtml(s.id)}" role="option" aria-selected="false">
-            <div class="course-card-top">
-              <h3 class="course-card-title">${escapeHtml(s.title)}</h3>
-              <span class="suggestion-badge">⏳ esperando aprovação</span>
-            </div>
-            <p class="course-card-preview">${escapeHtml((s.files || []).map((f) => f.filename).join(", "))}</p>
-            <div class="course-card-meta">
-              <span>${(s.topics || []).length} tópico(s) sugerido(s) · ${(s.files || []).length} arquivo(s)</span>
-            </div>
-          </button>
+        <div class="course-card is-suggestion" data-suggestion-id="${escapeHtml(s.id)}" role="option" aria-selected="false" tabindex="0">
+          <div class="course-card-top">
+            <h3 class="course-card-title">${escapeHtml(s.title)}</h3>
+            <span class="suggestion-badge">⏳ esperando aprovação</span>
+          </div>
+          <p class="course-card-preview">${escapeHtml((s.files || []).map((f) => f.filename).join(", "))}</p>
+          <div class="course-card-meta">
+            <span>${(s.topics || []).length} tópico(s) sugerido(s) · ${(s.files || []).length} arquivo(s)</span>
+          </div>
         </div>
       `,
     )
@@ -544,25 +542,23 @@ function renderCoursesList() {
         ? "● Pronta p/ estudar"
         : "○ Sem material ativo";
       return `
-        <div class="course-card ${selected}">
-          <details class="doc-action-menu course-menu">
-            <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
-            <div class="doc-action-popover">
-              <button type="button" data-archive-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}" data-archive-to="true">Arquivar</button>
-              <button type="button" class="danger" data-delete-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}">Apagar disciplina</button>
-            </div>
-          </details>
-          <button type="button" class="course-card-main" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}">
-            <div class="course-card-top">
-              <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
-              <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
-            </div>
-            <p class="course-card-preview">${escapeHtml(course.last_turn_preview)}</p>
-            <div class="course-card-meta">
-              <span class="tier-badge">P${escapeHtml(course.sort_tier)} · ${escapeHtml(course.sort_reason_label)}</span>
-              <span>Domínio: ${escapeHtml(course.domain_status)}</span>
-            </div>
-          </button>
+        <div class="course-card ${selected}" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}" tabindex="0">
+          <div class="course-card-top">
+            <details class="doc-action-menu course-menu">
+              <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
+              <div class="doc-action-popover">
+                <button type="button" data-archive-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}" data-archive-to="true">Arquivar</button>
+                <button type="button" class="danger" data-delete-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}">Apagar disciplina</button>
+              </div>
+            </details>
+            <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
+            <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
+          </div>
+          <p class="course-card-preview">${escapeHtml(course.last_turn_preview)}</p>
+          <div class="course-card-meta">
+            <span class="tier-badge">P${escapeHtml(course.sort_tier)} · ${escapeHtml(course.sort_reason_label)}</span>
+            <span>Domínio: ${escapeHtml(course.domain_status)}</span>
+          </div>
         </div>
       `;
     })
@@ -570,18 +566,22 @@ function renderCoursesList() {
 
   container.innerHTML = suggestionCards + courseCards;
 
-  container.querySelectorAll("[data-course-id]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const cid = btn.getAttribute("data-course-id");
+  container.querySelectorAll("[data-course-id]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const cid = card.getAttribute("data-course-id");
       selectCourse(cid);
     });
   });
-  container.querySelectorAll("[data-suggestion-id]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const sid = btn.getAttribute("data-suggestion-id");
+  container.querySelectorAll("[data-suggestion-id]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const sid = card.getAttribute("data-suggestion-id");
       const suggestion = (appState.suggestions || []).find((s) => s.id === sid);
       if (suggestion) openSuggestionReview(suggestion);
     });
+  });
+  // O "…" não deve selecionar a disciplina: cliques no menu ficam no menu.
+  container.querySelectorAll(".course-menu").forEach((menu) => {
+    menu.addEventListener("click", (e) => e.stopPropagation());
   });
   // Ações da disciplina no rail: arquivar / apagar (mesmos endpoints do Acervo)
   container.querySelectorAll("[data-archive-course]").forEach((button) => {
