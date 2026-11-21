@@ -1753,3 +1753,64 @@ a.nc-file-name:hover {
   border-radius: 999px;
   padding: 2px 8px;
 }
+
+/* Cartão do rail: "…" das ações à esquerda + conteúdo clicável */
+.course-card {
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+}
+
+.course-menu {
+  align-self: center;
+  flex: 0 0 auto;
+  padding-left: 4px;
+}
+
+.course-menu summary {
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  padding: 2px 7px;
+  user-select: none;
+}
+
+.course-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.course-card-main {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  font: inherit;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  text-align: start;
+}
+
+.course-card.is-suggestion .course-card-main {
+  cursor: pointer;
+}
+
+.doc-action-popover button.danger {
+  color: #f87171;
+}
+
+/* Popover das ações no rail abre à direita (o summary está na borda esquerda) */
+.course-menu .doc-action-popover {
+  left: 0;
+  right: auto;
+}
+
+.doc-action-popover button {
+  color: #e6edf7;
+}

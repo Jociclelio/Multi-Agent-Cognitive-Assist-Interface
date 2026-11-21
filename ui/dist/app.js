@@ -521,16 +521,18 @@ function renderCoursesList() {
   const suggestionCards = suggestions
     .map(
       (s) => `
-        <button type="button" class="course-card is-suggestion" data-suggestion-id="${escapeHtml(s.id)}" role="option" aria-selected="false">
-          <div class="course-card-top">
-            <h3 class="course-card-title">${escapeHtml(s.title)}</h3>
-            <span class="suggestion-badge">⏳ esperando aprovação</span>
-          </div>
-          <p class="course-card-preview">${escapeHtml((s.files || []).map((f) => f.filename).join(", "))}</p>
-          <div class="course-card-meta">
-            <span>${(s.topics || []).length} tópico(s) sugerido(s) · ${(s.files || []).length} arquivo(s)</span>
-          </div>
-        </button>
+        <div class="course-card is-suggestion">
+          <button type="button" class="course-card-main" data-suggestion-id="${escapeHtml(s.id)}" role="option" aria-selected="false">
+            <div class="course-card-top">
+              <h3 class="course-card-title">${escapeHtml(s.title)}</h3>
+              <span class="suggestion-badge">⏳ esperando aprovação</span>
+            </div>
+            <p class="course-card-preview">${escapeHtml((s.files || []).map((f) => f.filename).join(", "))}</p>
+            <div class="course-card-meta">
+              <span>${(s.topics || []).length} tópico(s) sugerido(s) · ${(s.files || []).length} arquivo(s)</span>
+            </div>
+          </button>
+        </div>
       `,
     )
     .join("");
@@ -542,17 +544,26 @@ function renderCoursesList() {
         ? "● Pronta p/ estudar"
         : "○ Sem material ativo";
       return `
-        <button type="button" class="course-card ${selected}" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}">
-          <div class="course-card-top">
-            <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
-            <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
-          </div>
-          <p class="course-card-preview">${escapeHtml(course.last_turn_preview)}</p>
-          <div class="course-card-meta">
-            <span class="tier-badge">P${escapeHtml(course.sort_tier)} · ${escapeHtml(course.sort_reason_label)}</span>
-            <span>Domínio: ${escapeHtml(course.domain_status)}</span>
-          </div>
-        </button>
+        <div class="course-card ${selected}">
+          <details class="doc-action-menu course-menu">
+            <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
+            <div class="doc-action-popover">
+              <button type="button" data-archive-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}" data-archive-to="true">Arquivar</button>
+              <button type="button" class="danger" data-delete-course="${escapeHtml(course.id)}" data-course-title="${escapeHtml(course.title)}">Apagar disciplina</button>
+            </div>
+          </details>
+          <button type="button" class="course-card-main" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}">
+            <div class="course-card-top">
+              <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
+              <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
+            </div>
+            <p class="course-card-preview">${escapeHtml(course.last_turn_preview)}</p>
+            <div class="course-card-meta">
+              <span class="tier-badge">P${escapeHtml(course.sort_tier)} · ${escapeHtml(course.sort_reason_label)}</span>
+              <span>Domínio: ${escapeHtml(course.domain_status)}</span>
+            </div>
+          </button>
+        </div>
       `;
     })
     .join("");
@@ -570,6 +581,48 @@ function renderCoursesList() {
       const sid = btn.getAttribute("data-suggestion-id");
       const suggestion = (appState.suggestions || []).find((s) => s.id === sid);
       if (suggestion) openSuggestionReview(suggestion);
+    });
+  });
+  // Ações da disciplina no rail: arquivar / apagar (mesmos endpoints do Acervo)
+  container.querySelectorAll("[data-archive-course]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const cid = button.getAttribute("data-archive-course");
+      const title = button.getAttribute("data-course-title") || "esta disciplina";
+      if (!window.confirm(`Arquivar “${title}”? Ela sai deste rail — dá para desarquivar no Acervo.`)) return;
+      button.disabled = true;
+      try {
+        const result = await apiFetch(`/courses/${encodeURIComponent(cid)}/archive`, {
+          method: "POST",
+          body: { archived: true },
+        });
+        if (result.status !== 200) throw new Error(result.data?.error?.message || "Falha ao arquivar.");
+        if (appState.selectedCourseId === cid) {
+          appState.selectedCourseId = (appState.courses || []).find((c) => c.id !== cid)?.id || null;
+        }
+        await refreshCoreData();
+      } catch (error) {
+        window.alert(String(error));
+        button.disabled = false;
+      }
+    });
+  });
+  container.querySelectorAll("[data-delete-course]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const cid = button.getAttribute("data-delete-course");
+      const title = button.getAttribute("data-course-title") || "esta disciplina";
+      if (!window.confirm(`Apagar “${title}” e TODO o material ingerido dela (documentos, tópicos e índice)? Esta ação não pode ser desfeita.`)) return;
+      button.disabled = true;
+      try {
+        const result = await apiFetch(`/courses/${encodeURIComponent(cid)}`, { method: "DELETE" });
+        if (result.status !== 200) throw new Error(result.data?.error?.message || "Não foi possível apagar.");
+        if (appState.selectedCourseId === cid) {
+          appState.selectedCourseId = (appState.courses || []).find((c) => c.id !== cid)?.id || null;
+        }
+        await refreshCoreData();
+      } catch (error) {
+        window.alert(String(error));
+        button.disabled = false;
+      }
     });
   });
 }
@@ -1669,15 +1722,14 @@ async function loadAuxiliaryView(viewName) {
       const courseChip = (c, archived) => `
         <div class="lib-course-chip${archived ? " is-archived" : ""}${c.id === appState.selectedCourseId ? " is-selected" : ""}">
           <button type="button" class="lib-course-name" data-lib-select-course="${escapeHtml(c.id)}" title="${archived ? "Arquivada" : "Selecionar disciplina"}">${escapeHtml(c.title)}${archived ? " · arquivada" : ""}</button>
+          ${archived ? `
           <details class="doc-action-menu">
             <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
             <div class="doc-action-popover">
-              ${archived
-                ? `<button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="false">Desarquivar</button>`
-                : `<button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="true">Arquivar</button>`}
+              <button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="false">Desarquivar</button>
               <button type="button" class="danger" data-delete-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}">Apagar disciplina</button>
             </div>
-          </details>
+          </details>` : ""}
         </div>
       `;
       coursesHtml = `
