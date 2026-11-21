@@ -359,3 +359,23 @@ export interface PomodoroState {
   autoCompletedForbidden: true;
 }
 
+
+// ---------------------------------------------------------------------------
+// Fluxo "+Nova": matérias sugeridas a partir de arquivos (course_suggestions)
+// ---------------------------------------------------------------------------
+
+export interface SuggestionFile {
+  filename: string;
+  size_bytes: number;
+  sample_chars?: number;
+}
+
+export interface CourseSuggestion {
+  id: string;
+  title: string;
+  topics: string[];
+  files: SuggestionFile[];
+  status: "pending";
+  created_at: string;
+  expires_at: string;
+}

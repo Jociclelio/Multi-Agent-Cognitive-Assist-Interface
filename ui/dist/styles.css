@@ -1545,3 +1545,155 @@ dialog::backdrop {
   gap: 8px;
   margin-top: 8px;
 }
+
+/* ==========================================================================
+   Fluxo "+Nova": popup com abas (Enviar arquivos | Manual) e revisão de
+   matérias sugeridas ("esperando aprovação" no rail).
+   ========================================================================== */
+
+dialog.modal-dialog.modal-wide {
+  max-inline-size: 720px;
+}
+
+.new-course-modal {
+  gap: 12px;
+}
+
+/* Abas do popup */
+.nc-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-focus);
+  padding-bottom: 0;
+}
+
+.nc-tab {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.nc-tab:hover {
+  color: var(--text-primary);
+}
+
+.nc-tab.is-active {
+  border-bottom-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+.nc-pane {
+  display: none;
+}
+
+.nc-pane.is-active {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Zona de arrastar e soltar (estilo seletor de arquivos) */
+.nc-dropzone {
+  align-items: center;
+  border: 2px dashed var(--border-focus);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 200px;
+  padding: 24px;
+  text-align: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.nc-dropzone:hover,
+.nc-dropzone:focus-visible,
+.nc-dropzone.dragover {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: var(--text-primary);
+}
+
+.nc-dropzone-icon {
+  font-size: 34px;
+}
+
+.nc-dropzone-primary {
+  font-size: 15px;
+  margin: 0;
+}
+
+.nc-dropzone .muted-note {
+  max-inline-size: 460px;
+}
+
+/* Lista de arquivos escolhidos / anexados à sugestão */
+.nc-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 0;
+}
+
+.nc-file-item {
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-focus);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.nc-file-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.nc-file-name {
+  text-decoration: none;
+}
+
+a.nc-file-name:hover {
+  text-decoration: underline;
+}
+
+.nc-file-size {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.nc-status {
+  margin-top: 4px;
+}
+
+/* Cartão de matéria sugerida no rail (estado "esperando aprovação") */
+.course-card.is-suggestion {
+  border: 1px dashed var(--border-focus);
+  opacity: 0.92;
+}
+
+.suggestion-badge {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}

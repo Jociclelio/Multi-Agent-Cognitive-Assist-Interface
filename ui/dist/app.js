@@ -269,6 +269,10 @@ const appState = {
   // não grava mensagens de chat como eventos de domínio; ver task interface 002).
   localTurns: [],
   calendarWeekOffset: 0,
+  // Rascunhos de matérias sugeridas (fluxo +Nova): pendentes de aprovação.
+  suggestions: [],
+  // Arquivos escolhidos no popup +Nova (ainda não analisados).
+  ncFiles: [],
 };
 
 async function apiFetch(path, options = {}) {
@@ -468,6 +472,39 @@ function renderRuntimeGatesBanner() {
   banner.innerHTML = pills.join("");
 }
 
+// Rascunho em revisão no popup (escopo de módulo: o rail e os handlers do
+// popup compartilham a mesma referência).
+let reviewedSuggestion = null;
+
+function openSuggestionReview(suggestion) {
+  reviewedSuggestion = suggestion;
+  const suggestionDialog = document.getElementById("suggestion-review-dialog");
+  const titleInput = document.getElementById("suggestion-title-input");
+  const topicsInput = document.getElementById("suggestion-topics-input");
+  const filesEl = document.getElementById("suggestion-files-list");
+  const metaEl = document.getElementById("suggestion-meta");
+  if (titleInput) titleInput.value = suggestion.title || "";
+  if (topicsInput) topicsInput.value = (suggestion.topics || []).join(", ");
+  if (filesEl) {
+    filesEl.innerHTML = (suggestion.files || [])
+      .map(
+        (f) => `
+          <li class="nc-file-item">
+            <a class="nc-file-name" href="/courses/suggestions/${encodeURIComponent(suggestion.id)}/files/${encodeURIComponent(f.filename)}" target="_blank" rel="noopener" title="Abrir conteúdo do arquivo">📄 ${escapeHtml(f.filename)}</a>
+            <span class="nc-file-size">${((f.size_bytes || 0) / 1024 / 1024).toFixed(2)} MB</span>
+          </li>
+        `,
+      )
+      .join("");
+  }
+  if (metaEl) {
+    metaEl.textContent = `Proposta em ${new Date(suggestion.created_at).toLocaleString("pt-BR")} — expira em ${new Date(suggestion.expires_at).toLocaleString("pt-BR")}`;
+  }
+  if (suggestionDialog && typeof suggestionDialog.showModal === "function") {
+    suggestionDialog.showModal();
+  }
+}
+
 function renderCoursesList() {
   const container = document.getElementById("courses-list");
   if (!container) return;
@@ -476,11 +513,28 @@ function renderCoursesList() {
     appState.courseFilter,
     appState.courseSearch,
   );
-  if (filtered.length === 0) {
+  const suggestions = appState.suggestions || [];
+  if (filtered.length === 0 && suggestions.length === 0) {
     container.innerHTML = `<p class="muted-note">Nenhuma disciplina encontrada para este filtro.</p>`;
     return;
   }
-  container.innerHTML = filtered
+  const suggestionCards = suggestions
+    .map(
+      (s) => `
+        <button type="button" class="course-card is-suggestion" data-suggestion-id="${escapeHtml(s.id)}" role="option" aria-selected="false">
+          <div class="course-card-top">
+            <h3 class="course-card-title">${escapeHtml(s.title)}</h3>
+            <span class="suggestion-badge">⏳ esperando aprovação</span>
+          </div>
+          <p class="course-card-preview">${escapeHtml((s.files || []).map((f) => f.filename).join(", "))}</p>
+          <div class="course-card-meta">
+            <span>${(s.topics || []).length} tópico(s) sugerido(s) · ${(s.files || []).length} arquivo(s)</span>
+          </div>
+        </button>
+      `,
+    )
+    .join("");
+  const courseCards = filtered
     .map((course) => {
       const selected = course.id === appState.selectedCourseId ? "is-selected" : "";
       const readyClass = course.ready_to_study ? "is-ready" : "is-pending";
@@ -503,10 +557,19 @@ function renderCoursesList() {
     })
     .join("");
 
+  container.innerHTML = suggestionCards + courseCards;
+
   container.querySelectorAll("[data-course-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const cid = btn.getAttribute("data-course-id");
       selectCourse(cid);
+    });
+  });
+  container.querySelectorAll("[data-suggestion-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const sid = btn.getAttribute("data-suggestion-id");
+      const suggestion = (appState.suggestions || []).find((s) => s.id === sid);
+      if (suggestion) openSuggestionReview(suggestion);
     });
   });
 }
@@ -1314,6 +1377,14 @@ async function refreshCoreData() {
     renderCoursesList();
     renderActiveCourseHeader();
     renderPomodoroWidget();
+  }
+
+  // Rascunhos de matérias sugeridas (fluxo +Nova): falha silenciosa — o rail
+  // mostra só as matérias reais se a rota não responder.
+  const suggestionsRes = await apiFetch("/courses/suggestions");
+  if (suggestionsRes.status === 200 && Array.isArray(suggestionsRes.data.suggestions)) {
+    appState.suggestions = suggestionsRes.data.suggestions;
+    renderCoursesList();
   }
 
   const opsRes = await apiFetch("/operations");
@@ -2168,9 +2239,20 @@ function bindEvents() {
       }
     });
   }
-  // Modal Nova Disciplina
+  // ==========================================================================
+  // Modal Nova Disciplina (fluxo +Nova): aba "Enviar arquivos" (padrão, com
+  // análise pelo modelo local) e aba "Manual" (formulário direto).
+  // ==========================================================================
   const newCourseDialog = document.getElementById("new-course-dialog");
   document.getElementById("btn-new-course")?.addEventListener("click", () => {
+    appState.ncFiles = [];
+    renderNcFileList();
+    setNcTab("files");
+    const statusEl = document.getElementById("nc-analyze-status");
+    if (statusEl) {
+      statusEl.hidden = true;
+      statusEl.innerHTML = "";
+    }
     if (newCourseDialog && typeof newCourseDialog.showModal === "function") {
       newCourseDialog.showModal();
     }
@@ -2178,6 +2260,151 @@ function bindEvents() {
   document.getElementById("btn-close-new-course")?.addEventListener("click", () => {
     if (newCourseDialog && newCourseDialog.open) newCourseDialog.close();
   });
+
+  // Abas do popup (Arquivos | Manual)
+  function setNcTab(tabName) {
+    document.querySelectorAll("[data-nc-tab]").forEach((tab) => {
+      tab.classList.toggle("is-active", tab.getAttribute("data-nc-tab") === tabName);
+    });
+    const filesPane = document.getElementById("nc-pane-files");
+    const manualPane = document.getElementById("nc-pane-manual");
+    if (filesPane) filesPane.classList.toggle("is-active", tabName === "files");
+    if (manualPane) manualPane.classList.toggle("is-active", tabName === "manual");
+  }
+  document.querySelectorAll("[data-nc-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => setNcTab(tab.getAttribute("data-nc-tab")));
+  });
+
+  // Zona de arrastar/soltar + seletor de arquivos
+  const dropzone = document.getElementById("nc-dropzone");
+  const fileInput = document.getElementById("nc-file-input");
+  document.getElementById("nc-browse")?.addEventListener("click", () => {
+    fileInput?.click();
+  });
+  dropzone?.addEventListener("click", (e) => {
+    if (e.target === dropzone) fileInput?.click();
+  });
+  fileInput?.addEventListener("change", (e) => {
+    const files = [...(e.target.files || [])];
+    if (files.length) {
+      appState.ncFiles = files;
+      renderNcFileList();
+    }
+    e.target.value = "";
+  });
+  ["dragenter", "dragover"].forEach((evName) =>
+    dropzone?.addEventListener(evName, (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    }),
+  );
+  dropzone?.addEventListener("dragleave", (e) => {
+    if (e.target === dropzone) dropzone.classList.remove("dragover");
+  });
+  dropzone?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    const files = [...(e.dataTransfer?.files || [])];
+    if (files.length) {
+      appState.ncFiles = files;
+      renderNcFileList();
+    }
+  });
+
+  function renderNcFileList() {
+    const listEl = document.getElementById("nc-file-list");
+    const actionsEl = document.getElementById("nc-files-actions");
+    if (!listEl) return;
+    const files = appState.ncFiles || [];
+    listEl.innerHTML = files
+      .map(
+        (f, idx) => `
+          <li class="nc-file-item">
+            <span class="nc-file-name">📄 ${escapeHtml(f.name)}</span>
+            <span class="nc-file-size">${(f.size / 1024 / 1024).toFixed(2)} MB</span>
+            <button type="button" class="btn-ghost btn-compact" data-nc-remove="${idx}" title="Remover">✕</button>
+          </li>
+        `,
+      )
+      .join("");
+    listEl.querySelectorAll("[data-nc-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        appState.ncFiles.splice(Number(btn.getAttribute("data-nc-remove")), 1);
+        renderNcFileList();
+      });
+    });
+    if (actionsEl) actionsEl.hidden = files.length === 0;
+  }
+
+  function readAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error || new Error("falha ao ler arquivo"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.getElementById("nc-analyze-btn")?.addEventListener("click", async () => {
+    const files = appState.ncFiles || [];
+    if (!files.length) return;
+    const statusEl = document.getElementById("nc-analyze-status");
+    const analyzeBtn = document.getElementById("nc-analyze-btn");
+    const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+    if (totalBytes > 48 * 1024 * 1024 && statusEl) {
+      statusEl.hidden = false;
+      statusEl.innerHTML = `<small class="upload-err">✖ Total de ${(totalBytes / 1024 / 1024).toFixed(1)} MB excede o teto de 48 MB por análise — envie em menos arquivos por vez.</small>`;
+      return;
+    }
+    if (analyzeBtn) analyzeBtn.disabled = true;
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.innerHTML = `
+        <div class="ingest-progress"><div class="ingest-progress-fill"></div></div>
+        <small>Analisando ${files.length} arquivo(s) com o modelo local — extração e agrupamento podem levar alguns minutos…</small>`;
+    }
+    try {
+      const payload = [];
+      for (const file of files) {
+        payload.push({
+          filename: sanitizeFilename(file.name),
+          content_base64: await readAsBase64(file),
+        });
+      }
+      const { status, data } = await apiFetch("/courses/suggestions", {
+        method: "POST",
+        body: { files: payload },
+      });
+      if (status === 200) {
+        const count = (data.suggestions || []).length;
+        appState.ncFiles = [];
+        if (newCourseDialog && newCourseDialog.open) newCourseDialog.close();
+        await refreshCoreData();
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.innerHTML = `<small class="upload-ok">✔ ${count} matéria(s) sugerida(s) — revise no rail, marcadas como <strong>esperando aprovação</strong>.</small>`;
+        }
+      } else {
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.innerHTML = `<small class="upload-err">✖ ${escapeHtml(data?.error?.message || `HTTP ${status}`)} — use a aba <strong>Manual</strong> se quiser criar sem análise.</small>`;
+        }
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.innerHTML = `<small class="upload-err">✖ Falha na análise: ${escapeHtml(String(err))}</small>`;
+      }
+    } finally {
+      if (analyzeBtn) analyzeBtn.disabled = false;
+    }
+  });
+
+  // Aba Manual: formulário direto (fluxo anterior, inalterado)
   document.getElementById("new-course-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const title = document.getElementById("new-course-name")?.value.trim();
@@ -2196,6 +2423,62 @@ function bindEvents() {
     }
     if (newCourseDialog && newCourseDialog.open) newCourseDialog.close();
     await refreshCoreData();
+  });
+
+  // ==========================================================================
+  // Popup de revisão da matéria sugerida (rail: "esperando aprovação")
+  // ==========================================================================
+  const suggestionDialog = document.getElementById("suggestion-review-dialog");
+
+  document.getElementById("btn-close-suggestion-review")?.addEventListener("click", () => {
+    if (suggestionDialog && suggestionDialog.open) suggestionDialog.close();
+  });
+
+  document.getElementById("btn-suggestion-discard")?.addEventListener("click", async () => {
+    if (!reviewedSuggestion) return;
+    const discardBtn = document.getElementById("btn-suggestion-discard");
+    if (discardBtn) discardBtn.disabled = true;
+    await apiFetch(
+      `/courses/suggestions/${encodeURIComponent(reviewedSuggestion.id)}`,
+      { method: "DELETE" },
+    );
+    if (discardBtn) discardBtn.disabled = false;
+    if (suggestionDialog && suggestionDialog.open) suggestionDialog.close();
+    await refreshCoreData();
+  });
+
+  document.getElementById("btn-suggestion-approve")?.addEventListener("click", async () => {
+    if (!reviewedSuggestion) return;
+    const approveBtn = document.getElementById("btn-suggestion-approve");
+    const discardBtn = document.getElementById("btn-suggestion-discard");
+    const title = document.getElementById("suggestion-title-input")?.value.trim();
+    const topics = (document.getElementById("suggestion-topics-input")?.value || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!title) return;
+    if (approveBtn) {
+      approveBtn.disabled = true;
+      approveBtn.textContent = "Criando e ingerindo…";
+    }
+    if (discardBtn) discardBtn.disabled = true;
+    try {
+      const { status, data } = await apiFetch(
+        `/courses/suggestions/${encodeURIComponent(reviewedSuggestion.id)}/confirm`,
+        { method: "POST", body: { title, topics } },
+      );
+      if (status === 200 && data.course) {
+        appState.selectedCourseId = data.course.id;
+      }
+      if (suggestionDialog && suggestionDialog.open) suggestionDialog.close();
+      await refreshCoreData();
+    } finally {
+      if (approveBtn) {
+        approveBtn.disabled = false;
+        approveBtn.textContent = "Aprovar e ingerir";
+      }
+      if (discardBtn) discardBtn.disabled = false;
+    }
   });
 
   // Modal Busca Global (Ctrl+K)

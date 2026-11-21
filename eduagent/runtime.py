@@ -27,6 +27,7 @@ from eduagent.contracts import ErrorCode, EduAgentError
 from eduagent.graph import EduAgentGraph
 from eduagent.services.assessment import AssessmentService
 from eduagent.services.calendar import CalendarService
+from eduagent.services.course_suggest import CourseSuggestionService, SuggestLimits
 from eduagent.services.effects import EffectsService
 from eduagent.services.ingestion import IngestionLimits, IngestionService
 from eduagent.services.memory import MemoryService
@@ -107,6 +108,7 @@ class RuntimeContext:
     memory: MemoryService
     calendar: CalendarService
     telemetry_dir: Path
+    course_suggestions: CourseSuggestionService
     _closed: bool = field(default=False, repr=False)
 
     @classmethod
@@ -206,6 +208,17 @@ class RuntimeContext:
             data_root=root,
             telemetry_dir=telemetry_dir if telemetry else None,
         )
+        # Rascunhos de matérias do fluxo "+Nova" (migração 0008): mesmo
+        # backend/extrator do runtime; sem backend admite apenas a aba
+        # manual (MODEL_NOT_ADMITTED na sugestão, fail-closed §3.1).
+        course_suggestions = CourseSuggestionService(
+            store,
+            root,
+            extractor=extractor,
+            backend=backend,
+            limits=SuggestLimits.from_mapping(effective_config),
+            clock=clock_fn,
+        )
         return cls(
             data_root=root,
             config=effective_config,
@@ -215,6 +228,7 @@ class RuntimeContext:
             memory=memory,
             calendar=calendar,
             telemetry_dir=telemetry_dir,
+            course_suggestions=course_suggestions,
         )
 
     def close(self) -> None:

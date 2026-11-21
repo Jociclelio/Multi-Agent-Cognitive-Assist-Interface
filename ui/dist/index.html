@@ -362,32 +362,91 @@
   </dialog>
 
   <!-- Modal Nativo <dialog> 3: Nova Disciplina -->
-  <dialog id="new-course-dialog" class="modal-dialog" aria-labelledby="new-course-title">
-    <form id="new-course-form" class="modal-content" method="dialog">
+  <dialog id="new-course-dialog" class="modal-dialog modal-wide" aria-labelledby="new-course-title">
+    <div class="modal-content new-course-modal">
       <div class="modal-header-row">
-        <h2 id="new-course-title" class="modal-title">Adicionar Disciplina e Tópicos</h2>
-        <button type="button" id="btn-close-new-course" class="btn-ghost btn-compact">Cancelar</button>
+        <h2 id="new-course-title" class="modal-title">Nova disciplina</h2>
+        <button type="button" id="btn-close-new-course" class="btn-ghost btn-compact" title="Fechar">✕</button>
       </div>
-      <label class="field-label" for="new-course-name">Nome da Disciplina</label>
-      <input
-        type="text"
-        id="new-course-name"
-        class="input-field"
-        placeholder="Ex.: MC906 — Introdução à Inteligência Artificial"
-        required
-        autofocus
-      />
-      <label class="field-label" for="new-course-topics">Tópicos Iniciais (separados por vírgula)</label>
-      <input
-        type="text"
-        id="new-course-topics"
-        class="input-field"
-        placeholder="Ex.: Busca Heurística, Agentes Lógicos, Planejamento Clássico"
-      />
+
+      <div class="nc-tabs" role="tablist" aria-label="Modo de criação">
+        <button type="button" class="nc-tab is-active" data-nc-tab="files" role="tab" aria-selected="true">
+          Enviar arquivos
+        </button>
+        <button type="button" class="nc-tab" data-nc-tab="manual" role="tab" aria-selected="false">
+          Manual
+        </button>
+      </div>
+
+      <div id="nc-pane-files" class="nc-pane is-active" role="tabpanel">
+        <div id="nc-dropzone" class="nc-dropzone" tabindex="0" role="button" aria-label="Arrastar ou escolher arquivos para análise">
+          <span class="nc-dropzone-icon" aria-hidden="true">📄</span>
+          <p class="nc-dropzone-primary"><strong>Arraste arquivos aqui</strong> ou clique para escolher</p>
+          <button type="button" id="nc-browse" class="btn-secondary btn-compact">Escolher arquivos</button>
+          <input type="file" id="nc-file-input" multiple hidden />
+          <p class="muted-note">
+            O modelo local do runtime analisa o conteúdo e identifica quantas
+            matérias criar, com título e tópicos — cada proposta aparece no rail
+            como <strong>esperando aprovação</strong> para você revisar.
+          </p>
+        </div>
+        <ul id="nc-file-list" class="nc-file-list"></ul>
+        <div id="nc-analyze-status" class="nc-status" hidden></div>
+      </div>
+
+      <div id="nc-pane-manual" class="nc-pane" role="tabpanel">
+        <form id="new-course-form">
+          <label class="field-label" for="new-course-name">Nome da Disciplina</label>
+          <input
+            type="text"
+            id="new-course-name"
+            class="input-field"
+            placeholder="Ex.: MC906 — Introdução à Inteligência Artificial"
+            required
+          />
+          <label class="field-label" for="new-course-topics">Tópicos Iniciais (separados por vírgula)</label>
+          <input
+            type="text"
+            id="new-course-topics"
+            class="input-field"
+            placeholder="Ex.: Busca Heurística, Agentes Lógicos, Planejamento Clássico"
+          />
+          <div class="modal-actions">
+            <button type="submit" class="btn-primary">Criar Disciplina</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-actions" id="nc-files-actions" hidden>
+        <button type="button" id="nc-analyze-btn" class="btn-primary">
+          Analisar com o modelo
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="suggestion-review-dialog" class="modal-dialog modal-wide" aria-labelledby="suggestion-review-title">
+    <div class="modal-content">
+      <div class="modal-header-row">
+        <h2 id="suggestion-review-title" class="modal-title">Matéria sugerida — aguardando aprovação</h2>
+        <button type="button" id="btn-close-suggestion-review" class="btn-ghost btn-compact" title="Fechar">✕</button>
+      </div>
+      <p class="muted-note">
+        Revise a proposta abaixo (título e tópicos são editáveis), clique nos
+        arquivos para ver o conteúdo e aprove para criar a matéria e ingerir o
+        material.
+      </p>
+      <label class="field-label" for="suggestion-title-input">Título da Matéria</label>
+      <input type="text" id="suggestion-title-input" class="input-field" />
+      <label class="field-label" for="suggestion-topics-input">Tópicos (separados por vírgula)</label>
+      <input type="text" id="suggestion-topics-input" class="input-field" />
+      <p id="suggestion-meta" class="muted-note"></p>
+      <ul id="suggestion-files-list" class="nc-file-list"></ul>
       <div class="modal-actions">
-        <button type="submit" class="btn-primary">Criar Disciplina</button>
+        <button type="button" id="btn-suggestion-discard" class="btn-ghost">Descartar</button>
+        <button type="button" id="btn-suggestion-approve" class="btn-primary">Aprovar e ingerir</button>
       </div>
-    </form>
+    </div>
   </dialog>
 
   <script type="module" src="/ui/app.js"></script>

@@ -35,6 +35,7 @@ import base64
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mimetypes
 import pathlib
 import re
 import sqlite3
@@ -763,6 +764,24 @@ class LoopbackAPI:
                 if user_id is None:
                     return
                 self._handle_get_courses(handler, user_id)
+                return
+
+            if path == "/courses/suggestions":
+                user_id = self._require_user(handler)
+                if user_id is None:
+                    return
+                self._handle_get_course_suggestions(handler, user_id)
+                return
+
+            if path.startswith("/courses/suggestions/") and "/files/" in path:
+                user_id = self._require_user(handler)
+                if user_id is None:
+                    return
+                rest = path[len("/courses/suggestions/") :]
+                suggestion_id, _, filename = rest.partition("/files/")
+                self._handle_get_course_suggestion_file(
+                    handler, user_id, suggestion_id, filename
+                )
                 return
 
             if path.startswith("/courses/") and path.endswith("/sessions"):
@@ -2037,48 +2056,13 @@ class LoopbackAPI:
 
         ingest_result_serialized: dict[str, Any] | None = None
         if body.get("auto_ingest") and body.get("course_id"):
-            session_id = str(body.get("session_id") or uuid.uuid4())
-            turn_res = self.runtime.graph.run_turn(
-                user_id=user_id,
-                session_id=session_id,
-                message=f"/ingest {raw_filename}",
-                payload={
-                    "data": raw_bytes,
-                    "course_id": str(body["course_id"]),
-                    "filename": raw_filename,
-                },
+            ingest_result_serialized = self._ingest_original_file(
+                user_id,
+                raw_filename,
+                raw_bytes,
+                str(body["course_id"]),
+                activate=bool(body.get("activate", True)),
             )
-            idx_info = (turn_res.output or {}).get("index") or {}
-            doc_id = idx_info.get("doc_id")
-            version_id = idx_info.get("version_id")
-            if (
-                turn_res.status == "completed"
-                and doc_id
-                and version_id
-                and idx_info.get("version_status") == "indexed"
-            ):
-                retrieval = getattr(self.runtime, "retrieval", None) or getattr(
-                    self.runtime.graph, "_retrieval", None
-                )
-                embedder = getattr(self.runtime.graph, "_embedder", None)
-                ingestion = getattr(self.runtime, "ingestion", None) or getattr(
-                    self.runtime.graph, "_ingestion", None
-                )
-                if retrieval is not None and embedder is not None:
-                    try:
-                        retrieval.index_version(
-                            user_id, str(doc_id), str(version_id), embedder=embedder
-                        )
-                    except Exception:  # noqa: BLE001
-                        pass
-                if ingestion is not None and body.get("activate", True):
-                    try:
-                        ingestion.activate_version(
-                            user_id, str(doc_id), str(version_id)
-                        )
-                    except Exception:  # noqa: BLE001
-                        pass
-            ingest_result_serialized = _serialize_turn(turn_res, session_id)
 
         self._send_json(
             handler,
@@ -2099,6 +2083,286 @@ class LoopbackAPI:
                 },
                 "ingest_turn": ingest_result_serialized,
             },
+        )
+
+    def _ingest_original_file(
+        self,
+        user_id: str,
+        filename: str,
+        raw_bytes: bytes,
+        course_id: str,
+        *,
+        activate: bool = True,
+    ) -> dict[str, Any]:
+        """Ingestão completa de um arquivo pelo caminho normal do Curador
+        (turno ``/ingest`` → Docling → chunks → índice → ativação).
+
+        Compartilhado por ``/library/upload`` (auto_ingest) e pela confirmação
+        de sugestões de matérias (fluxo "+Nova") — nenhum caminho paralelo de
+        ingestão, mapa §6.1.
+        """
+        session_id = str(uuid.uuid4())
+        turn_res = self.runtime.graph.run_turn(
+            user_id=user_id,
+            session_id=session_id,
+            message=f"/ingest {filename}",
+            payload={
+                "data": raw_bytes,
+                "course_id": course_id,
+                "filename": filename,
+            },
+        )
+        idx_info = (turn_res.output or {}).get("index") or {}
+        doc_id = idx_info.get("doc_id")
+        version_id = idx_info.get("version_id")
+        if (
+            turn_res.status == "completed"
+            and doc_id
+            and version_id
+            and idx_info.get("version_status") == "indexed"
+        ):
+            retrieval = getattr(self.runtime, "retrieval", None) or getattr(
+                self.runtime.graph, "_retrieval", None
+            )
+            embedder = getattr(self.runtime.graph, "_embedder", None)
+            ingestion = getattr(self.runtime, "ingestion", None) or getattr(
+                self.runtime.graph, "_ingestion", None
+            )
+            if retrieval is not None and embedder is not None:
+                try:
+                    retrieval.index_version(
+                        user_id, str(doc_id), str(version_id), embedder=embedder
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+            if ingestion is not None and activate:
+                try:
+                    ingestion.activate_version(user_id, str(doc_id), str(version_id))
+                except Exception:  # noqa: BLE001
+                    pass
+        return _serialize_turn(turn_res, session_id)
+
+    def _handle_get_course_suggestions(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+    ) -> None:
+        """Rascunhos de matérias pendentes de aprovação (fluxo "+Nova")."""
+        suggestions = self.runtime.course_suggestions.list_pending(user_id)
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {"status": "ok", "suggestions": suggestions},
+        )
+
+    def _handle_post_course_suggestions(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Analisa arquivos e cria rascunhos pendentes (modelo de visão do
+        runtime configurado; erros tipados propagam — MODEL_NOT_ADMITTED etc.)."""
+        raw_files = body.get("files")
+        if not isinstance(raw_files, list) or not raw_files:
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(
+                    ErrorCode.SCHEMA_INVALID,
+                    "campo 'files' é obrigatório (lista de "
+                    "{filename, content_base64})",
+                ),
+            )
+            return
+        decoded: list[tuple[str, bytes]] = []
+        for entry in raw_files:
+            if not isinstance(entry, dict):
+                self._send_json(
+                    handler,
+                    HTTPStatus.BAD_REQUEST,
+                    _error_body(
+                        ErrorCode.SCHEMA_INVALID,
+                        "cada item de 'files' deve ser objeto "
+                        "{filename, content_base64}",
+                    ),
+                )
+                return
+            raw_filename = str(entry.get("filename") or "").strip()
+            if (
+                not raw_filename
+                or "/" in raw_filename
+                or "\\" in raw_filename
+                or ".." in raw_filename
+                or not _SAFE_FILENAME.match(raw_filename)
+            ):
+                self._send_json(
+                    handler,
+                    HTTPStatus.FORBIDDEN,
+                    _error_body(
+                        ErrorCode.TOOL_DENIED,
+                        "nome de arquivo inválido ou fora do confinamento "
+                        "permitido",
+                        details={"filename": raw_filename},
+                    ),
+                )
+                return
+            content_b64 = entry.get("content_base64")
+            if not isinstance(content_b64, str):
+                self._send_json(
+                    handler,
+                    HTTPStatus.BAD_REQUEST,
+                    _error_body(
+                        ErrorCode.SCHEMA_INVALID,
+                        f"content_base64 ausente em '{raw_filename}'",
+                    ),
+                )
+                return
+            try:
+                raw_bytes = base64.b64decode(content_b64, validate=True)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(
+                    handler,
+                    HTTPStatus.BAD_REQUEST,
+                    _error_body(
+                        ErrorCode.SCHEMA_INVALID,
+                        f"content_base64 inválido em '{raw_filename}': {exc}",
+                    ),
+                )
+                return
+            if len(raw_bytes) > MAX_UPLOAD_BYTES:
+                self._send_json(
+                    handler,
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    _error_body(
+                        ErrorCode.RESOURCE_LIMIT,
+                        f"documento excede o limite de 50 MiB "
+                        f"({len(raw_bytes)} bytes)",
+                        details={
+                            "size_bytes": len(raw_bytes),
+                            "max_bytes": MAX_UPLOAD_BYTES,
+                        },
+                    ),
+                )
+                return
+            decoded.append((raw_filename, raw_bytes))
+        created = self.runtime.course_suggestions.suggest(user_id, decoded)
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {
+                "status": "ok",
+                "suggestions": created,
+                "message": (
+                    f"{len(created)} matéria(s) proposta(s) — aguardando "
+                    "aprovação no rail de disciplinas"
+                ),
+            },
+        )
+
+    def _handle_post_course_suggestion_confirm(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        suggestion_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Aprova o rascunho: cria a matéria, move os arquivos de staging e
+        ingere pelo caminho normal do Curador."""
+        service = self.runtime.course_suggestions
+        suggestion = service.get_pending(user_id, suggestion_id)
+        title = str(body.get("title") or "").strip() or suggestion["title"]
+        raw_topics = body.get("topics")
+        topics = (
+            [str(t).strip() for t in raw_topics if str(t).strip()]
+            if isinstance(raw_topics, list)
+            else [str(t) for t in suggestion["topics"]]
+        )
+        result = service.confirm(
+            user_id,
+            suggestion_id,
+            title=title,
+            topics=topics,
+            ingest_fn=lambda uid, filename, raw, course_id: {
+                "ingested": True,
+                "ingest_turn": self._ingest_original_file(
+                    uid, filename, raw, course_id
+                ),
+            },
+        )
+        self._send_json(handler, HTTPStatus.OK, {"status": "ok", **result})
+
+    def _handle_get_course_suggestion_file(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        suggestion_id: str,
+        filename: str,
+    ) -> None:
+        """Serve arquivo em staging (preview no popup de revisão; ownership
+        verificado; Content-Disposition inline)."""
+        if (
+            not filename
+            or "/" in filename
+            or "\\" in filename
+            or ".." in filename
+            or not _SAFE_FILENAME.match(filename)
+        ):
+            self._send_json(
+                handler,
+                HTTPStatus.FORBIDDEN,
+                _error_body(ErrorCode.TOOL_DENIED, "nome de arquivo inválido"),
+            )
+            return
+        service = self.runtime.course_suggestions
+        suggestion = service.get_pending(user_id, suggestion_id)
+        known = any(
+            str(meta.get("filename")) == filename
+            for meta in suggestion["files"]
+        )
+        if not known:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(
+                    ErrorCode.SOURCE_UNRESOLVED,
+                    "arquivo não pertence a esta sugestão",
+                ),
+            )
+            return
+        path = service.staged_file_path(user_id, suggestion_id, filename)
+        if not path.exists():
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(
+                    ErrorCode.SOURCE_UNRESOLVED, "arquivo ausente no staging"
+                ),
+            )
+            return
+        mime, _ = mimetypes.guess_type(filename)
+        payload = path.read_bytes()
+        handler.send_response(HTTPStatus.OK)
+        handler.send_header("Content-Type", mime or "application/octet-stream")
+        handler.send_header("Content-Length", str(len(payload)))
+        handler.send_header(
+            "Content-Disposition", f'inline; filename="{filename}"'
+        )
+        handler.send_header("Cache-Control", "no-store")
+        handler.end_headers()
+        handler.wfile.write(payload)
+
+    def _handle_delete_course_suggestion(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        suggestion_id: str,
+    ) -> None:
+        self.runtime.course_suggestions.reject(user_id, suggestion_id)
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {"status": "ok", "rejected": suggestion_id},
         )
 
     def _handle_get_flashcards(
@@ -2331,6 +2595,19 @@ class LoopbackAPI:
                 self._handle_post_courses(handler, user_id, body)
                 return
 
+            if path == "/courses/suggestions":
+                self._handle_post_course_suggestions(handler, user_id, body)
+                return
+
+            if path.startswith("/courses/suggestions/") and path.endswith(
+                "/confirm"
+            ):
+                suggestion_id = path[len("/courses/suggestions/") : -len("/confirm")]
+                self._handle_post_course_suggestion_confirm(
+                    handler, user_id, suggestion_id, body
+                )
+                return
+
             if path == "/settings/timezone":
                 self._handle_post_settings_timezone(handler, user_id, body)
                 return
@@ -2425,6 +2702,13 @@ class LoopbackAPI:
         parts = [part for part in path.split("/") if part]
         if len(parts) == 2 and parts[0] == "documents":
             self._handle_delete_document(handler, user_id, parts[1])
+            return
+        if (
+            len(parts) == 3
+            and parts[0] == "courses"
+            and parts[1] == "suggestions"
+        ):
+            self._handle_delete_course_suggestion(handler, user_id, parts[2])
             return
         self._send_json(
             handler,

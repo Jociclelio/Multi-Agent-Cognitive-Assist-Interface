@@ -766,6 +766,38 @@ CREATE INDEX idx_confirmations_artifact
 """
 
 
+def _migration_0008() -> str:
+    """Rascunhos de matérias sugeridas a partir de arquivos (fluxo "+Nova").
+
+    A sugestão nasce da análise do modelo de visão do runtime configurado
+    sobre amostras de texto dos arquivos soltos na UI e fica **pendente de
+    aprovação** até o estudante confirmar (vira ``courses``/``topics`` com
+    ingestão dos arquivos) ou descartar. Os bytes dos arquivos ficam em
+    staging no diretório de dados (``<user>/staging/<id>/<arquivo>``) — a
+    tabela guarda apenas metadados; expiração é coluna consultável, não job.
+    Fora do DDL §5 (mapa): tabela de superfície da UI, aditiva, com
+    ownership direto por ``user_id`` (§15.1).
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- course_suggestions: matérias propostas aguardando aprovação (fluxo +Nova)
+-- ---------------------------------------------------------------------------
+CREATE TABLE course_suggestions (
+    id          TEXT PRIMARY KEY,                    -- UUID (suggestion_id)
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    topics_json TEXT NOT NULL,                       -- JSON array de strings
+    files_json  TEXT NOT NULL,                       -- JSON [{filename,size_bytes}]
+    status      TEXT NOT NULL
+        CHECK (status IN ('pending','approved','rejected')),
+    created_at  TEXT NOT NULL,                       -- ISO-8601 com zona
+    expires_at  TEXT NOT NULL                        -- ISO-8601 com zona
+);
+CREATE INDEX idx_suggestions_pending
+    ON course_suggestions(user_id, status, created_at);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -824,6 +856,14 @@ def _load_builtin() -> None:
             "§9/§15.5) e conjunto/hash das dependências da confirmação em "
             "confirmations (§15.1) — task 013",
             _migration_0007(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            8,
+            "course_suggestions: rascunhos de matérias sugeridas a partir de "
+            "arquivos, pendentes de aprovação (fluxo +Nova da UI)",
+            _migration_0008(),
         )
     )
 
