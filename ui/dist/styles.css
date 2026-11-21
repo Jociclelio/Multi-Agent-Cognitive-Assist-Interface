@@ -1697,3 +1697,59 @@ a.nc-file-name:hover {
   font-weight: 700;
   white-space: nowrap;
 }
+
+/* Strip de disciplinas do Acervo com ações (arquivar / apagar) */
+.lib-courses-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.lib-courses-heading {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.lib-course-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lib-course-chip {
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-focus);
+  border-radius: 999px;
+  display: flex;
+  gap: 4px;
+  padding: 2px 4px 2px 12px;
+}
+
+.lib-course-chip.is-archived {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.lib-course-chip.is-selected {
+  border-color: var(--text-primary);
+}
+
+.lib-course-name {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 2px;
+}
+
+.lib-course-chip .doc-action-menu summary {
+  border-radius: 999px;
+  padding: 2px 8px;
+}

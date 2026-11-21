@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -763,7 +764,8 @@ class LoopbackAPI:
                 user_id = self._require_user(handler)
                 if user_id is None:
                     return
-                self._handle_get_courses(handler, user_id)
+                include_archived = (query.get("include_archived") or ["0"])[0] == "1"
+                self._handle_get_courses(handler, user_id, include_archived=include_archived)
                 return
 
             if path == "/courses/suggestions":
@@ -1069,9 +1071,12 @@ class LoopbackAPI:
         self,
         handler: BaseHTTPRequestHandler,
         user_id: str,
+        include_archived: bool = False,
     ) -> None:
+        where = "" if include_archived else " AND archived_at IS NULL"
         course_rows = self._fetchall(
-            "SELECT id, user_id, title, aliases_json, revision FROM courses WHERE user_id = ?",
+            "SELECT id, user_id, title, aliases_json, revision, archived_at "
+            f"FROM courses WHERE user_id = ?{where}",
             (user_id,),
         )
         topic_rows = self._fetchall(
@@ -2365,6 +2370,134 @@ class LoopbackAPI:
             {"status": "ok", "rejected": suggestion_id},
         )
 
+    def _handle_post_course_archive(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        course_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Arquiva (``archived: true``) ou desarquiva (``false``) uma matéria.
+
+        Arquivar é lógico (``courses.archived_at``, migração 0009): sai do
+        rail e de ``GET /courses`` default; nada de domínio é apagado.
+        """
+        try:
+            uuid.UUID(course_id)
+        except ValueError:
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(ErrorCode.SCHEMA_INVALID, "course_id deve ser um UUID canônico"),
+            )
+            return
+        archived = body.get("archived")
+        if not isinstance(archived, bool):
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(
+                    ErrorCode.SCHEMA_INVALID,
+                    "campo 'archived' booleano é obrigatório (true = arquivar, false = desarquivar)",
+                ),
+            )
+            return
+        exists = self._fetchall(
+            "SELECT id FROM courses WHERE id = ? AND user_id = ?",
+            (course_id, user_id),
+        )
+        if not exists:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(ErrorCode.SOURCE_UNRESOLVED, "disciplina não encontrada"),
+            )
+            return
+        stamp = datetime.now(timezone.utc).isoformat() if archived else None
+        self.runtime.store.execute_write(
+            user_id,
+            [
+                (
+                    "UPDATE courses SET archived_at = ? WHERE id = ? AND user_id = ?",
+                    (stamp, course_id, user_id),
+                )
+            ],
+            bump_domain_revision=False,
+        )
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {
+                "status": "ok",
+                "course_id": course_id,
+                "archived": archived,
+                "archived_at": stamp,
+            },
+        )
+
+    def _handle_delete_course(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        course_id: str,
+    ) -> None:
+        """Exclui a matéria com cascade (tópicos, documentos, versões, chunks,
+        estados de tópico — FKs §5/§15.1) e limpa originais órfãos no disco.
+        Histórico de itens/tentativas/eventos é por usuário e sobrevive."""
+        rows = self._fetchall(
+            "SELECT title FROM courses WHERE id = ? AND user_id = ?",
+            (course_id, user_id),
+        )
+        if not rows:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(ErrorCode.SOURCE_UNRESOLVED, "disciplina não encontrada"),
+            )
+            return
+        doc_rows = self._fetchall(
+            """
+            SELECT v.original_ref
+            FROM documents d JOIN doc_versions v
+              ON v.doc_id = d.id AND v.user_id = d.user_id
+            WHERE d.course_id = ? AND d.user_id = ?
+            """,
+            (course_id, user_id),
+        )
+        refs = {str(row["original_ref"] or "") for row in doc_rows}
+        self.runtime.store.execute_write(
+            user_id,
+            [("DELETE FROM courses WHERE id = ? AND user_id = ?", (course_id, user_id))],
+        )
+        data_root = pathlib.Path(self.runtime.data_root).resolve()
+        user_dir = (data_root / user_id).resolve()
+        removed = 0
+        for ref in refs:
+            if not ref:
+                continue
+            remaining = self._fetchall(
+                "SELECT 1 FROM doc_versions WHERE user_id = ? AND original_ref = ? LIMIT 1",
+                (user_id, ref),
+            )
+            if remaining:
+                continue
+            target = (data_root / ref).resolve()
+            try:
+                target.relative_to(user_dir)
+            except ValueError:
+                continue
+            target.unlink(missing_ok=True)
+            removed += 1
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {
+                "status": "ok",
+                "deleted_course": course_id,
+                "originals_removed": removed,
+            },
+        )
+
     def _handle_get_flashcards(
         self,
         handler: BaseHTTPRequestHandler,
@@ -2599,6 +2732,11 @@ class LoopbackAPI:
                 self._handle_post_course_suggestions(handler, user_id, body)
                 return
 
+            if path.startswith("/courses/") and path.endswith("/archive"):
+                course_id = path[len("/courses/") : -len("/archive")]
+                self._handle_post_course_archive(handler, user_id, course_id, body)
+                return
+
             if path.startswith("/courses/suggestions/") and path.endswith(
                 "/confirm"
             ):
@@ -2702,6 +2840,9 @@ class LoopbackAPI:
         parts = [part for part in path.split("/") if part]
         if len(parts) == 2 and parts[0] == "documents":
             self._handle_delete_document(handler, user_id, parts[1])
+            return
+        if len(parts) == 2 and parts[0] == "courses":
+            self._handle_delete_course(handler, user_id, parts[1])
             return
         if (
             len(parts) == 3

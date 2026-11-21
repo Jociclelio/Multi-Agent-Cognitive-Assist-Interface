@@ -798,6 +798,23 @@ CREATE INDEX idx_suggestions_pending
 """
 
 
+def _migration_0009() -> str:
+    """Arquivamento de matérias (fluxo Acervo: apagar ou arquivar).
+
+    Coluna aditiva no ``courses`` (§5 intocado): ``archived_at`` ISO-8601 com
+    zona, ``NULL`` = ativa. Matérias arquivadas saem do rail e de ``GET
+    /courses`` (exceto ``?include_archived=1`` para o Acervo) — nenhum dado
+    de domínio é apagado; ``DELETE /courses/{id}`` é a exclusão real, com
+    cascade de documentos/tópicos (FKs §5/§15.1) e limpeza dos originais.
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- courses.archived_at: arquivamento lógico de matérias (fluxo Acervo)
+-- ---------------------------------------------------------------------------
+ALTER TABLE courses ADD COLUMN archived_at TEXT;
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -864,6 +881,14 @@ def _load_builtin() -> None:
             "course_suggestions: rascunhos de matérias sugeridas a partir de "
             "arquivos, pendentes de aprovação (fluxo +Nova da UI)",
             _migration_0008(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            9,
+            "courses.archived_at: arquivamento lógico de matérias (fluxo "
+            "Acervo — apagar ou arquivar)",
+            _migration_0009(),
         )
     )
 

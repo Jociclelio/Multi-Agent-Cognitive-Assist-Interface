@@ -1656,10 +1656,101 @@ async function loadAuxiliaryView(viewName) {
       `;
       })
       .join("");
+
+    // Strip de disciplinas com ações (arquivar / apagar / desarquivar) —
+    // archivadas vêm de /courses?include_archived=1 cruzado com o estado ativo.
+    let coursesHtml = "";
+    const allRes = await apiFetch("/courses?include_archived=1");
+    if (allRes.status === 200 && Array.isArray(allRes.data.courses)) {
+      const activeIds = new Set((appState.courses || []).map((c) => c.id));
+      const all = allRes.data.courses;
+      const activeCourses = all.filter((c) => activeIds.has(c.id));
+      const archivedCourses = all.filter((c) => !activeIds.has(c.id));
+      const courseChip = (c, archived) => `
+        <div class="lib-course-chip${archived ? " is-archived" : ""}${c.id === appState.selectedCourseId ? " is-selected" : ""}">
+          <button type="button" class="lib-course-name" data-lib-select-course="${escapeHtml(c.id)}" title="${archived ? "Arquivada" : "Selecionar disciplina"}">${escapeHtml(c.title)}${archived ? " · arquivada" : ""}</button>
+          <details class="doc-action-menu">
+            <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
+            <div class="doc-action-popover">
+              ${archived
+                ? `<button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="false">Desarquivar</button>`
+                : `<button type="button" data-archive-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}" data-archive-to="true">Arquivar</button>`}
+              <button type="button" class="danger" data-delete-course="${escapeHtml(c.id)}" data-course-title="${escapeHtml(c.title)}">Apagar disciplina</button>
+            </div>
+          </details>
+        </div>
+      `;
+      coursesHtml = `
+        <div class="lib-courses-block">
+          <h3 class="lib-courses-heading">Disciplinas</h3>
+          <div class="lib-course-chips">
+            ${activeCourses.map((c) => courseChip(c, false)).join("") || `<p class="muted-note">Nenhuma disciplina ativa.</p>`}
+          </div>
+          ${archivedCourses.length ? `
+          <h4 class="lib-courses-heading">Arquivadas</h4>
+          <div class="lib-course-chips">
+            ${archivedCourses.map((c) => courseChip(c, true)).join("")}
+          </div>` : ""}
+        </div>
+      `;
+    }
+
     el.innerHTML =
-      optimisticHtml + docsHtml ||
-      optimisticHtml ||
+      coursesHtml + optimisticHtml + docsHtml ||
+      coursesHtml + `<p class="muted-note">Nenhum documento ingerido ainda. Use o formulário acima (ou arraste e solta um arquivo) para enviar um PDF ou Markdown.</p>` ||
       `<p class="muted-note">Nenhum documento ingerido ainda. Use o formulário acima (ou arraste e solta um arquivo) para enviar um PDF ou Markdown.</p>`;
+
+    // Ações de disciplina: selecionar, arquivar/desarquivar, apagar
+    el.querySelectorAll("[data-lib-select-course]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectCourse(btn.getAttribute("data-lib-select-course"));
+      });
+    });
+    el.querySelectorAll("[data-archive-course]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const cid = button.getAttribute("data-archive-course");
+        const title = button.getAttribute("data-course-title") || "esta disciplina";
+        const to = button.getAttribute("data-archive-to") === "true";
+        const msg = to
+          ? `Arquivar “${title}”? Ela sai do rail de disciplinas — dá para desarquivar aqui no Acervo.`
+          : `Desarquivar “${title}”? Ela volta ao rail de disciplinas.`;
+        if (!window.confirm(msg)) return;
+        button.disabled = true;
+        try {
+          const result = await apiFetch(`/courses/${encodeURIComponent(cid)}/archive`, {
+            method: "POST",
+            body: { archived: to },
+          });
+          if (result.status !== 200) throw new Error(result.data?.error?.message || "Falha ao arquivar.");
+          await refreshCoreData();
+          await loadAuxiliaryView("library");
+        } catch (error) {
+          window.alert(String(error));
+          button.disabled = false;
+        }
+      });
+    });
+    el.querySelectorAll("[data-delete-course]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const cid = button.getAttribute("data-delete-course");
+        const title = button.getAttribute("data-course-title") || "esta disciplina";
+        if (!window.confirm(`Apagar “${title}” e TODO o material ingerido dela (documentos, tópicos e índice)? Esta ação não pode ser desfeita.`)) return;
+        button.disabled = true;
+        try {
+          const result = await apiFetch(`/courses/${encodeURIComponent(cid)}`, { method: "DELETE" });
+          if (result.status !== 200) throw new Error(result.data?.error?.message || "Não foi possível apagar.");
+          if (appState.selectedCourseId === cid) {
+            appState.selectedCourseId = (appState.courses || []).find((c) => c.id !== cid)?.id || null;
+          }
+          await refreshCoreData();
+          await loadAuxiliaryView("library");
+        } catch (error) {
+          window.alert(String(error));
+          button.disabled = false;
+        }
+      });
+    });
+
     el.querySelectorAll("[data-delete-document]").forEach((button) => {
       button.addEventListener("click", async () => {
         const docId = button.getAttribute("data-delete-document");
