@@ -75,9 +75,13 @@ DIAGNOSTIC = "eduagent/agents/curator.py"
 _FACT_NAMESPACE = _uuid.UUID("6f1f0e2a-0c1e-4d9a-9b1f-0a2b3c4d5e6f")
 
 #: Expressões de data aceitas na extração determinística (§6.3).
-_DATE_ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
-_DATE_SLASH_FULL = re.compile(r"\d{2}/\d{2}/\d{4}")
-_DATE_SLASH_SHORT = re.compile(r"(?<!\d)\d{2}/\d{2}(?![/\d])")
+#: Fronteiras `(?<![\d/])` / `(?![/\d])`: uma forma curta NUNCA casa dentro
+#: de uma data longa — "09/26" dentro de "10/09/26" é rejeitado (bug W01
+#: observado em 21/11/2026: ementas com DD/MM/AA geravam gates espúrios).
+_DATE_ISO = re.compile(r"(?<![\d-])\d{4}-\d{2}-\d{2}(?![\d-])")
+_DATE_SLASH_FULL = re.compile(r"(?<![\d/])\d{2}/\d{2}/\d{4}(?![/\d])")
+_DATE_SLASH_YY = re.compile(r"(?<![\d/])\d{2}/\d{2}/\d{2}(?![/\d])")
+_DATE_SLASH_SHORT = re.compile(r"(?<![\d/])\d{2}/\d{2}(?![/\d])")
 #: Números: inteiro/decimal opcionalmente com % — o token é a expressão
 #: original validada contra o texto de origem.
 _NUMBER = re.compile(r"(?<![\w.])(\d{1,9}(?:[.,]\d+)?%?)(?![\w.])")
@@ -198,6 +202,12 @@ def validate_date(expression: str, normalized_value: str) -> str:
     if full is not None:
         day, month, year = expression.split("/")
         return "ok" if normalized_value == f"{year}-{month}-{day}" else "value_mismatch"
+    yy = _DATE_SLASH_YY.fullmatch(expression)
+    if yy is not None:
+        # Ano de 2 dígitos: derivável da origem com o pivô 2000+aa.
+        day, month, year = expression.split("/")
+        expected = f"{2000 + int(year)}-{month}-{day}"
+        return "ok" if normalized_value == expected else "value_mismatch"
     short = _DATE_SLASH_SHORT.fullmatch(expression)
     if short is not None:
         # Dia/mês sem ano: o par é derivável da origem, mas a data está
@@ -513,6 +523,35 @@ class CuratorAgent:
                     validate_date(expression, normalized),
                 )
             )
+        for expression in _DATE_SLASH_YY.findall(source_text):
+            day, month, year = expression.split("/")
+            # Ano de 2 dígitos: pivô fixo 2000+aa (default de ensaio — datas
+            # de material de estudo são contemporâneas; §6.3: sem ano
+            # inventado além da forma escrita).
+            full_year = 2000 + int(year)
+            try:
+                date(full_year, int(month), int(day))
+            except ValueError:
+                candidates.append(
+                    (
+                        expression,
+                        AcademicFact.FactKind.DATE,
+                        AcademicFact.Precision.DAY,
+                        expression,
+                        "value_mismatch",
+                    )
+                )
+                continue
+            normalized = f"{full_year}-{month}-{day}"
+            candidates.append(
+                (
+                    expression,
+                    AcademicFact.FactKind.DATE,
+                    AcademicFact.Precision.DAY,
+                    normalized,
+                    validate_date(expression, normalized),
+                )
+            )
         for expression in _DATE_SLASH_SHORT.findall(source_text):
             day, month = expression.split("/")
             # Sem ano: não há data normalizada — valor carrega o par e o
@@ -535,6 +574,7 @@ class CuratorAgent:
         número dentro de ``12/05/2026`` não é fato numérico (§6.3)."""
         masked = _DATE_ISO.sub(" ", source_text)
         masked = _DATE_SLASH_FULL.sub(" ", masked)
+        masked = _DATE_SLASH_YY.sub(" ", masked)
         masked = _DATE_SLASH_SHORT.sub(" ", masked)
         return masked
 
