@@ -2138,13 +2138,37 @@ class LoopbackAPI:
                     retrieval.index_version(
                         user_id, str(doc_id), str(version_id), embedder=embedder
                     )
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    # Visível no log do servidor: falha silenciosa aqui deixava
+                    # a versão 'indexed' sem chunks — eternamente "⏳ Ingerindo".
+                    print(
+                        json.dumps(
+                            {
+                                "status": "warning",
+                                "where": "index_version",
+                                "doc_id": str(doc_id),
+                                "version_id": str(version_id),
+                                "error": str(exc)[:300],
+                            }
+                        ),
+                        flush=True,
+                    )
             if ingestion is not None and activate:
                 try:
                     ingestion.activate_version(user_id, str(doc_id), str(version_id))
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    print(
+                        json.dumps(
+                            {
+                                "status": "warning",
+                                "where": "activate_version",
+                                "doc_id": str(doc_id),
+                                "version_id": str(version_id),
+                                "error": str(exc)[:300],
+                            }
+                        ),
+                        flush=True,
+                    )
         # Etiqueta o acervo (classificação rápida por sha256, migração 0010):
         # best-effort — falha aqui NÃO falha a ingestão.
         try:
