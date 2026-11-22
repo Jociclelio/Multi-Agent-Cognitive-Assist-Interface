@@ -161,6 +161,65 @@ class SQLiteCheckpointer(BaseCheckpointSaver):
 
     # -- BaseCheckpointSaver (síncrono) ---------------------------------------
 
+    def list_waiting_sessions(self) -> list[dict[str, Any]]:
+        """Sessões com **interrupt pendente** (mapa §10/§12: waiting_user).
+
+        Varre as threads com writes ``__interrupt__`` e devolve, para cada
+        uma, o dono, a pergunta do gate e os refs de ingestão (doc/versão)
+        quando presentes — superfície da fila de Gates (operar o gate pausa
+        o turno; a retomada é ``/turns/{id}/resume``). Falha de parse de uma
+        thread não derruba a varredura (linha pulada, nunca silêncio total: o
+        resultado reflete só o que foi possível ler).
+        """
+        conn = self._conn
+        out: list[dict[str, Any]] = []
+        try:
+            thread_rows = conn.execute(
+                "SELECT DISTINCT thread_id FROM checkpoint_writes "
+                "WHERE channel = '__interrupt__'"
+            ).fetchall()
+        except sqlite3.Error:
+            return out
+        for row in thread_rows:
+            thread_id = str(row["thread_id"])
+            entry: dict[str, Any] = {"session_id": thread_id}
+            try:
+                latest = conn.execute(
+                    "SELECT channel, type, blob FROM checkpoint_writes "
+                    "WHERE thread_id = ? ORDER BY rowid DESC",
+                    (thread_id,),
+                ).fetchall()
+                seen: set[str] = set()
+                for w in latest:
+                    if w["channel"] in seen or w["blob"] is None:
+                        continue
+                    seen.add(w["channel"])
+                    if w["type"] is None:
+                        continue
+                    value = self.serde.loads_typed((str(w["type"]), w["blob"]))
+                    if w["channel"] == "__interrupt__":
+                        entry["interrupt"] = value
+                    elif w["channel"] == "user_id":
+                        entry["user_id"] = str(value)
+                    elif w["channel"] == "ingest":
+                        data = (
+                            value.__dict__
+                            if hasattr(value, "__dict__")
+                            else value
+                        )
+                        if isinstance(data, dict):
+                            entry["doc_id"] = str(data.get("doc_id") or "")
+                            entry["version_id"] = str(
+                                data.get("version_id") or ""
+                            )
+                            entry["original_path"] = str(
+                                data.get("original_path") or ""
+                            )
+                out.append(entry)
+            except Exception:  # noqa: BLE001 — thread ilegível não derruba a fila
+                continue
+        return out
+
     def get_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         thread_id = self._thread_id(config)
         checkpoint_id = get_checkpoint_id(config)
