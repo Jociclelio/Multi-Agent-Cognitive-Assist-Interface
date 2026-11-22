@@ -226,18 +226,14 @@ def test_confirm_moves_files_and_keeps_shared_batch_intact(tmp_path: Path) -> No
     svc.classify_staged(UID, "b.pdf", b"conteudo-b", r1["batch_id"])
     created = svc.aggregate_batch(UID, r1["batch_id"])
     sid = created[0]["id"]
-    ingested: list[str] = []
 
-    result = svc.confirm(
-        UID,
-        sid,
-        title="T",
-        topics=["T1"],
-        ingest_fn=lambda uid, fn, raw, cid: (ingested.append(fn), {"ingested": True})[1],
-    )
-    assert ingested == ["a.pdf", "b.pdf"]
+    # Confirm rápido: cria a matéria, move para originals/ e devolve a lista —
+    # NÃO ingere no request (a UI dispara arquivo a arquivo depois).
+    result = svc.confirm(UID, sid, title="T", topics=["T1"])
+    assert result["files"] == ["a.pdf", "b.pdf"]
     originals = tmp_path / "data" / UID / "originals"
     assert (originals / "a.pdf").exists()
+    assert (originals / "b.pdf").exists()
     # staging limpo (batch tinha só os arquivos desta sugestão)
     assert not (tmp_path / "data" / UID / "staging" / r1["batch_id"]).exists()
     rows = ctx.store.fetch_user_rows(
@@ -340,17 +336,31 @@ def test_api_classify_aggregate_backfill_end_to_end(tmp_path: Path) -> None:
         status, data = _req(base, "POST", "/library/classify-pending", {})
         assert status == 200 and data["classified"] == 0
 
-        # Confirma → ingere; o gancho pós-ingestão NÃO chama o modelo de novo
-        # (sha256 já classificado no batch). O backfill fica a zero de chamadas.
+        # Confirma → rápido: cria a matéria e devolve os arquivos, SEM ingerir
         status, data = _req(base, "POST", f"/courses/suggestions/{sid}/confirm", {})
         assert status == 200 and data["course"]["title"] == "MC8322 — Otimização"
+        assert sorted(data["files"]) == ["Chapter.pdf", "Programa.pdf"]
         calls_after_confirm = 3
         assert len(backend.prompts) == calls_after_confirm
+        course_id = data["course"]["id"]
 
-        # Backfill pós-ingestão: documento já classificado pelo gancho → 0 novo
-        status, data = _req(base, "POST", "/library/classify-pending", {})
-        assert status == 200 and data["classified"] == 0
+        # Ingestão pós-confirmação, arquivo a arquivo (POST /library/
+        # ingest-original): roda o turno /ingest do Curador; o gancho de
+        # classificação NÃO chama o modelo de novo (sha256 já classificado).
+        status, data = _req(base, "POST", "/library/ingest-original",
+                            {"course_id": course_id, "filename": "Programa.pdf"})
+        assert status == 200 and data["ingested"] is True
         assert len(backend.prompts) == calls_after_confirm
+
+        # ingest-original: arquivo inexistente em originals/ → 404
+        status, data = _req(base, "POST", "/library/ingest-original",
+                            {"course_id": course_id, "filename": "fantasma.pdf"})
+        assert status == 404
+
+        # course_id inexistente → 404
+        status, data = _req(base, "POST", "/library/ingest-original",
+                            {"course_id": str(uuid.uuid4()), "filename": "Programa.pdf"})
+        assert status == 404
 
         # GET arquivo em staging (preview) ainda funciona pós-confirmação? Não:
         # sugestão resolvida → 404 tipado

@@ -1801,3 +1801,14 @@ a.nc-file-name:hover {
   padding: 2px 8px;
   white-space: nowrap;
 }
+
+/* Estado "Ingerindo conteúdo" (matéria com documento na fila de ingestão) */
+.course-ready-dot.is-ingesting {
+  background-color: rgba(90, 170, 230, 0.16);
+  color: var(--accent, #4a90d9);
+}
+
+.status-pill.status-ingesting-pill {
+  background-color: rgba(90, 170, 230, 0.16);
+  color: var(--accent, #4a90d9);
+}

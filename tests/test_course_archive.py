@@ -88,6 +88,49 @@ def test_archive_unarchive_and_default_filtering(tmp_path: Path) -> None:
         ctx.close()
 
 
+def test_ingesting_content_flag_while_document_unactivated(tmp_path: Path) -> None:
+    """Matéria com documento na fila (versão sem ativação) NÃO é 'pronta'."""
+    ctx = _open_runtime(tmp_path)
+    server = LoopbackAPI(ctx, host="127.0.0.1", port=0)
+    host, port = server.start()
+    base = f"http://{host}:{port}"
+    try:
+        cid = _create_course(base, "Matéria em Ingestão")
+        doc_id, version_id = str(uuid.uuid4()), str(uuid.uuid4())
+        ctx.store.execute_write(
+            UID,
+            [
+                (
+                    "INSERT INTO documents(id, user_id, course_id, active_version) "
+                    "VALUES (?, ?, ?, NULL)",
+                    (doc_id, UID, cid),
+                ),
+                (
+                    "INSERT INTO doc_versions(id, user_id, doc_id, sha256, mime, "
+                    "original_ref, extractor_manifest, status) VALUES (?, ?, ?, "
+                    "?, 'application/pdf', ?, '{}', 'indexed')",
+                    (version_id, UID, doc_id, "cd" * 32, f"{UID}/originals/x.pdf"),
+                ),
+            ],
+        )
+        status, data = _req(base, "GET", "/courses")
+        course = next(c for c in data["courses"] if c["id"] == cid)
+        assert course["ingesting_content"] is True
+        assert course["ingesting_doc_count"] == 1
+        # Após "ativação" (active_version preenchido) o estado sai de in-flight
+        ctx.store.execute_write(
+            UID,
+            [("UPDATE documents SET active_version = ? WHERE id = ?",
+              (version_id, doc_id))],
+        )
+        status, data = _req(base, "GET", "/courses")
+        course = next(c for c in data["courses"] if c["id"] == cid)
+        assert course["ingesting_content"] is False
+    finally:
+        server.stop()
+        ctx.close()
+
+
 def test_delete_course_cascades_docs_topics_and_files(tmp_path: Path) -> None:
     ctx = _open_runtime(tmp_path)
     server = LoopbackAPI(ctx, host="127.0.0.1", port=0)

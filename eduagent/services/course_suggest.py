@@ -47,8 +47,6 @@ STAGING_TTL_HOURS = 48
 #: Teto de arquivos por batch (ensaio).
 MAX_FILES_PER_BATCH = 10
 
-_INGEST_FN = Callable[[str, str, bytes, str], dict[str, Any]]
-
 CLASS_LABELS = {
     "programa": "📋 Programa",
     "cronograma": "🗓️ Cronograma",
@@ -518,10 +516,12 @@ class CourseSuggestionService:
         *,
         title: str,
         topics: list[str],
-        ingest_fn: _INGEST_FN,
     ) -> dict[str, Any]:
-        """Aprova o rascunho: cria a matéria real e ingere os arquivos em
-        staging pelo caminho normal do Curador (``ingest_fn``)."""
+        """Aprova o rascunho: cria a matéria real e move os arquivos de
+        staging para ``originals/``. A ingestão NÃO roda aqui — o popup fecha
+        na hora e a UI dispara arquivo a arquivo via
+        ``POST /library/ingest-original`` (progresso visível no Acervo), como
+        no fluxo de upload da Biblioteca."""
         suggestion = self.get_pending(user_id, suggestion_id)
         staged: list[dict[str, Any]] = []
         for meta in suggestion["files"]:
@@ -573,19 +573,19 @@ class CourseSuggestionService:
             user_id, statements, bump_domain_revision=True
         )
 
-        # Move os bytes do staging para originals/ e ingere (caminho normal).
+        # Move os bytes do staging para originals/ (a ingestão vem depois,
+        # arquivo a arquivo, pelo caminho normal do Curador).
         originals_dir = resolve_owned_path(self._root, user_id, "originals")
         originals_dir.mkdir(parents=True, exist_ok=True)
-        ingest_results: list[dict[str, Any]] = []
+        moved: list[str] = []
         for entry in staged:
             raw = entry["path"].read_bytes()
             target = resolve_owned_path(
                 self._root, user_id, f"originals/{entry['filename']}"
             )
             target.write_bytes(raw)
-            result = ingest_fn(user_id, entry["filename"], raw, course_id)
-            ingest_results.append({"filename": entry["filename"], **result})
             entry["path"].unlink(missing_ok=True)
+            moved.append(entry["filename"])
         self._rmdir_if_empty(self._staging_root(user_id))
         return {
             "course": {
@@ -594,7 +594,7 @@ class CourseSuggestionService:
                 "title": title,
                 "topics": created_topics,
             },
-            "ingested": ingest_results,
+            "files": moved,
         }
 
     def reject(self, user_id: str, suggestion_id: str) -> None:

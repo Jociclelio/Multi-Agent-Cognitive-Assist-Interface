@@ -196,6 +196,7 @@ def _compute_course_priority(
     attempts_count: int,
     last_event: dict[str, Any] | None,
     topic_states: list[dict[str, Any]],
+    ingesting_count: int = 0,
 ) -> dict[str, Any]:
     """Calcula a ordenação determinística em 4 faixas (Decisão D3) e o sinal
     'Pronta para estudar' (Decisão D4) sem alterar o DDL SQLite.
@@ -311,6 +312,8 @@ def _compute_course_priority(
         "active_doc_count": active_doc_count,
         "indexed_doc_count": indexed_doc_count,
         "ready_to_study": ready_to_study,
+        "ingesting_content": ingesting_count > 0,
+        "ingesting_doc_count": ingesting_count,
         "sort_tier": sort_tier,
         "sort_key_secondary": sort_key_secondary,
         "sort_reason_label": sort_reason_label,
@@ -1202,6 +1205,14 @@ class LoopbackAPI:
                 for r in cdocs
                 if r["version_status"] in ("indexed", "active")
             ]
+            # In-flight (§6.1): documento com versão extraída/indexada mas
+            # ainda SEM ativação — não aparece como "Pronta para estudar".
+            ingesting_docs = [
+                dict(r)
+                for r in cdocs
+                if r["active_version"] is None
+                and r["version_status"] in ("pending", "indexed")
+            ]
             course_attempts = 0
             for ar in attempt_rows:
                 srefs = _safe_json_loads(ar["source_refs_json"], [])
@@ -1243,6 +1254,7 @@ class LoopbackAPI:
                     attempts_count=course_attempts,
                     last_event=last_ev,
                     topic_states=course_ts,
+                    ingesting_count=len(ingesting_docs),
                 )
             )
 
@@ -2374,19 +2386,79 @@ class LoopbackAPI:
             if isinstance(raw_topics, list)
             else [str(t) for t in suggestion["topics"]]
         )
-        result = service.confirm(
-            user_id,
-            suggestion_id,
-            title=title,
-            topics=topics,
-            ingest_fn=lambda uid, filename, raw, course_id: {
-                "ingested": True,
-                "ingest_turn": self._ingest_original_file(
-                    uid, filename, raw, course_id
+        result = service.confirm(user_id, suggestion_id, title=title, topics=topics)
+        self._send_json(handler, HTTPStatus.OK, {"status": "ok", **result})
+
+    def _handle_post_library_ingest_original(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Ingesta um arquivo JÁ EM ``originals/`` (fluxo pós-confirmação do
+        +Nova): a UI chama arquivo a arquivo — o popup fecha na hora e o
+        progresso aparece no Acervo, igual ao upload da Biblioteca."""
+        course_id = str(body.get("course_id") or "").strip()
+        filename = str(body.get("filename") or "").strip()
+        try:
+            uuid.UUID(course_id)
+        except ValueError:
+            self._send_json(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                _error_body(ErrorCode.SCHEMA_INVALID, "course_id deve ser um UUID canônico"),
+            )
+            return
+        if (
+            not filename
+            or "/" in filename
+            or "\\" in filename
+            or ".." in filename
+            or not _SAFE_FILENAME.match(filename)
+        ):
+            self._send_json(
+                handler,
+                HTTPStatus.FORBIDDEN,
+                _error_body(ErrorCode.TOOL_DENIED, "nome de arquivo inválido"),
+            )
+            return
+        course = self._fetchall(
+            "SELECT id FROM courses WHERE id = ? AND user_id = ?",
+            (course_id, user_id),
+        )
+        if not course:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(ErrorCode.SOURCE_UNRESOLVED, "disciplina não encontrada"),
+            )
+            return
+        target = resolve_owned_path(
+            self.runtime.data_root, user_id, f"originals/{filename}"
+        )
+        if not target.exists():
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(
+                    ErrorCode.SOURCE_UNRESOLVED,
+                    "arquivo ausente em originals/ (ingestão já concluída ou "
+                    "arquivo removido)",
                 ),
+            )
+            return
+        raw = target.read_bytes()
+        turn = self._ingest_original_file(user_id, filename, raw, course_id)
+        self._send_json(
+            handler,
+            HTTPStatus.OK,
+            {
+                "status": "ok",
+                "filename": filename,
+                "ingested": bool(turn.get("status") == "completed"),
+                "ingest_turn": turn,
             },
         )
-        self._send_json(handler, HTTPStatus.OK, {"status": "ok", **result})
 
     def _handle_get_course_suggestion_file(
         self,
@@ -2855,6 +2927,10 @@ class LoopbackAPI:
 
             if path == "/library/upload":
                 self._handle_post_library_upload(handler, user_id, body)
+                return
+
+            if path == "/library/ingest-original":
+                self._handle_post_library_ingest_original(handler, user_id, body)
                 return
 
             if path == "/turns":

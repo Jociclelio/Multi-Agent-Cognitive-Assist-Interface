@@ -538,15 +538,19 @@ function renderCoursesList() {
   const courseCards = filtered
     .map((course) => {
       const selected = course.id === appState.selectedCourseId ? "is-selected" : "";
+      const ingesting = Boolean(course.ingesting_content);
       const readyClass = course.ready_to_study ? "is-ready" : "is-pending";
-      const readyLabel = course.ready_to_study
-        ? "● Pronta p/ estudar"
-        : "○ Sem material ativo";
+      const readyLabel = ingesting
+        ? "◌ Ingerindo conteúdo"
+        : course.ready_to_study
+          ? "● Pronta p/ estudar"
+          : "○ Sem material ativo";
+      const readyClassFinal = ingesting ? "is-ingesting" : readyClass;
       return `
         <div class="course-card ${selected}" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}" tabindex="0">
           <div class="course-card-top">
             <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
-            <span class="course-ready-dot ${readyClass}">${readyLabel}</span>
+            <span class="course-ready-dot ${readyClassFinal}">${readyLabel}</span>
             <details class="doc-action-menu course-menu">
               <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
               <div class="doc-action-popover">
@@ -675,12 +679,17 @@ function renderActiveCourseHeader() {
   }
   if (titleEl) titleEl.textContent = course.title;
   if (readyBadge) {
-    readyBadge.textContent = course.ready_to_study
-      ? "Pronta para estudar"
-      : "Aguardando ingestão";
-    readyBadge.className = course.ready_to_study
-      ? "status-pill status-ready"
-      : "status-pill";
+    const ingesting = Boolean(course.ingesting_content);
+    readyBadge.textContent = ingesting
+      ? "Ingerindo conteúdo"
+      : course.ready_to_study
+        ? "Pronta para estudar"
+        : "Aguardando ingestão";
+    readyBadge.className = ingesting
+      ? "status-pill status-ingesting-pill"
+      : course.ready_to_study
+        ? "status-pill status-ready"
+        : "status-pill";
   }
   if (domainBadge) {
     domainBadge.textContent = `Domínio: ${course.domain_status}`;
@@ -2611,25 +2620,50 @@ function bindEvents() {
     if (!title) return;
     if (approveBtn) {
       approveBtn.disabled = true;
-      approveBtn.textContent = "Criando e ingerindo…";
+      approveBtn.textContent = "Criando…";
     }
     if (discardBtn) discardBtn.disabled = true;
+    let courseId = null;
+    let filesToIngest = [];
     try {
+      // Confirmação RÁPIDA: cria a matéria, move os arquivos e devolve a
+      // lista — a ingestão roda depois, arquivo a arquivo (progresso no
+      // Acervo), sem manter este popup aberto por minutos.
       const { status, data } = await apiFetch(
         `/courses/suggestions/${encodeURIComponent(reviewedSuggestion.id)}/confirm`,
         { method: "POST", body: { title, topics } },
       );
       if (status === 200 && data.course) {
-        appState.selectedCourseId = data.course.id;
+        courseId = data.course.id;
+        filesToIngest = data.files || [];
+        appState.selectedCourseId = courseId;
       }
-      if (suggestionDialog && suggestionDialog.open) suggestionDialog.close();
-      await refreshCoreData();
     } finally {
       if (approveBtn) {
         approveBtn.disabled = false;
         approveBtn.textContent = "Aprovar e ingerir";
       }
       if (discardBtn) discardBtn.disabled = false;
+    }
+    if (suggestionDialog && suggestionDialog.open) suggestionDialog.close();
+    await refreshCoreData();
+    if (courseId && filesToIngest.length) {
+      // Ingestão arquivo a arquivo (não bloqueia a UI; o rail mostra
+      // "Ingerindo conteúdo" até a última versão ativar).
+      (async () => {
+        for (const filename of filesToIngest) {
+          try {
+            await apiFetch("/library/ingest-original", {
+              method: "POST",
+              body: { course_id: courseId, filename },
+            });
+          } catch (_err) {
+            // Falha de rede de um arquivo não trava os demais; o Acervo
+            // mostra o estado real de cada documento.
+          }
+          await refreshCoreData();
+        }
+      })();
     }
   });
 
