@@ -271,6 +271,9 @@ const appState = {
   calendarWeekOffset: 0,
   // Rascunhos de matérias sugeridas (fluxo +Nova): pendentes de aprovação.
   suggestions: [],
+  // Placeholder da análise em andamento (Fase 1 arquivo a arquivo):
+  // aparece no rail como rascunho "Classificando…" e some ao concluir.
+  classification: null,
   // Arquivos escolhidos no popup +Nova (ainda não analisados).
   ncFiles: [],
 };
@@ -515,7 +518,22 @@ function renderCoursesList() {
     appState.courseSearch,
   );
   const suggestions = appState.suggestions || [];
-  if (filtered.length === 0 && suggestions.length === 0) {
+  // Placeholder da classificação em andamento (sobrevive ao fechamento do
+  // popup +Nova: o loop continua e o rail mostra o progresso arquivo a
+  // arquivo; some quando a análise termina ou falha).
+  const cls = appState.classification;
+  const placeholderCard = cls
+    ? `
+      <div class="course-card is-classifying" aria-live="polite">
+        <div class="course-card-top">
+          <h3 class="course-card-title">Classificando documentos…</h3>
+          <span class="suggestion-badge is-analyzing">⏳ analisando</span>
+        </div>
+        <p class="course-card-preview">${cls.done}/${cls.total} arquivo(s) classificado(s)${cls.current ? ` — ${escapeHtml(cls.current)}` : ""}</p>
+        <div class="ingest-progress determinate" role="progressbar" aria-label="Progresso da classificação" aria-valuenow="${Math.round((100 * cls.done) / cls.total)}" aria-valuemin="0" aria-valuemax="100"><div class="ingest-progress-fill" style="width: ${Math.round((100 * cls.done) / cls.total)}%; animation: none;"></div></div>
+      </div>`
+    : "";
+  if (filtered.length === 0 && suggestions.length === 0 && !cls) {
     container.innerHTML = `<p class="muted-note">Nenhuma disciplina encontrada para este filtro.</p>`;
     return;
   }
@@ -569,7 +587,7 @@ function renderCoursesList() {
     })
     .join("");
 
-  container.innerHTML = suggestionCards + courseCards;
+  container.innerHTML = placeholderCard + suggestionCards + courseCards;
 
   container.querySelectorAll("[data-course-id]").forEach((card) => {
     card.addEventListener("click", () => {
@@ -2503,6 +2521,14 @@ function bindEvents() {
     const statusEl = document.getElementById("nc-analyze-status");
     const analyzeBtn = document.getElementById("nc-analyze-btn");
     if (analyzeBtn) analyzeBtn.disabled = true;
+    // Placeholder no rail (sobrevive ao fechamento deste popup: o loop
+    // continua e o progresso aparece na coluna de disciplinas).
+    appState.classification = {
+      total: files.length,
+      done: 0,
+      current: files[0]?.name || "",
+    };
+    renderCoursesList();
     try {
       // Fase 1: um arquivo por chamada — progresso arquivo a arquivo; o
       // servidor faz staging + classificação rápida (cacheada por sha256).
@@ -2512,6 +2538,12 @@ function bindEvents() {
         if (file.size > 50 * 1024 * 1024) {
           throw new Error(`${file.name} excede o limite de 50 MB`);
         }
+        appState.classification = {
+          total: files.length,
+          done: i,
+          current: file.name,
+        };
+        renderCoursesList();
         if (statusEl) {
           statusEl.hidden = false;
           statusEl.innerHTML = `
@@ -2533,6 +2565,12 @@ function bindEvents() {
         batchId = data.batch_id;
       }
       // Fase 2: agregação — decide matérias, título e tópicos.
+      appState.classification = {
+        total: files.length,
+        done: files.length,
+        current: "agrupando matérias…",
+      };
+      renderCoursesList();
       if (statusEl) {
         statusEl.hidden = false;
         statusEl.innerHTML = `
@@ -2548,7 +2586,9 @@ function bindEvents() {
       }
       const count = (agg.data.suggestions || []).length;
       appState.ncFiles = [];
+      appState.classification = null;
       renderNcFileList();
+      renderCoursesList();
       if (newCourseDialog && newCourseDialog.open) newCourseDialog.close();
       await refreshCoreData();
       if (statusEl) {
@@ -2556,6 +2596,8 @@ function bindEvents() {
         statusEl.innerHTML = `<small class="upload-ok">✔ ${count} matéria(s) sugerida(s) — revise no rail, marcadas como <strong>esperando aprovação</strong>.</small>`;
       }
     } catch (err) {
+      appState.classification = null;
+      renderCoursesList();
       if (statusEl) {
         statusEl.hidden = false;
         statusEl.innerHTML = `<small class="upload-err">✖ ${escapeHtml(String(err))} — use a aba <strong>Manual</strong> se quiser criar sem análise.</small>`;

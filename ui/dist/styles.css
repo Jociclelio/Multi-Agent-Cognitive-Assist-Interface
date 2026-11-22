@@ -1812,3 +1812,14 @@ a.nc-file-name:hover {
   background-color: rgba(90, 170, 230, 0.16);
   color: var(--accent, #4a90d9);
 }
+
+/* Placeholder de classificação em andamento (rail) */
+.course-card.is-classifying {
+  border: 1px dashed var(--accent, #4a90d9);
+  background-color: rgba(90, 170, 230, 0.06);
+}
+
+.suggestion-badge.is-analyzing {
+  color: var(--accent, #4a90d9);
+  font-weight: 700;
+}
