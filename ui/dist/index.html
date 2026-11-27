@@ -52,6 +52,12 @@
             <span id="rail-ops-badge" class="rail-badge" hidden>0</span>
           </button>
         </li>
+        <li>
+          <button type="button" class="rail-btn" data-rail-target="graph" title="Mapa do Sistema Multiagente: nós, fios e disparos do último turno">
+            <span class="rail-icon" aria-hidden="true">🕸</span>
+            <span class="rail-label">Grafo</span>
+          </button>
+        </li>
       </ul>
 
       <div class="rail-footer">
@@ -277,7 +283,30 @@
         </div>
       </section>
 
-      <!-- Visão 3G: Configurações, Diagnóstico (Doctor) e Ciclo de Vida de Dados -->
+      <!-- Visão 3G: Mapa do Sistema Multiagente (nós, fios e disparos) -->
+      <section id="view-graph" class="stage-view" hidden aria-label="Mapa do sistema multiagente">
+        <div class="aux-view-container graph-view-container">
+          <div class="aux-header-row">
+            <h3>Mapa do Sistema Multiagente — Nós, Fios e Disparos</h3>
+            <div class="graph-toolbar">
+              <label class="graph-toggle" title="Pinta os nós e fios percorridos no último turno registrado">
+                <input type="checkbox" id="graph-highlight-toggle" checked />
+                Destacar último turno
+              </label>
+              <div class="graph-zoom" role="group" aria-label="Zoom do diagrama">
+                <button type="button" id="graph-zoom-out" class="btn-secondary btn-compact" title="Diminuir zoom">−</button>
+                <button type="button" id="graph-zoom-fit" class="btn-secondary btn-compact" title="Ajustar à largura">Ajustar</button>
+                <button type="button" id="graph-zoom-reset" class="btn-secondary btn-compact" title="Tamanho natural (100%)">100%</button>
+                <button type="button" id="graph-zoom-in" class="btn-secondary btn-compact" title="Aumentar zoom">+</button>
+              </div>
+              <button type="button" id="btn-refresh-graph" class="btn-secondary btn-compact">Atualizar</button>
+            </div>
+          </div>
+          <div id="graph-view-content" class="graph-view-content"></div>
+        </div>
+      </section>
+
+      <!-- Visão 3H: Configurações, Diagnóstico (Doctor) e Ciclo de Vida de Dados -->
       <section id="view-settings" class="stage-view" hidden aria-label="Diagnóstico do sistema e configurações">
         <div class="aux-view-container">
           <div class="aux-header-row">

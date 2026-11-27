@@ -2211,6 +2211,8 @@ async function loadAuxiliaryView(viewName) {
           btn.disabled = false;
         }
       });
+  } else if (viewName === "graph") {
+    await renderGraphView();
   } else if (viewName === "settings") {
     const el = document.getElementById("settings-view-content");
     if (!el) return;
@@ -2267,6 +2269,197 @@ async function loadAuxiliaryView(viewName) {
       }
     });
   }
+}
+
+async function renderGraphView() {
+  const el = document.getElementById("graph-view-content");
+  if (!el) return;
+  el.innerHTML = `<p class="muted-note">Montando o diagrama do grafo…</p>`;
+  try {
+    const { status, data } = await apiFetch("/graph");
+    if (status !== 200 || !data) {
+      el.innerHTML = `<div class="info-card"><strong>Falha ao carregar o mapa</strong><span>${escapeHtml(
+        data?.error?.message || `HTTP ${status}`,
+      )}</span></div>`;
+      return;
+    }
+    appState.graphData = data;
+    const firstRender = !Number.isFinite(Number(appState.graphZoom));
+    renderGraphStage({ fit: firstRender });
+  } catch (err) {
+    el.innerHTML = `<div class="info-card"><strong>Falha ao carregar o mapa</strong><span>${escapeHtml(
+      err?.message || String(err),
+    )}</span></div>`;
+  }
+}
+
+const GRAPH_KIND_LABELS = {
+  llm: "LLM",
+  retrieval: "retrieval",
+  context: "contexto",
+  solver: "solver",
+  commit: "commit",
+  tools: "ferramentas",
+  queue: "fila",
+};
+
+function formatGraphSeconds(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  if (n < 1) return `${Math.round(n * 1000)} ms`;
+  return `${n.toFixed(2)} s`;
+}
+
+function renderGraphStage({ fit = false } = {}) {
+  const el = document.getElementById("graph-view-content");
+  const data = appState.graphData;
+  if (!el || !data) return;
+  if (!data.svg) {
+    el.innerHTML = `
+      <div class="info-card">
+        <strong>Graphviz (<code>dot</code>) indisponível</strong>
+        <span>O grafo foi lido (${escapeHtml(data.node_count)} nós, ${escapeHtml(
+          data.edge_count,
+        )} fios), mas o SVG não pôde ser renderizado. Fonte DOT abaixo.</span>
+        <pre class="graph-source">${escapeHtml(data.dot || "")}</pre>
+      </div>`;
+    return;
+  }
+  const trace = data.trace;
+  const spansHtml = trace
+    ? (trace.spans || [])
+        .map(
+          (s, i) => `
+          <li class="graph-span-row">
+            <span class="graph-span-index">${i + 1}</span>
+            <span class="graph-span-kind kind-${escapeHtml(s.kind || "tools")}">${escapeHtml(
+              GRAPH_KIND_LABELS[s.kind] || s.kind || "nó",
+            )}</span>
+            <code class="graph-span-node">${escapeHtml(s.node)}</code>
+            <span class="graph-span-time">${formatGraphSeconds(s.active_s)}</span>
+          </li>`,
+        )
+        .join("")
+    : "";
+  const errorsHtml = trace?.errors?.length
+    ? `<div class="graph-errors"><strong>Erros do turno</strong><ul>${trace.errors
+        .map(
+          (e) =>
+            `<li><code>${escapeHtml(e.code || "erro")}</code> ${escapeHtml(
+              e.message || "",
+            )}</li>`,
+        )
+        .join("")}</ul></div>`
+    : "";
+  const traceHtml = trace
+    ? `
+      <header class="graph-trace-head">
+        <div>
+          <strong>Último turno</strong>
+          <span class="status-pill">${escapeHtml(trace.status || "—")}</span>
+        </div>
+        <small class="muted-note">
+          ${escapeHtml((trace.trace_id || "").slice(0, 8))} · ${escapeHtml(
+            String(trace.started_at || "").slice(0, 19).replace("T", " "),
+          )} · ${formatGraphSeconds(trace.duration_s)}
+        </small>
+      </header>
+      <p class="muted-note graph-trace-summary">
+        ${escapeHtml(trace.fired_nodes.length)} nó(s) disparado(s) ·
+        ${escapeHtml(trace.fired_edges.length)} fio(s) percorrido(s) ·
+        ${escapeHtml(trace.llm_calls)} chamada(s) de LLM
+      </p>
+      ${errorsHtml}
+      <ol class="graph-span-list">${spansHtml || `<li class="muted-note">Turno sem spans de nó.</li>`}</ol>
+    `
+    : `
+      <header class="graph-trace-head"><strong>Último turno</strong></header>
+      <p class="muted-note">Nenhum trace em <code>data/telemetry</code> ainda. Envie uma mensagem no chat e volte aqui para ver os disparos e os fios percorridos.</p>
+    `;
+  el.innerHTML = `
+    <div class="graph-layout">
+      <div class="graph-canvas-wrap">
+        <div class="graph-canvas" id="graph-canvas">${data.svg}</div>
+        <div class="graph-legend">
+          ${Object.entries(GRAPH_KIND_LABELS)
+            .map(
+              ([kind, label]) =>
+                `<span class="graph-legend-item"><i class="graph-legend-swatch kind-${escapeHtml(
+                  kind,
+                )}"></i>${escapeHtml(label)}</span>`,
+            )
+            .join("")}
+          <span class="graph-legend-item"><i class="graph-legend-line"></i>condicional</span>
+        </div>
+        <small class="muted-note">
+          ${escapeHtml(data.node_count)} nós · ${escapeHtml(data.edge_count)} fios ·
+          ${trace ? "laranja = caminho do último turno" : "sem turno registrado"} ·
+          trace local (<code>data/telemetry</code>), sem rede
+        </small>
+      </div>
+      <aside class="graph-trace-panel">${traceHtml}</aside>
+    </div>`;
+  const canvas = document.getElementById("graph-canvas");
+  const svg = canvas?.querySelector("svg");
+  if (svg) {
+    const width = parseFloat(svg.getAttribute("width") || "0");
+    if (Number.isFinite(width) && width > 0) svg.dataset.baseWidth = String(width);
+    svg.removeAttribute("height");
+  }
+  if (fit) fitGraphZoom();
+  else applyGraphZoom();
+  applyGraphHighlight();
+}
+
+function applyGraphZoom() {
+  const canvas = document.getElementById("graph-canvas");
+  const svg = canvas?.querySelector("svg");
+  if (!canvas || !svg) return;
+  const base = parseFloat(svg.dataset.baseWidth || svg.getAttribute("width") || "0");
+  if (!Number.isFinite(base) || base <= 0) return;
+  svg.dataset.baseWidth = String(base);
+  const zoom = Math.min(4, Math.max(0.1, Number(appState.graphZoom) || 1));
+  appState.graphZoom = zoom;
+  svg.style.width = `${Math.max(160, base * zoom)}px`;
+  svg.style.height = "auto";
+  svg.style.maxWidth = "none";
+}
+
+function zoomGraph(factor) {
+  appState.graphZoom = (Number(appState.graphZoom) || 1) * factor;
+  applyGraphZoom();
+}
+
+function fitGraphZoom() {
+  const canvas = document.getElementById("graph-canvas");
+  const svg = canvas?.querySelector("svg");
+  const base = parseFloat(svg?.dataset.baseWidth || "0");
+  if (!canvas || !Number.isFinite(base) || base <= 0) return;
+  appState.graphZoom = Math.max(0.1, (canvas.clientWidth - 8) / base);
+  applyGraphZoom();
+}
+
+function applyGraphHighlight() {
+  const canvas = document.getElementById("graph-canvas");
+  const data = appState.graphData;
+  if (!canvas || !data) return;
+  canvas
+    .querySelectorAll("g.node.is-fired, g.edge.is-fired")
+    .forEach((g) => g.classList.remove("is-fired"));
+  const toggle = document.getElementById("graph-highlight-toggle");
+  const enabled = toggle ? toggle.checked : true;
+  const trace = data.trace;
+  canvas.classList.toggle("is-highlighting", Boolean(enabled && trace));
+  if (!enabled || !trace) return;
+  const byId = new Map((data.nodes || []).map((n) => [n.id, n]));
+  (trace.fired_nodes || []).forEach((name) => {
+    const node = byId.get(name);
+    if (!node) return;
+    canvas.querySelector(`#${CSS.escape(node.svg_id)}`)?.classList.add("is-fired");
+  });
+  (trace.fired_edges || []).forEach((edge) => {
+    canvas.querySelector(`#${CSS.escape(edge.svg_id)}`)?.classList.add("is-fired");
+  });
 }
 
 function setPlanGenerationStatus(message, state = "info") {
@@ -2358,6 +2551,29 @@ function bindEvents() {
       if (target) switchView(target);
     });
   });
+
+  // Mapa do Sistema Multiagente: atualizar, destacar e zoom
+  document.getElementById("btn-refresh-graph")?.addEventListener("click", () => {
+    renderGraphView();
+  });
+  document
+    .getElementById("graph-highlight-toggle")
+    ?.addEventListener("change", applyGraphHighlight);
+  document
+    .getElementById("graph-zoom-in")
+    ?.addEventListener("click", () => zoomGraph(1.25));
+  document
+    .getElementById("graph-zoom-out")
+    ?.addEventListener("click", () => zoomGraph(0.8));
+  document
+    .getElementById("graph-zoom-fit")
+    ?.addEventListener("click", fitGraphZoom);
+  document
+    .getElementById("graph-zoom-reset")
+    ?.addEventListener("click", () => {
+      appState.graphZoom = 1;
+      applyGraphZoom();
+    });
 
   // Filtros de Disciplinas
   document.querySelectorAll("[data-course-filter]").forEach((chip) => {

@@ -1915,3 +1915,276 @@ a.nc-file-name:hover {
   font-size: 0.8rem;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   Visão "Grafo": mapa do sistema multiagente (nós, fios e disparos)
+   --------------------------------------------------------------------------- */
+/* A gaveta de evidências não participa do mapa: ocupa a largura toda. */
+.app-shell[data-active-view="graph"] {
+  grid-template-columns: 64px 320px minmax(0, 1fr);
+}
+
+.app-shell[data-active-view="graph"] .evidence-drawer {
+  display: none;
+}
+
+.graph-view-container {
+  overflow: hidden;
+}
+
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.graph-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.graph-zoom {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.graph-view-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.graph-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  width: 100%;
+  min-height: 0;
+}
+
+.graph-canvas-wrap,
+.graph-trace-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  padding: 12px;
+  max-height: calc(100vh - 190px);
+  overflow: auto;
+}
+
+.graph-canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.graph-canvas {
+  flex: 1;
+  min-height: 220px;
+  overflow: auto;
+}
+
+.graph-canvas svg {
+  display: block;
+}
+
+.graph-canvas.is-highlighting svg g.node:not(.is-fired) {
+  opacity: 0.42;
+}
+
+.graph-canvas.is-highlighting svg g.edge:not(.is-fired) {
+  opacity: 0.22;
+}
+
+.graph-canvas svg g.node.is-fired > polygon,
+.graph-canvas svg g.node.is-fired > path {
+  stroke: #f97316 !important;
+  stroke-width: 2.2px !important;
+}
+
+.graph-canvas svg g.node.is-fired > text {
+  fill: #9a3412 !important;
+  font-weight: 700;
+}
+
+.graph-canvas svg g.edge.is-fired > path {
+  stroke: #f97316 !important;
+  stroke-width: 2.4px !important;
+  opacity: 1 !important;
+}
+
+.graph-canvas svg g.edge.is-fired > polygon {
+  fill: #f97316 !important;
+  stroke: #f97316 !important;
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.graph-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.graph-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid #94a3b8;
+  display: inline-block;
+}
+
+.graph-legend-line {
+  width: 18px;
+  border-top: 1.5px dashed #94a3b8;
+}
+
+.graph-trace-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graph-trace-head > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-trace-summary {
+  margin-top: 6px;
+}
+
+.graph-span-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.graph-span-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.graph-span-index {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  min-width: 16px;
+  text-align: right;
+}
+
+.graph-span-node {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.graph-span-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-span-kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid #94a3b8;
+  color: #334155;
+  background: #f1f5f9;
+  white-space: nowrap;
+}
+
+.graph-legend-swatch.kind-llm,
+.graph-span-kind.kind-llm {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.graph-legend-swatch.kind-retrieval,
+.graph-span-kind.kind-retrieval {
+  background: #dcfce7;
+  border-color: #16a34a;
+}
+
+.graph-legend-swatch.kind-context,
+.graph-span-kind.kind-context {
+  background: #fef9c3;
+  border-color: #ca8a04;
+}
+
+.graph-legend-swatch.kind-solver,
+.graph-span-kind.kind-solver {
+  background: #fde68a;
+  border-color: #d97706;
+}
+
+.graph-legend-swatch.kind-commit,
+.graph-span-kind.kind-commit {
+  background: #fce7f3;
+  border-color: #db2777;
+}
+
+.graph-legend-swatch.kind-tools,
+.graph-span-kind.kind-tools {
+  background: #f1f5f9;
+  border-color: #64748b;
+}
+
+.graph-legend-swatch.kind-queue,
+.graph-span-kind.kind-queue {
+  background: #e5e7eb;
+  border-color: #4b5563;
+}
+
+.graph-errors {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.graph-errors ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.graph-source {
+  max-height: 420px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1100px) {
+  .graph-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .graph-canvas-wrap,
+  .graph-trace-panel {
+    max-height: none;
+  }
+}

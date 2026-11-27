@@ -927,6 +927,14 @@ class EduAgentGraph:
         g.add_edge("validate_access_claims", "finish")
         return g.compile(checkpointer=self._checkpointer)
 
+    def drawable_graph(self) -> Any:
+        """Representação desenhável do grafo compilado (mapa §10/§12).
+
+        Usada pela visualização do loopback; somente leitura, não invoca
+        nós nem toca checkpoint/domínio.
+        """
+        return self._graph.get_graph()
+
     # ------------------------------------------------------------------
     # Trace local por turno (mapa §12)
     # ------------------------------------------------------------------

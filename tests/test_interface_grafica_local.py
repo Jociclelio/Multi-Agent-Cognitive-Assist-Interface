@@ -397,6 +397,7 @@ def test_ui_api_02_user_header_validation_across_routes(tmp_path: Path) -> None:
     try:
         protected_get_routes = [
             "/courses",
+            "/graph",
             f"/sessions/{SESSION}",
             "/operations",
             "/calendar",
@@ -417,6 +418,38 @@ def test_ui_api_02_user_header_validation_across_routes(tmp_path: Path) -> None:
             )
             assert st_unk == 404, f"Rota {route} deveria recusar UUID não registrado"
             assert body_unk["error"]["code"] == ErrorCode.SOURCE_UNRESOLVED.value
+    finally:
+        server.stop()
+        ctx.close()
+
+
+# ============================================================================
+# UI-API-03: GET /graph — diagrama do grafo multiagente (somente leitura)
+# ============================================================================
+def test_ui_api_03_graph_diagram_endpoint(tmp_path: Path) -> None:
+    ctx = open_ui_runtime(tmp_path)
+    server = LoopbackAPI(ctx, host="127.0.0.1", port=0)
+    host, port = server.start()
+    base_url = f"http://{host}:{port}"
+    try:
+        status, data = _http_json(
+            f"{base_url}/graph", headers={"X-EduAgent-User": UID}
+        )
+        assert status == 200
+        assert data["status"] == "ok"
+        assert data["node_count"] > 10
+        assert data["edge_count"] > 10
+        nodes = {node["id"]: node for node in data["nodes"]}
+        assert "classify" in nodes and "exam_collect" in nodes
+        assert nodes["classify"]["kind"] == "llm"
+        conditional = [e for e in data["edges"] if e["conditional"]]
+        assert conditional
+        assert any(e["label"] for e in conditional)
+        assert data["dot"].startswith("digraph EduAgent {")
+        assert 'id="n_classify"' in data["dot"]
+        assert data["svg"] is None or "<svg" in data["svg"]
+        # Sem trace gravado, o painel de disparos fica vazio (não inventa turno)
+        assert data["trace"] is None
     finally:
         server.stop()
         ctx.close()

@@ -15,6 +15,8 @@ caminhos da CLI:
   - ``GET /courses`` e ``POST /courses``
   - ``GET /courses/{course_id}/sessions`` e ``GET /sessions/{session_id}``
   - ``GET /operations``
+  - ``GET /graph`` — diagrama do grafo multiagente (SVG/DOT/Mermaid) e
+    disparos do último turno (traces de ``data/telemetry``)
   - ``GET /calendar``
   - ``GET /progress``
   - ``GET /library`` e ``POST /library/upload``
@@ -50,6 +52,7 @@ import webbrowser
 from eduagent.config import resolve_timezone, validate_iana_timezone
 from eduagent.contracts import EduAgentError, ErrorCode, TypedError
 from eduagent.graph import TurnResult
+from eduagent.graph_view import build_view
 from eduagent.policy import resolve_owned_path
 from eduagent.runtime import RuntimeContext
 
@@ -836,6 +839,13 @@ class LoopbackAPI:
                     return
                 doc_id = path[len("/documents/") : -len("/original")]
                 self._handle_get_document_original(handler, user_id, doc_id)
+                return
+
+            if path == "/graph":
+                user_id = self._require_user(handler)
+                if user_id is None:
+                    return
+                self._handle_get_graph(handler)
                 return
 
             if path == "/operations":
@@ -1866,6 +1876,34 @@ class LoopbackAPI:
         self._send_json(
             handler, HTTPStatus.OK, {"status": "ok", "fact": record}
         )
+
+    def _handle_get_graph(self, handler: BaseHTTPRequestHandler) -> None:
+        """Diagrama do grafo compilado + disparos do último turno (§10/§12).
+
+        Somente leitura: usa ``drawable_graph()`` da instância viva e os
+        traces de ``data/telemetry``; nunca invoca o grafo nem toca
+        checkpoint/domínio.
+        """
+        try:
+            drawable = self.runtime.graph.drawable_graph()
+            payload = build_view(
+                drawable,
+                telemetry_dir=getattr(self.runtime, "telemetry_dir", None),
+            )
+        except Exception as exc:  # noqa: BLE001 — visualização é diagnóstico
+            self._send_json(
+                handler,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {
+                    "status": "error",
+                    "error": {
+                        "code": ErrorCode.INTERNAL_FAILURE.value,
+                        "message": f"falha ao montar o diagrama do grafo: {exc}",
+                    },
+                },
+            )
+            return
+        self._send_json(handler, HTTPStatus.OK, payload)
 
     def _handle_get_operations(
         self,
