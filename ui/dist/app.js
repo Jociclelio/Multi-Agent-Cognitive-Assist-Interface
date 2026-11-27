@@ -537,8 +537,24 @@ function renderCoursesList() {
         <div class="ingest-progress determinate" role="progressbar" aria-label="Progresso da classificação" aria-valuenow="${Math.round((100 * cls.done) / cls.total)}" aria-valuemin="0" aria-valuemax="100"><div class="ingest-progress-fill" style="width: ${Math.round((100 * cls.done) / cls.total)}%; animation: none;"></div></div>
       </div>`
     : "";
+  // Conversa Geral (thread estável …099): porta de entrada entre matérias —
+  // agenda, provas de várias disciplinas, planejamento. Renderizada antes
+  // das matérias; nunca some no filtro nem na busca.
+  const geralSelected = appState.selectedCourseId === null;
+  const geralHtml = `
+    <div class="geral-conversation-entry${geralSelected ? " is-selected" : ""}" data-geral-conversation="1" role="option" aria-selected="${geralSelected}" tabindex="0" title="Conversa geral: agenda, provas de várias matérias, dúvidas entre disciplinas">
+      <span class="geral-icon">💬</span>
+      <span class="geral-label">Conversa Geral</span>
+    </div>`;
   if (filtered.length === 0 && suggestions.length === 0 && !cls) {
-    container.innerHTML = `<p class="muted-note">Nenhuma disciplina encontrada para este filtro.</p>`;
+    container.innerHTML =
+      geralHtml +
+      `<p class="muted-note">Nenhuma disciplina encontrada para este filtro.</p>`;
+    container
+      .querySelector("[data-geral-conversation]")
+      ?.addEventListener("click", () => {
+        selectGeralConversation();
+      });
     return;
   }
   const suggestionCards = suggestions
@@ -596,19 +612,11 @@ function renderCoursesList() {
     })
     .join("");
 
-  container.innerHTML = placeholderCard + suggestionCards + courseCards;
+  container.innerHTML = geralHtml + placeholderCard + suggestionCards + courseCards;
 
-  const geralEntry = document.getElementById("geral-conversation-entry");
-  if (geralEntry) {
-    geralEntry.setAttribute(
-      "aria-selected",
-      String(appState.selectedCourseId === null),
-    );
-    geralEntry.classList.toggle(
-      "is-selected",
-      appState.selectedCourseId === null,
-    );
-  }
+  container.querySelector("[data-geral-conversation]")?.addEventListener("click", () => {
+    selectGeralConversation();
+  });
 
   container.querySelectorAll("[data-course-id]").forEach((card) => {
     card.addEventListener("click", () => {
@@ -2343,13 +2351,6 @@ function switchView(viewName) {
 }
 
 function bindEvents() {
-  // Conversa Geral (thread estável …099) — porta de entrada entre matérias.
-  document
-    .getElementById("geral-conversation-entry")
-    ?.addEventListener("click", () => {
-      selectGeralConversation();
-    });
-
   // Navegação do Trilho Global Esquerdo
   document.querySelectorAll("[data-rail-target]").forEach((btn) => {
     btn.addEventListener("click", () => {
