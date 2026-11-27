@@ -197,6 +197,7 @@ def _compute_course_priority(
     last_event: dict[str, Any] | None,
     topic_states: list[dict[str, Any]],
     ingesting_count: int = 0,
+    extra_counts: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Calcula a ordenação determinística em 4 faixas (Decisão D3) e o sinal
     'Pronta para estudar' (Decisão D4) sem alterar o DDL SQLite.
@@ -213,6 +214,13 @@ def _compute_course_priority(
     topic_ids = {t["id"] for t in topics}
     course_id_str = str(course_row["id"])
     course_title_lower = str(course_row["title"]).lower()
+    # Datas de prova ainda não confirmadas/rejeitadas nos documentos da
+    # matéria — badge "📅 N" no rail (confirmação pelo card da conversa).
+    pending_exam_dates = 0
+    if extra_counts and extra_counts.get("candidate_dates"):
+        for ref in extra_counts["candidate_dates"]:
+            if ref.get("course_id") == course_id_str:
+                pending_exam_dates += 1
 
     all_course_demand_ids = {
         d["id"]
@@ -325,6 +333,7 @@ def _compute_course_priority(
         "domain_status": overall_status,
         "topic_states_summary": status_counts,
         "attempts_count": attempts_count,
+        "pending_exam_dates": extra_counts.get("pending_exam_dates", 0),
     }
 
 
@@ -1112,6 +1121,27 @@ class LoopbackAPI:
             """,
             (user_id,),
         )
+        # Datas de prova candidate (badge do rail): fonte do fato → documento
+        # → matéria.
+        candidate_dates: list[dict[str, Any]] = []
+        for fact_row in self._fetchall(
+            "SELECT id, source_refs_json FROM facts "
+            "WHERE user_id = ? AND kind = 'date' AND status = 'candidate'",
+            (user_id,),
+        ):
+            refs = _safe_json_loads(fact_row["source_refs_json"], []) or []
+            doc_id = str(refs[0].get("doc_id")) if refs else None
+            course_of_doc = next(
+                (
+                    str(d["course_id"])
+                    for d in doc_rows
+                    if doc_id and str(d["id"]) == doc_id
+                ),
+                None,
+            )
+            candidate_dates.append(
+                {"fact_id": str(fact_row["id"]), "course_id": course_of_doc}
+            )
         demand_rows = self._fetchall(
             """
             SELECT id, topic_id, activity_kind, due_local_date, status, payload_json
@@ -1265,6 +1295,7 @@ class LoopbackAPI:
                     last_event=last_ev,
                     topic_states=course_ts,
                     ingesting_count=len(ingesting_docs),
+                    extra_counts={"candidate_dates": candidate_dates},
                 )
             )
 

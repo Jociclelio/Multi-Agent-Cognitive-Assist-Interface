@@ -1884,3 +1884,34 @@ a.nc-file-name:hover {
   background: var(--surface, #fff);
   color: inherit;
 }
+
+/* Conversa Geral no rail (porta de entrada entre matérias) */
+.geral-conversation-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  background: rgba(120, 120, 200, 0.06);
+}
+
+.geral-conversation-entry:hover {
+  background: rgba(120, 120, 200, 0.12);
+}
+
+.geral-conversation-entry.is-selected {
+  border-color: var(--accent, #4a90d9);
+  background: rgba(90, 170, 230, 0.14);
+}
+
+/* Badge de provas a confirmar (card da matéria no rail) */
+.exam-badge {
+  color: var(--warning, #b8860b);
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}

@@ -252,6 +252,7 @@ const appState = {
   courses: [],
   selectedCourseId: null,
   activeSessionId: "00000000-0000-0000-0000-000000000099",
+  chatBootstrapped: false,
   helpLevel: "L0",
   turnInFlight: false,
   // Uploads enviados cuja resposta ainda não chegou: aparecem no topo da
@@ -571,6 +572,11 @@ function renderCoursesList() {
         <div class="course-card ${selected}" data-course-id="${escapeHtml(course.id)}" role="option" aria-selected="${course.id === appState.selectedCourseId}" tabindex="0">
           <div class="course-card-top">
             <h3 class="course-card-title">${escapeHtml(course.title)}</h3>
+            ${
+              course.pending_exam_dates > 0
+                ? `<span class="exam-badge" title="Datas de prova aguardando confirmação na conversa">📅 ${escapeHtml(String(course.pending_exam_dates))}</span>`
+                : ""
+            }
             <span class="course-ready-dot ${readyClassFinal}">${readyLabel}</span>
             <details class="doc-action-menu course-menu">
               <summary aria-label="Ações da disciplina" title="Ações da disciplina">…</summary>
@@ -591,6 +597,18 @@ function renderCoursesList() {
     .join("");
 
   container.innerHTML = placeholderCard + suggestionCards + courseCards;
+
+  const geralEntry = document.getElementById("geral-conversation-entry");
+  if (geralEntry) {
+    geralEntry.setAttribute(
+      "aria-selected",
+      String(appState.selectedCourseId === null),
+    );
+    geralEntry.classList.toggle(
+      "is-selected",
+      appState.selectedCourseId === null,
+    );
+  }
 
   container.querySelectorAll("[data-course-id]").forEach((card) => {
     card.addEventListener("click", () => {
@@ -1589,6 +1607,28 @@ async function loadChatHistory(sessionId) {
   renderSessionTimelineAndDrawer();
 }
 
+/** Conversa Geral (thread estável …099): porta de entrada para assuntos que
+ * atravessam matérias — agenda, provas de várias disciplinas, planejamento. */
+const GERAL_SESSION_ID = "00000000-0000-0000-0000-000000000099";
+
+async function selectGeralConversation() {
+  appState.selectedCourseId = null;
+  appState.selectedCourseTitle = "Conversa Geral";
+  appState.activeSessionId = GERAL_SESSION_ID;
+  appState.pomodoro = null;
+  savePomodoroToStorage();
+  renderCoursesList();
+  renderActiveCourseHeader();
+  renderPomodoroWidget();
+  const { status, data } = await apiFetch(
+    `/sessions/${encodeURIComponent(GERAL_SESSION_ID)}`,
+  );
+  if (status === 200) {
+    appState.sessionDetail = data;
+  }
+  await loadChatHistory(GERAL_SESSION_ID);
+}
+
 async function ensureSystemOrFallbackTimezone() {
   const gates = appState.health?.gates;
   if (!gates || gates.timezone) return;
@@ -1651,6 +1691,18 @@ async function refreshCoreData() {
     if (!appState.selectedCourseId && appState.courses.length > 0) {
       appState.selectedCourseId = appState.courses[0].id;
       appState.pomodoro = createPomodoroState(appState.courses[0]);
+    }
+    // Bootstrap da conversa (uma vez): a matéria inicial selecionada no rail
+    // é também a conversa ativa — sem isso o histórico só carregava depois
+    // de um clique.
+    if (
+      !appState.chatBootstrapped &&
+      appState.selectedCourseId &&
+      appState.activeSessionId !== appState.selectedCourseId
+    ) {
+      appState.chatBootstrapped = true;
+      appState.activeSessionId = appState.selectedCourseId;
+      loadChatHistory(appState.activeSessionId);
     }
     renderCoursesList();
     renderActiveCourseHeader();
@@ -2291,6 +2343,13 @@ function switchView(viewName) {
 }
 
 function bindEvents() {
+  // Conversa Geral (thread estável …099) — porta de entrada entre matérias.
+  document
+    .getElementById("geral-conversation-entry")
+    ?.addEventListener("click", () => {
+      selectGeralConversation();
+    });
+
   // Navegação do Trilho Global Esquerdo
   document.querySelectorAll("[data-rail-target]").forEach((btn) => {
     btn.addEventListener("click", () => {
