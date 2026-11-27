@@ -1823,3 +1823,64 @@ a.nc-file-name:hover {
   color: var(--accent, #4a90d9);
   font-weight: 700;
 }
+
+/* Card de confirmação de datas de prova (gate §6.3 na conversa) */
+.exam-gate-card .exam-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.exam-row {
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.exam-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.exam-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.exam-time-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.exam-time-input {
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  padding: 0.15rem 0.3rem;
+  background: var(--surface, #fff);
+  color: inherit;
+}
+
+.exam-text-answer {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.exam-text-answer input[type="text"] {
+  flex: 1;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  background: var(--surface, #fff);
+  color: inherit;
+}

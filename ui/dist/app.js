@@ -271,6 +271,9 @@ const appState = {
   calendarWeekOffset: 0,
   // Rascunhos de matérias sugeridas (fluxo +Nova): pendentes de aprovação.
   suggestions: [],
+  // Histórico persistido da conversa ativa (GET /chat/{id}/messages) —
+  // a linha do tempo sobrevive a reload e troca de matéria.
+  historyTurns: [],
   // Placeholder da análise em andamento (Fase 1 arquivo a arquivo):
   // aparece no rail como rascunho "Classificando…" e some ao concluir.
   classification: null,
@@ -810,9 +813,53 @@ function renderSessionTimelineAndDrawer() {
   // Os payloads JSON e eventos de execução não devem aparecer ao estudante.
   const cardsHtml = [];
 
+  // Histórico persistido (server-side) da conversa ativa — vem antes dos
+  // turnos locais; card de gates pendentes (ex.: confirmação de provas) é
+  // renderizado com botões.
+  for (const msg of appState.historyTurns || []) {
+    if (msg.role === "user") {
+      cardsHtml.push(`
+        <article class="timeline-card role-student">
+          <div class="card-header-meta">
+            <strong>Estudante</strong>
+            <span>${escapeHtml(String(msg.created_at || "").slice(0, 16).replace("T", " "))}</span>
+          </div>
+          <div>${escapeHtml(String(msg.content?.text || ""))}</div>
+        </article>
+      `);
+      continue;
+    }
+    if (msg.role !== "assistant") continue;
+    const q = msg.content?.question;
+    if (q && q.kind === "exam_confirmation" && !msg.content?.resolved) {
+      cardsHtml.push(renderExamConfirmationCard(msg.content, msg.created_at));
+      continue;
+    }
+    const histText =
+      msg.content?.output?.turn?.text ||
+      msg.content?.output?.note ||
+      (msg.content?.status === "waiting" || msg.content?.status === "waiting_student"
+        ? "Turno registrado — aguardando ação do estudante."
+        : null);
+    if (histText) {
+      cardsHtml.push(`
+        <article class="timeline-card role-tutor">
+          <div class="card-header-meta">
+            <strong>Tutor Socrático &amp; Feynman (EduAgent-OS)</strong>
+            <span>${escapeHtml(String(msg.created_at || "").slice(0, 16).replace("T", " "))}</span>
+          </div>
+          <div class="tutor-response">${renderTutorResponse(histText)}</div>
+        </article>
+      `);
+    }
+  }
+
   // Turnos locais (resposta direta do POST /turns) vêm depois dos eventos
-  // persistidos, em ordem de ocorrência.
-  for (const lt of appState.localTurns || []) {
+  // persistidos, em ordem de ocorrência — filtrados pela conversa ativa
+  // (cada disciplina tem a sua linha do tempo; nunca se misturam).
+  for (const lt of (appState.localTurns || []).filter(
+    (t) => !t.sessionId || t.sessionId === appState.activeSessionId,
+  )) {
     if (lt.message) {
       cardsHtml.push(`
         <article class="timeline-card role-student">
@@ -979,6 +1026,7 @@ function renderSessionTimelineAndDrawer() {
     `);
   }
   timeline.innerHTML = cardsHtml.join("");
+  bindExamCardHandlers();
   syncPracticeTopicGate();
 
   timeline.querySelectorAll("[data-activity-intent]").forEach((button) => {
@@ -1213,6 +1261,134 @@ function renderApprovalGate(sessionId, question) {
 function removeApprovalGate() {
   document.getElementById("approval-gate-card")?.remove();
 }
+
+/**
+ * Card de confirmação de datas de prova (§6.3): gate auditável na conversa
+ * da matéria — botões por prova (Confirmar/Corrigir/Rejeitar), campo de
+ * horário opcional e resposta por linguagem natural. A retomada é
+ * POST /turns/{id}/resume com decisões estruturadas ou texto. Retorna HTML
+ * (os handlers são delegados em bindExamCardHandlers após o innerHTML).
+ */
+function renderExamConfirmationCard(content, occurredAt) {
+  const exams = Array.isArray(content.exams) ? content.exams : [];
+  const rows = exams
+    .map(
+      (exam) => `
+      <div class="exam-row" data-fact-id="${escapeHtml(String(exam.fact_id))}">
+        <div class="exam-row-main">
+          <strong>${escapeHtml(String(exam.expression))}</strong>
+          <span>→ ${escapeHtml(String(exam.normalized_value))}</span>
+          ${
+            exam.doc_id
+              ? `<a class="source-ref-btn" href="/documents/${encodeURIComponent(String(exam.doc_id))}/original${exam.page ? `#page=${exam.page}` : ""}" target="_blank" rel="noopener">[Fonte${exam.page ? ` p. ${escapeHtml(String(exam.page))}` : ""}]</a>`
+              : ""
+          }
+        </div>
+        <div class="exam-row-actions">
+          <label class="exam-time-label">⏰ <input type="time" class="exam-time-input" aria-label="Horário da prova (opcional)" /></label>
+          <button type="button" class="btn-primary btn-compact" data-exam-action="confirm">✅ Confirmar</button>
+          <button type="button" class="btn-ghost btn-compact" data-exam-action="correct">✏️ Corrigir</button>
+          <button type="button" class="btn-ghost btn-compact" data-exam-action="reject">✖ Não é prova</button>
+        </div>
+      </div>`,
+    )
+    .join("");
+  return `
+    <article class="timeline-card role-tutor approval-gate exam-gate-card" data-exam-gate="1">
+      <div class="card-header-meta"><strong>📅 Datas de prova encontradas</strong><span>${escapeHtml(String(occurredAt || "").slice(0, 16).replace("T", " "))}</span></div>
+      <div class="approval-question">${escapeHtml(String(content.question || "Confirma essas datas de prova?"))}</div>
+      <div class="exam-rows">${rows}</div>
+      <p class="muted-note">${escapeHtml(String(content.note || ""))}</p>
+      <div class="exam-text-answer">
+        <input type="text" class="exam-free-text" placeholder="…ou responda por escrito (ex.: &quot;confirmo a primeira e a última, a do meio mudou para 30/11&quot;)" aria-label="Resposta em linguagem natural" />
+        <button type="button" class="btn-ghost btn-compact" data-exam-text-send="1">Enviar</button>
+      </div>
+      <div class="exam-status muted-note" hidden></div>
+    </article>`;
+}
+
+/** Delegação dos handlers do card de provas (chamado após o innerHTML da
+ * timeline; um binding por render, sem acúmulo). */
+function bindExamCardHandlers() {
+  const timeline = document.getElementById("chat-timeline");
+  if (!timeline || timeline.dataset.examBound === "1") return;
+  timeline.dataset.examBound = "1";
+  const resumeExam = async (card, payload) => {
+    const statusEl = card.querySelector(".exam-status");
+    const showStatus = (text, isError) => {
+      if (!statusEl) return;
+      statusEl.hidden = false;
+      statusEl.textContent = text;
+      statusEl.style.color = isError ? "var(--danger, #c0392b)" : "";
+    };
+    card.querySelectorAll("button, input").forEach((el) => {
+      if (el.type !== "hidden") el.disabled = true;
+    });
+    try {
+      const res = await apiFetch(
+        `/turns/${encodeURIComponent(appState.activeSessionId)}/resume`,
+        { method: "POST", body: payload },
+      );
+      if (res.data && (res.data.error || (res.data.errors || []).length)) {
+        showStatus(
+          `Não deu: ${res.data.error?.message || "falha ao aplicar as decisões"}`,
+          true,
+        );
+        card
+          .querySelectorAll("button, input")
+          .forEach((el) => (el.disabled = false));
+        return;
+      }
+      if (res.data) recordLocalTurnFromResponse("", res.data);
+      await loadChatHistory(appState.activeSessionId);
+      await refreshCoreData();
+    } catch (err) {
+      showStatus(`Falha de rede: ${err?.message || err}`, true);
+      card
+        .querySelectorAll("button, input")
+        .forEach((el) => (el.disabled = false));
+    }
+  };
+  timeline.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-exam-action]");
+    if (btn) {
+      const card = btn.closest(".exam-gate-card");
+      const row = btn.closest(".exam-row");
+      const factId = row?.getAttribute("data-fact-id");
+      if (!card || !factId) return;
+      const action = btn.getAttribute("data-exam-action");
+      if (action === "correct") {
+        const current =
+          row.querySelector(".exam-row-main span")?.textContent?.replace(/^→\s*/, "") || "";
+        const novo = window.prompt(
+          "Corrigir a data da prova (AAAA-MM-DD ou DD/MM/AA):",
+          current,
+        );
+        if (!novo || !novo.trim()) return;
+        resumeExam(card, {
+          decisions: [
+            { fact_id: factId, action: "confirm", value: novo.trim() },
+          ],
+        });
+        return;
+      }
+      const timeInput = row.querySelector(".exam-time-input");
+      const examTime =
+        timeInput && timeInput.value ? timeInput.value : undefined;
+      const decision = { fact_id: factId, action };
+      if (examTime) decision.exam_time = examTime;
+      resumeExam(card, { decisions: [decision] });
+      return;
+    }
+    if (event.target.closest("[data-exam-text-send]")) {
+      const card = event.target.closest(".exam-gate-card");
+      const input = card?.querySelector(".exam-free-text");
+      const text = input?.value?.trim();
+      if (!card || !text) return;
+      resumeExam(card, { text });
+    }
+  });
+}
 const LIVE_PHASE_LABEL = {
   reading: "📖 Lendo o contexto da sessão",
   thinking: "💭 Pensando",
@@ -1326,6 +1502,7 @@ async function postTurnAndRecord(message, payload) {
     responseText: null,
     errorText: null,
     pending: true,
+    sessionId: appState.activeSessionId,
   };
   appState.localTurns.push(turn);
   if (appState.localTurns.length > 100) appState.localTurns.shift();
@@ -1390,6 +1567,26 @@ async function selectCourse(courseId) {
     appState.sessionDetail = data;
     renderSessionTimelineAndDrawer();
   }
+  await loadChatHistory(appState.activeSessionId);
+}
+
+/** Histórico persistido da conversa (migração 0011): a linha do tempo
+ * sobrevive a reload e à troca de matéria; o card de gates pendentes é
+ * re-renderizado com botões. */
+async function loadChatHistory(sessionId) {
+  appState.historyTurns = [];
+  renderSessionTimelineAndDrawer();
+  try {
+    const res = await apiFetch(
+      `/chat/${encodeURIComponent(sessionId)}/messages`,
+    );
+    if (res.status === 200 && Array.isArray(res.data?.messages)) {
+      appState.historyTurns = res.data.messages;
+    }
+  } catch (_err) {
+    // Sem histórico (primeira conversa / falha de rede): timeline vazia.
+  }
+  renderSessionTimelineAndDrawer();
 }
 
 async function ensureSystemOrFallbackTimezone() {
@@ -1910,9 +2107,50 @@ async function loadAuxiliaryView(viewName) {
       `,
       )
       .join("");
+    const numberCandidates = (data.pending_facts || []).filter(
+      (f) => f.kind === "number" && f.status === "candidate",
+    );
+    const bulkHtml = numberCandidates.length
+      ? `
+      <div class="info-card bulk-reject-card">
+        <strong>Ruído numérico (${numberCandidates.length} fatos candidato)</strong>
+        <span>Números extraídos do PDF que quase nunca são fatos acadêmicos (pesos, percentuais, anos). Rejeitar em massa não toca nas datas.</span>
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost btn-compact" id="bulk-reject-numbers">✖ Rejeitar todos os ${numberCandidates.length} números</button>
+        </div>
+      </div>`
+      : "";
     el.innerHTML =
-      factsHtml + plansHtml ||
+      bulkHtml + factsHtml + plansHtml ||
       `<p class="muted-note">Nenhuma operação ou aprovação pendente no momento.</p>`;
+    document
+      .getElementById("bulk-reject-numbers")
+      ?.addEventListener("click", async (event) => {
+        const btn = event.currentTarget;
+        if (
+          !window.confirm(
+            `Rejeitar os ${numberCandidates.length} fatos numéricos candidatos? As datas de prova NÃO são afetadas.`,
+          )
+        )
+          return;
+        btn.disabled = true;
+        try {
+          const res = await apiFetch("/facts/bulk-reject", {
+            method: "POST",
+            body: { kind: "number", status: "candidate" },
+          });
+          if (res.status === 200) {
+            btn.textContent = `✔ ${res.data.rejected} fato(s) rejeitado(s)`;
+            await loadAuxiliaryView("operations");
+          } else {
+            btn.textContent = `✖ ${res.data?.error?.message || "falhou"}`;
+            btn.disabled = false;
+          }
+        } catch (err) {
+          btn.textContent = `✖ ${err?.message || "falhou"}`;
+          btn.disabled = false;
+        }
+      });
   } else if (viewName === "settings") {
     const el = document.getElementById("settings-view-content");
     if (!el) return;

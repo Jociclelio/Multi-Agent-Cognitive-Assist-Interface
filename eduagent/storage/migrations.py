@@ -844,6 +844,33 @@ CREATE TABLE doc_classifications (
 """
 
 
+def _migration_0011() -> str:
+    """Histórico persistente das conversas (chat por disciplina).
+
+    A conversa de cada disciplina é a sessão estável da UI (``session_id`` =
+    id da matéria; a conversa Geral usa o UUID fixo ``…099``). Os turnos
+    vivem no checkpointer, mas o checkpointer não é um log legível de chat —
+    sem esta tabela, trocar de conversa (ou recarregar a página) perde a
+    linha do tempo. Cada linha guarda o payload serializado do turno (o
+    mesmo JSON que a UI renderiza), incluindo o card de gates pendentes.
+    """
+    return """
+-- ---------------------------------------------------------------------------
+-- chat_messages: histórico das conversas (disciplina + Geral)
+-- ---------------------------------------------------------------------------
+CREATE TABLE chat_messages (
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id   TEXT NOT NULL,
+    role         TEXT NOT NULL CHECK (role IN ('user','assistant','system')),
+    content_json TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX idx_chat_messages_session
+    ON chat_messages(user_id, session_id, created_at);
+"""
+
+
 def _load_builtin() -> None:
     script_0002, fk_off_0002 = _migration_0002()
     MIGRATIONS.append(
@@ -926,6 +953,14 @@ def _load_builtin() -> None:
             "doc_classifications: classificação rápida de documentos por "
             "sha256 (Fase 1 do +Nova e do acervo)",
             _migration_0010(),
+        )
+    )
+    MIGRATIONS.append(
+        (
+            11,
+            "chat_messages: histórico persistente das conversas por "
+            "disciplina e Geral (linha do tempo sobrevive a reload)",
+            _migration_0011(),
         )
     )
 

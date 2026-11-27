@@ -317,6 +317,41 @@ _CLASSIFIER_SCHEMA: dict[str, Any] = {
     },
 }
 
+#: Interpretação da resposta em linguagem natural ao card de confirmação de
+#: provas (§6.3): o texto do usuário é autoridade explícita; o modelo só
+#: extrai QUAL decisão — a aplicação passa sempre por ``set_fact_status``
+#: com ``user_confirms=True`` (autoridade registrada em ``confirmations``).
+_EXAM_DECISIONS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["decisions"],
+    "properties": {
+        "decisions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["fact_id", "action"],
+                "properties": {
+                    "fact_id": {"type": "string"},
+                    "action": {
+                        "type": "string",
+                        "enum": ["confirm", "reject", "ignore"],
+                    },
+                    "exam_time": {
+                        "type": "string",
+                        "description": "HH:MM opcional informado pelo usuário",
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "data corrigida informada pelo usuário (entrada direta)",
+                    },
+                },
+            },
+        }
+    },
+}
+
 _EXPLICIT_COMMANDS: dict[str, Intent] = {
     "/ingest": Intent.INGEST,
     "/ask": Intent.ASK,
@@ -327,6 +362,7 @@ _EXPLICIT_COMMANDS: dict[str, Intent] = {
     "/approve": Intent.APPROVE_PLAN,
     "/export": Intent.EXPORT_CALENDAR,
     "/resume": Intent.ASK,  # retomada: nova entrada; rota depende do estado
+    "/exams": Intent.EXAM_CONFIRM,
     "/cancel": Intent.CANCEL,
     "/curate": Intent.CURATE,
 }
@@ -354,6 +390,52 @@ def _explicit_intent(
     if lowered in {"cancelar", "cancela", "parar", "stop"}:
         return Intent.CANCEL
     return None
+
+
+class _ExamDocNames:
+    """Cache de nome de exibição de documento para os cards do grafo
+    (original_filename do manifest; fallback: hash). Espelha o comportamento
+    de ``api._doc_display_name`` sem acoplar o grafo à API."""
+
+    def __init__(self, store: Any) -> None:
+        self._store = store
+        self._cache: dict[str, str] = {}
+
+    def name(self, user_id: str, doc_id: str | None) -> str:
+        key = str(doc_id or "")
+        if not key:
+            return ""
+        if key in self._cache:
+            return self._cache[key]
+        name = ""
+        try:
+            rows = self._store.fetch_user_rows(
+                "SELECT extractor_manifest, original_ref FROM doc_versions "
+                "WHERE doc_id = ? AND user_id = ? ORDER BY rowid DESC LIMIT 1",
+                (key, user_id),
+            )
+        except Exception:  # noqa: BLE001 — nome é cosmético; nunca derruba o card
+            rows = []
+        if rows:
+            try:
+                manifest = json.loads(str(rows[0]["extractor_manifest"] or "{}"))
+                name = str((manifest or {}).get("original_filename") or "")
+            except json.JSONDecodeError:
+                name = ""
+            if not name:
+                name = str(rows[0]["original_ref"] or "").split("/")[-1]
+        self._cache[key] = name or key
+        return name or key
+
+
+def _safe_json(raw: Any) -> Any:
+    """JSON tolerante: nunca derruba o turno por payload malformado."""
+    if raw is None:
+        return None
+    try:
+        return json.loads(str(raw))
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 
 class _IntentClassifier:
@@ -518,6 +600,7 @@ class EduAgentGraph:
         self._tutor = tutor
         self._librarian = librarian
         self._curator = curator
+        self._doc_names = _ExamDocNames(store)
         self._retrieval = retrieval
         self._embedder = embedder
         self._memory = memory
@@ -692,6 +775,9 @@ class EduAgentGraph:
         g.add_node(
             "commit_invalidate", guarded(self._node_commit_invalidate)
         )
+        # exam_confirm (card de confirmação de datas de prova, §6.3)
+        g.add_node("exam_collect", guarded(self._node_exam_collect))
+        g.add_node("exam_commit", guarded(self._node_exam_commit))
         # curate
         g.add_node("network_gate", guarded(self._node_network_gate))
         g.add_node("web_search", guarded(self._node_web_search))
@@ -735,6 +821,7 @@ class EduAgentGraph:
                 "export": "resolve_approved_plan",
                 "memory": "librarian_retrieve",
                 "change": "validate_scope",
+                "exam": "exam_collect",
                 "curate": "network_gate",
                 "cancel": "stop_dispatch",
                 "finish": "finish",
@@ -746,6 +833,9 @@ class EduAgentGraph:
         g.add_edge("reconcile_started_effects", "persist")
         g.add_edge("persist", "cancelled")
         g.add_edge("cancelled", "finish")
+        # exam_confirm (§6.3): coleta → interrupt (card) → commit idempotente
+        g.add_edge("exam_collect", "exam_commit")
+        g.add_edge("exam_commit", "finish")
         # ingest (§10: extract → curator_facts → validate → confirm → commit)
         g.add_edge("ingest_extract", "curator_facts")
         g.add_edge("curator_facts", "ingest_validate")
@@ -1190,6 +1280,8 @@ class EduAgentGraph:
             return "memory"
         if intent in (Intent.CORRECT_FACT.value, Intent.DELETE_DATA.value):
             return "change"
+        if intent == Intent.EXAM_CONFIRM.value:
+            return "exam"
         if intent == Intent.CURATE.value:
             return "curate"
         return "wait_user"
@@ -2544,6 +2636,296 @@ class EduAgentGraph:
             or 0,
         }
         return {"result": result, "status": _STATUS_COMPLETED}
+
+    # ------------------------------------------------------------------
+    # Rota exam_confirm (§6.3 — confirmação de datas de prova)
+    # ------------------------------------------------------------------
+
+    def _pending_exam_facts(
+        self, user_id: str, *, course_id: str | None, doc_id: str | None
+    ) -> list[dict[str, Any]]:
+        """Fatos de data ``candidate`` pendentes de confirmação, com a fonte
+        (documento/página) resolvida para o card. Filtro por matéria via os
+        documentos de origem; ``doc_id`` restringe a um documento."""
+        rows = self._store.fetch_user_rows(
+            "SELECT id, value_json, source_refs_json, revision FROM facts "
+            "WHERE user_id = ? AND kind = 'date' AND status = 'candidate' "
+            "ORDER BY value_json",
+            (user_id,),
+        )
+        doc_course: dict[str, str] = {}
+        if course_id:
+            for d in self._store.fetch_user_rows(
+                "SELECT id FROM documents WHERE user_id = ? AND course_id = ?",
+                (user_id, course_id),
+            ):
+                doc_course[str(d["id"])] = course_id
+        exams: list[dict[str, Any]] = []
+        for row in rows:
+            value = _safe_json(row["value_json"])
+            refs = _safe_json(row["source_refs_json"]) or []
+            first_doc = str(refs[0].get("doc_id")) if refs else None
+            if doc_id and first_doc != doc_id:
+                continue
+            if course_id and first_doc and first_doc not in doc_course:
+                continue
+            display_name = self._doc_names.name(user_id, first_doc)
+            exams.append(
+                {
+                    "fact_id": str(row["id"]),
+                    "expression": str(value.get("original_expression", "")),
+                    "normalized_value": str(value.get("normalized_value", "")),
+                    "precision": str(value.get("precision", "day")),
+                    "doc_id": first_doc,
+                    "doc_name": display_name,
+                    "page": refs[0].get("physical_page") if refs else None,
+                    "revision": int(row["revision"]),
+                }
+            )
+        return exams
+
+    def _node_exam_collect(self, state: dict) -> dict:
+        """Coleta as datas de prova candidatas e PAUSA no card (§6.3: a
+        promoção ``candidate → confirmed`` exige autoridade do usuário — o
+        interrupt é o gate; nada é commitado aqui). Sem fatos pendentes, o
+        turno termina com nota (nunca card vazio)."""
+        payload = dict(state.get("payload") or {})
+        course_id = payload.get("course_id")
+        doc_id = payload.get("doc_id")
+        exams = self._pending_exam_facts(
+            str(state["user_id"]),
+            course_id=str(course_id) if course_id else None,
+            doc_id=str(doc_id) if doc_id else None,
+        )
+        result = dict(state.get("result") or {})
+        if not exams:
+            result["exam_card"] = None
+            result["note"] = (
+                "nenhuma data de prova pendente de confirmação — nada a "
+                "perguntar (§6.3)"
+            )
+            return {"result": result}
+        card = {
+            "kind": "exam_confirmation",
+            "course_id": str(course_id) if course_id else None,
+            "exams": exams,
+            "question": (
+                "Confirma essas datas de prova? Você pode corrigir uma data, "
+                "rejeitar o que não for prova e informar o horário — se souber."
+            ),
+            "note": (
+                "Ainda não tenho informação sobre o horário em que as provas "
+                "acontecem. Se tiver um documento extra (cronograma detalhado, "
+                "relatório de matrícula), pode enviar na conversa da matéria."
+            ),
+        }
+        result["exam_card"] = card
+        answer = interrupt(card)
+        return {
+            "result": result,
+            "resume_value": {"exam_answer": answer},
+        }
+
+    def _exam_offset_for(self, user_id: str, day: str) -> str:
+        """Offset UTC do dia local (fuso confirmado do usuário; sem fuso
+        confirmado → UTC, escolha conservadora do mapa §3)."""
+        tz_name = None
+        try:
+            rows = self._store.fetch_user_rows(
+                "SELECT timezone FROM users WHERE id = ?", (user_id,)
+            )
+            if rows and rows[0]["timezone"]:
+                tz_name = str(rows[0]["timezone"]).strip()
+        except Exception:  # noqa: BLE001
+            tz_name = None
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        try:
+            tz = ZoneInfo(tz_name) if tz_name else timezone.utc
+        except (ZoneInfoNotFoundError, KeyError, ValueError):
+            tz = timezone.utc
+        try:
+            day_date = date.fromisoformat(day)
+        except ValueError:
+            return "+00:00"
+        offset = tz.utcoffset(
+            datetime(day_date.year, day_date.month, day_date.day, 12)
+        )
+        total = int(offset.total_seconds()) if offset else 0
+        sign = "+" if total >= 0 else "-"
+        total = abs(total)
+        return f"{sign}{total // 3600:02d}:{(total % 3600) // 60:02d}"
+
+    def _parse_exam_answer(
+        self, answer: Any, exams: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Traduz a resposta do card em decisões estruturadas. Botões → JSON
+        estruturado direto; texto → extração via modelo (uma chamada, schema
+        fechado). Sem modelo, texto é recusado com pedido de usar os botões
+        (fail-closed: interpretação inventada nunca confirma fato)."""
+        by_id = {exam["fact_id"]: exam for exam in exams}
+        if isinstance(answer, Mapping) and isinstance(
+            answer.get("decisions"), list
+        ):
+            raw = answer["decisions"]
+        elif isinstance(answer, Mapping) and answer.get("text"):
+            if self._classifier is None:
+                raise _error(
+                    ErrorCode.MODEL_NOT_ADMITTED,
+                    "resposta em texto exige modelo admitido — use os botões "
+                    "do card para confirmar, corrigir ou rejeitar",
+                )
+            listing = "\n".join(
+                f"- fact_id={exam['fact_id']}: {exam['expression']} "
+                f"({exam['normalized_value']})"
+                for exam in exams
+            )
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Você interpreta a resposta do estudante sobre datas "
+                        "de prova listadas. Responda APENAS JSON com "
+                        "'decisions': lista de {fact_id, action, exam_time?} "
+                        "onde action ∈ confirm|reject|ignore e exam_time é "
+                        "'HH:MM' se o estudante informou horário. Não invente "
+                        "fact_id fora da lista; dúvida → ignore."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Provas listadas:\n{listing}\n\nResposta do estudante: {answer['text']}",
+                },
+            ]
+            generated = self._gate.generate(
+                limits=self._limits,
+                messages=messages,
+                schema=_EXAM_DECISIONS_SCHEMA,
+                sampler=NON_THINKING_SAMPLER,
+                seed=None,
+                deadline=None,
+            )
+            try:
+                parsed = json.loads(generated.text)
+            except json.JSONDecodeError as exc:
+                raise _error(
+                    ErrorCode.INTERNAL_FAILURE,
+                    "não consegui interpretar a resposta — use os botões do "
+                    "card (§6.3: confirmação não é adivinhada)",
+                ) from exc
+            raw = parsed.get("decisions") if isinstance(parsed, dict) else []
+        else:
+            raw = []
+        decisions: list[dict[str, Any]] = []
+        for item in raw or []:
+            if not isinstance(item, Mapping):
+                continue
+            fact_id = str(item.get("fact_id") or "")
+            if fact_id not in by_id:
+                continue  # id fora do card: nunca aplicado (§10: fonte/tool result é dado)
+            action = str(item.get("action") or "ignore")
+            if action not in ("confirm", "reject", "ignore"):
+                continue
+            entry: dict[str, Any] = {"fact_id": fact_id, "action": action}
+            exam_time = item.get("exam_time")
+            if isinstance(exam_time, str) and re.fullmatch(
+                r"\d{1,2}:\d{2}", exam_time.strip()
+            ):
+                entry["exam_time"] = exam_time.strip()
+            corrected = item.get("value")
+            if isinstance(corrected, str) and corrected.strip():
+                entry["value"] = corrected.strip()
+            decisions.append(entry)
+        return decisions
+
+    def _node_exam_commit(self, state: dict) -> dict:
+        """Aplica as decisões do card (nó idempotente, §11): fato já
+        decidido é pulado; ``confirm`` exige a autoridade do gate (o usuário
+        clicou/respondeu — ``user_confirms=True``), ``exam_time`` vira
+        ``direct_value`` ISO datetime com offset do fuso confirmado."""
+        resume = dict(state.get("resume_value") or {})
+        answer = resume.get("exam_answer")
+        result = dict(state.get("result") or {})
+        card = dict(result.get("exam_card") or {})
+        exams = list(card.get("exams") or [])
+        if answer is None or not exams:
+            if result.get("note"):
+                return {"result": result}
+            result["note"] = "card sem resposta registrada"
+            return {"result": result}
+        decisions = self._parse_exam_answer(answer, exams)
+        curator = _require_service(self._curator, "curator", "exam_confirm")
+        applied: list[dict[str, Any]] = []
+        for decision in decisions:
+            fact_id = decision["fact_id"]
+            action = decision["action"]
+            if action == "ignore":
+                continue
+            current = self._store.fetch_user_rows(
+                "SELECT status FROM facts WHERE id = ? AND user_id = ?",
+                (fact_id, str(state["user_id"])),
+            )
+            if not current or current[0]["status"] not in (
+                "candidate",
+                "ambiguous",
+            ):
+                continue  # já decidido (idempotência §11) ou inexistente
+            exam_time = decision.get("exam_time")
+            corrected = decision.get("value")
+            if action == "confirm":
+                if corrected:
+                    # Correção com entrada direta do usuário (§6.3: valor
+                    # novo com autoridade user_direct, já confirmado).
+                    curator.set_fact_status(
+                        str(state["user_id"]),
+                        fact_id,
+                        "confirmed",
+                        direct_value=corrected,
+                    )
+                elif exam_time:
+                    normalized = next(
+                        (
+                            exam["normalized_value"]
+                            for exam in exams
+                            if exam["fact_id"] == fact_id
+                        ),
+                        None,
+                    )
+                    direct = (
+                        f"{normalized}T{exam_time}:00"
+                        f"{self._exam_offset_for(str(state['user_id']), str(normalized))}"
+                        if normalized
+                        else None
+                    )
+                    curator.set_fact_status(
+                        str(state["user_id"]),
+                        fact_id,
+                        "confirmed",
+                        direct_value=direct,
+                    )
+                else:
+                    curator.set_fact_status(
+                        str(state["user_id"]),
+                        fact_id,
+                        "confirmed",
+                        user_confirms=True,
+                    )
+            elif action == "reject":
+                curator.set_fact_status(
+                    str(state["user_id"]), fact_id, "rejected"
+                )
+            applied.append(decision)
+        result["exam_decisions_applied"] = applied
+        confirmed_count = sum(
+            1 for d in applied if d["action"] == "confirm"
+        )
+        result["note"] = (
+            f"{confirmed_count} data(s) confirmada(s), "
+            f"{sum(1 for d in applied if d['action'] == 'reject')} rejeitada(s)."
+            if applied
+            else "nenhuma decisão aplicada"
+        )
+        return {"result": result}
 
     # ------------------------------------------------------------------
     # Rota correct_fact/delete_data (§10)

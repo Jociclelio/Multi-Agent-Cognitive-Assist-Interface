@@ -1208,6 +1208,7 @@ class Intent(str, Enum):
     CORRECT_FACT = "correct_fact"
     DELETE_DATA = "delete_data"
     EXPORT_CALENDAR = "export_calendar"
+    EXAM_CONFIRM = "exam_confirm"
     CURATE = "curate"
     CANCEL = "cancel"
 

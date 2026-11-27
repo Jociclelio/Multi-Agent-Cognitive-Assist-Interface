@@ -746,6 +746,16 @@ class LoopbackAPI:
                 self._send_json(handler, HTTPStatus.OK, live_generation_state())
                 return
 
+            # Histórico persistente da conversa (linha do tempo sobrevive a
+            # reload/troca de matéria; card de gates pendentes incluído).
+            if path.startswith("/chat/") and path.endswith("/messages"):
+                user_id = self._require_user(handler)
+                if user_id is None:
+                    return
+                session_id = path[len("/chat/") : -len("/messages")]
+                self._handle_get_chat_messages(handler, user_id, session_id)
+                return
+
             # Entrega estática da Interface Gráfica Local (GET / e GET /ui/*)
             if path in ("/", "/index.html"):
                 self._send_static(handler, "index.html")
@@ -1608,6 +1618,224 @@ class LoopbackAPI:
             },
         )
 
+    def _record_chat_history(
+        self,
+        user_id: str,
+        session_id: str,
+        *,
+        user_message: str | None,
+        assistant_payload: dict[str, Any] | None,
+    ) -> None:
+        """Persiste o turno no histórico da conversa (migração 0011): linha
+        do estudante + resposta serializada do agente. Falha de histórico é
+        best-effort — nunca derruba o turno que já foi executado."""
+        try:
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            statements: list[tuple[str, tuple[Any, ...]]] = []
+            if user_message:
+                statements.append(
+                    (
+                        "INSERT INTO chat_messages(id, user_id, session_id, "
+                        "role, content_json, created_at) VALUES (?,?,?,?,?,?)",
+                        (
+                            str(uuid.uuid4()),
+                            user_id,
+                            session_id,
+                            "user",
+                            json.dumps({"text": user_message}, ensure_ascii=False),
+                            now,
+                        ),
+                    )
+                )
+            if assistant_payload is not None:
+                statements.append(
+                    (
+                        "INSERT INTO chat_messages(id, user_id, session_id, "
+                        "role, content_json, created_at) VALUES (?,?,?,?,?,?)",
+                        (
+                            str(uuid.uuid4()),
+                            user_id,
+                            session_id,
+                            "assistant",
+                            json.dumps(assistant_payload, ensure_ascii=False),
+                            now,
+                        ),
+                    )
+                )
+            if statements:
+                self.runtime.store.execute_write(user_id, statements)
+        except Exception as exc:  # noqa: BLE001
+            print(
+                json.dumps(
+                    {
+                        "status": "warning",
+                        "where": "record_chat_history",
+                        "session_id": session_id,
+                        "error": str(exc)[:200],
+                    }
+                ),
+                flush=True,
+            )
+
+    def _handle_get_chat_messages(
+        self, handler: BaseHTTPRequestHandler, user_id: str, session_id: str
+    ) -> None:
+        """Histórico da conversa (GET /chat/{session_id}/messages): linhas na
+        ordem de ocorrência; cada ``content`` é o payload que a UI renderiza
+        (mensagem do estudante ou resposta completa do turno, incluindo
+        card de gate pendente)."""
+        rows = self._fetchall(
+            "SELECT id, role, content_json, created_at FROM chat_messages "
+            "WHERE user_id = ? AND session_id = ? ORDER BY created_at, rowid",
+            (user_id, session_id),
+        )
+        messages = [
+            {
+                "id": str(r["id"]),
+                "role": str(r["role"]),
+                "content": _safe_json_loads(r["content_json"], {}),
+                "created_at": str(r["created_at"]),
+            }
+            for r in rows
+        ]
+        self._send_json(
+            handler, HTTPStatus.OK, {"status": "ok", "messages": messages}
+        )
+
+    def _handle_post_facts(
+        self,
+        handler: BaseHTTPRequestHandler,
+        user_id: str,
+        path: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Confirmação/correção/rejeição de fatos pelo estudante (§6.3).
+
+        - ``POST /facts/{id}/confirm``   → ``confirmed`` com
+          ``user_confirms=True``; ``exam_time`` (HH:MM) opcional vira ISO
+          datetime com offset do fuso confirmado (``user_direct``).
+        - ``POST /facts/{id}/correct``   → valor novo como ``direct_value``
+          (autoridade ``user_direct``) já confirmado.
+        - ``POST /facts/{id}/reject``    → ``rejected``.
+        - ``POST /facts/bulk-reject``    → rejeição em massa de fatos
+          ``candidate`` de um kind (limpeza de ruído numérico do PDF).
+        """
+        curator = getattr(self.runtime.graph, "_curator", None)
+        if curator is None:
+            self._send_json(
+                handler,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                _error_body(
+                    ErrorCode.INTERNAL_FAILURE,
+                    "curador indisponível no runtime",
+                ),
+            )
+            return
+        parts = [p for p in path.split("/") if p]  # ["facts", ...]
+        # Bulk: /facts/bulk-reject
+        if len(parts) == 2 and parts[1] == "bulk-reject":
+            kind = str(body.get("kind") or "number")
+            only_status = str(body.get("status") or "candidate")
+            if kind not in ("number", "date", "any"):
+                self._send_json(
+                    handler,
+                    HTTPStatus.BAD_REQUEST,
+                    _error_body(
+                        ErrorCode.SCHEMA_INVALID,
+                        "kind deve ser 'number', 'date' ou 'any'",
+                    ),
+                )
+                return
+            params: list[Any] = [user_id, only_status]
+            kind_clause = ""
+            if kind != "any":
+                kind_clause = " AND kind = ?"
+                params.append(kind)
+            with self.runtime.store.write_transaction(user_id) as tx:
+                cursor = tx.execute(
+                    "UPDATE facts SET status = 'rejected', "
+                    "revision = revision + 1 "
+                    f"WHERE user_id = ? AND status = ?{kind_clause}",
+                    tuple(params),
+                )
+                rejected = int(cursor.rowcount or 0)
+            self._send_json(
+                handler,
+                HTTPStatus.OK,
+                {"status": "ok", "rejected": rejected, "kind": kind},
+            )
+            return
+        # Individual: /facts/{id}/{action}
+        if len(parts) != 3:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(
+                    ErrorCode.SOURCE_UNRESOLVED, f"rota não encontrada: {path}"
+                ),
+            )
+            return
+        fact_id, action = parts[1], parts[2]
+        if action == "confirm":
+            exam_time = str(body.get("exam_time") or "").strip()
+            if exam_time:
+                fact = self._fetchone(
+                    "SELECT value_json FROM facts WHERE id = ? AND user_id = ?",
+                    (fact_id, user_id),
+                )
+                value = _safe_json_loads(
+                    fact["value_json"] if fact else None, {}
+                ) or {}
+                normalized = str(value.get("normalized_value") or "")
+                if not normalized:
+                    self._send_json(
+                        handler,
+                        HTTPStatus.UNPROCESSABLE_ENTITY,
+                        _error_body(
+                            ErrorCode.SOURCE_UNRESOLVED,
+                            f"fato {fact_id} não tem valor normalizado",
+                        ),
+                    )
+                    return
+                offset = self.runtime.graph._exam_offset_for(user_id, normalized)
+                direct = f"{normalized}T{exam_time}:00{offset}"
+                record = curator.set_fact_status(
+                    user_id, fact_id, "confirmed", direct_value=direct
+                )
+            else:
+                record = curator.set_fact_status(
+                    user_id, fact_id, "confirmed", user_confirms=True
+                )
+        elif action == "correct":
+            new_value = str(body.get("value") or "").strip()
+            if not new_value:
+                self._send_json(
+                    handler,
+                    HTTPStatus.BAD_REQUEST,
+                    _error_body(
+                        ErrorCode.SCHEMA_INVALID,
+                        "correção exige 'value' (entrada direta do usuário)",
+                    ),
+                )
+                return
+            record = curator.set_fact_status(
+                user_id, fact_id, "confirmed", direct_value=new_value
+            )
+        elif action == "reject":
+            record = curator.set_fact_status(user_id, fact_id, "rejected")
+        else:
+            self._send_json(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                _error_body(
+                    ErrorCode.SOURCE_UNRESOLVED, f"ação desconhecida: {action}"
+                ),
+            )
+            return
+        self._send_json(
+            handler, HTTPStatus.OK, {"status": "ok", "fact": record}
+        )
+
     def _handle_get_operations(
         self,
         handler: BaseHTTPRequestHandler,
@@ -2189,7 +2417,56 @@ class LoopbackAPI:
             )
         except Exception:  # noqa: BLE001
             pass
+        # Mensagem proativa de confirmação de provas (§6.3): a ingestão
+        # produziu datas candidatas → a conversa da matéria recebe o card
+        # (turno sistema "/exams" no thread estável da matéria — o mesmo que
+        # a UI abre). Best-effort: falha aqui não falha a ingestão.
+        if turn_res.status == "completed" and doc_id:
+            try:
+                self._maybe_trigger_exam_confirmation(
+                    user_id, str(doc_id), course_id
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    json.dumps(
+                        {
+                            "status": "warning",
+                            "where": "exam_confirmation_trigger",
+                            "doc_id": str(doc_id),
+                            "error": str(exc)[:300],
+                        }
+                    ),
+                    flush=True,
+                )
         return _serialize_turn(turn_res, session_id)
+
+    def _maybe_trigger_exam_confirmation(
+        self, user_id: str, doc_id: str, course_id: str
+    ) -> dict[str, Any] | None:
+        """Dispara o card de confirmação de provas na conversa da matéria
+        quando a ingestão acabou de produzir fatos de data ``candidate``.
+        Nunca dispara sem fatos novos; o turno roda no thread estável da
+        matéria (session_id = course_id, o mesmo que a UI usa)."""
+        graph = self.runtime.graph
+        pending = graph._pending_exam_facts(
+            user_id, course_id=course_id, doc_id=doc_id
+        )
+        if not pending:
+            return None
+        exam_turn = graph.run_turn(
+            user_id=user_id,
+            session_id=course_id,
+            message="/exams",
+            payload={"course_id": course_id, "doc_id": doc_id},
+        )
+        serialized = _serialize_turn(exam_turn, course_id)
+        self._record_chat_history(
+            user_id,
+            course_id,
+            user_message=None,
+            assistant_payload=serialized,
+        )
+        return serialized
 
     def _handle_get_course_suggestions(
         self,
@@ -2955,9 +3232,21 @@ class LoopbackAPI:
                     payload=dict(payload or {}),
                     intent=str(intent) if intent else None,
                 )
-                self._send_json(
-                    handler, HTTPStatus.OK, _serialize_turn(result, session_id)
+                serialized = _serialize_turn(result, session_id)
+                self._record_chat_history(
+                    user_id,
+                    session_id,
+                    user_message=message,
+                    assistant_payload=serialized,
                 )
+                self._send_json(handler, HTTPStatus.OK, serialized)
+                return
+
+            # Confirmação/correção/rejeição de fatos (§6.3): superfície
+            # auditável — passa por CuratorAgent.set_fact_status com a
+            # autoridade do usuário (user_confirms / user_direct).
+            if path.startswith("/facts/"):
+                self._handle_post_facts(handler, user_id, path, body)
                 return
 
             # /turns/{session_id}/resume ou /turns/{session_id}/cancel
@@ -2975,9 +3264,14 @@ class LoopbackAPI:
                             "cancel_activity": bool(body.get("cancel_activity"))
                         },
                     )
-                    self._send_json(
-                        handler, HTTPStatus.OK, _serialize_turn(result, session_id)
+                    serialized = _serialize_turn(result, session_id)
+                    self._record_chat_history(
+                        user_id,
+                        session_id,
+                        user_message=None,
+                        assistant_payload=serialized,
                     )
+                    self._send_json(handler, HTTPStatus.OK, serialized)
                     return
                 resume_payload = body.get("resume", body)
                 result = self.runtime.graph.resume_turn(
@@ -2985,9 +3279,19 @@ class LoopbackAPI:
                     resume=resume_payload,
                     user_id=user_id,
                 )
-                self._send_json(
-                    handler, HTTPStatus.OK, _serialize_turn(result, session_id)
+                serialized = _serialize_turn(result, session_id)
+                self._record_chat_history(
+                    user_id,
+                    session_id,
+                    user_message=(
+                        str(resume_payload.get("text"))
+                        if isinstance(resume_payload, dict)
+                        and resume_payload.get("text")
+                        else None
+                    ),
+                    assistant_payload=serialized,
                 )
+                self._send_json(handler, HTTPStatus.OK, serialized)
                 return
 
             self._send_json(

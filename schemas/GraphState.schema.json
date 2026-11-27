@@ -80,6 +80,7 @@
         "correct_fact",
         "delete_data",
         "export_calendar",
+        "exam_confirm",
         "curate",
         "cancel"
       ],
