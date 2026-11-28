@@ -1319,13 +1319,19 @@ function renderExamConfirmationCard(content, occurredAt, resolved = false) {
     exam.course_title
       ? `<span class="exam-course-chip" title="Matéria de origem do documento">${escapeHtml(String(exam.course_title))}</span>`
       : "";
+  const examTitle = (exam) =>
+    exam.label
+      ? `${escapeHtml(String(exam.label))} — ${escapeHtml(String(exam.expression))}`
+      : escapeHtml(String(exam.expression));
+  const timeHint = (exam) =>
+    exam.time ? ` · sugerido às ${escapeHtml(String(exam.time))}` : "";
   const rows = exams
     .map(
       (exam) => `
       <div class="exam-row" data-fact-id="${escapeHtml(String(exam.fact_id))}">
         <div class="exam-row-main">
-          <strong>${escapeHtml(String(exam.expression))}</strong>
-          <span>→ ${escapeHtml(String(exam.normalized_value))}</span>
+          <strong>${examTitle(exam)}</strong>
+          <span>→ ${escapeHtml(String(exam.normalized_value))}${timeHint(exam)}</span>
           ${courseChip(exam)}
           ${
             exam.doc_id
@@ -1337,7 +1343,7 @@ function renderExamConfirmationCard(content, occurredAt, resolved = false) {
           resolved
             ? ""
             : `<div class="exam-row-actions">
-          <label class="exam-time-label">⏰ <input type="time" class="exam-time-input" aria-label="Horário da prova (opcional)" /></label>
+          <label class="exam-time-label">⏰ <input type="time" class="exam-time-input" value="${escapeHtml(String(exam.time || ""))}" aria-label="Horário da prova (opcional)" /></label>
           <button type="button" class="btn-primary btn-compact" data-exam-action="confirm">✅ Confirmar</button>
           <button type="button" class="btn-ghost btn-compact" data-exam-action="correct">✏️ Corrigir</button>
           <button type="button" class="btn-ghost btn-compact" data-exam-action="reject">✖ Não é prova</button>

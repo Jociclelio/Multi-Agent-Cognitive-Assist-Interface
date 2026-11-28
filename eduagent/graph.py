@@ -367,6 +367,65 @@ _EXPLICIT_COMMANDS: dict[str, Intent] = {
     "/curate": Intent.CURATE,
 }
 
+#: Identificação de Relatório de Matrícula (Unicamp) no texto do documento:
+#: gatilho do enriquecimento de horário das provas pendentes (§6.3). A
+#: detecção é textual e offline — não depende do classificador de documentos
+#: nem de rede.
+_RELATORIO_MATRICULA_RE = re.compile(
+    r"relat[óo]rio\s+de\s+matr[íi]cula", re.IGNORECASE
+)
+
+#: Horário de aula por dia da semana no relatório ("qui 19:00-21:00",
+#: "Quinta 19h", "5ª feira 19h30", "4ª 22:00"). Primeiro horário do dia é o
+#: início da aula — base da sugestão de horário da prova.
+_SCHEDULE_RE = re.compile(
+    r"\b(?P<day>segunda|terça|quarta|quinta|sexta|s[áa]bado|domingo|"
+    r"seg|ter|qua|qui|sex|s[áa]b|[2-7][ºªa])"
+    r"(?:\s*[-.]?\s*(?:feira))?[^\d\n]{0,40}?"
+    r"(?P<h>\d{1,2})\s*[hH:.]\s*(?P<m>\d{2})?",
+    re.IGNORECASE,
+)
+
+_WEEKDAY_INDEX: dict[str, int] = {
+    "segunda": 0,
+    "seg": 0,
+    "2º": 0,
+    "2ª": 0,
+    "2a": 0,
+    "terça": 1,
+    "ter": 1,
+    "3º": 1,
+    "3ª": 1,
+    "3a": 1,
+    "quarta": 2,
+    "qua": 2,
+    "4º": 2,
+    "4ª": 2,
+    "4a": 2,
+    "quinta": 3,
+    "qui": 3,
+    "5º": 3,
+    "5ª": 3,
+    "5a": 3,
+    "sexta": 4,
+    "sex": 4,
+    "6º": 4,
+    "6ª": 4,
+    "6a": 4,
+    "sábado": 5,
+    "sáb": 5,
+    "sab": 5,
+    "7º": 5,
+    "7ª": 5,
+    "7a": 5,
+    "domingo": 6,
+}
+
+
+def _weekday_of(token: str) -> int | None:
+    """Índice de dia da semana (0=segunda) do token normalizado."""
+    return _WEEKDAY_INDEX.get(token.strip().lower())
+
 
 def _explicit_intent(
     message: str, payload: Mapping[str, Any]
@@ -2686,6 +2745,8 @@ class EduAgentGraph:
                 "expression": str(value.get("original_expression", "")),
                 "normalized_value": str(value.get("normalized_value", "")),
                 "precision": str(value.get("precision", "day")),
+                "label": str(value.get("label") or "") or None,
+                "time": str(value.get("time") or "") or None,
                 "doc_id": first_doc,
                 "doc_name": self._doc_names.name(user_id, first_doc),
                 "page": refs[0].get("physical_page") if refs else None,
@@ -2701,6 +2762,83 @@ class EduAgentGraph:
                 continue
             exams.append(exam)
         return exams
+
+    def enrich_exam_times_from_document(self, user_id: str, doc_id: str) -> int:
+        """Relatório de Matrícula (§6.3, fatia mínima da Fase B): extrai o
+        horário de aula por dia da semana do documento recém-ingerido e, se
+        o texto o identifica como relatório de matrícula, sugere horário
+        para as provas ``candidate`` pendentes (a prova acontece no horário
+        da aula do dia). Nunca altera valor normalizado nem status — grava
+        apenas ``time`` no ``value_json``, se ainda não houver. Retorna o
+        número de fatos enriquecidos (0 = nada a fazer, inclusive quando o
+        documento não é um relatório de matrícula).
+
+        Limite declarado: quando duas aulas de disciplinas diferentes caem
+        no mesmo dia da semana, vale o primeiro horário lido no documento.
+        """
+        version_rows = self._store.fetch_user_rows(
+            "SELECT id FROM doc_versions WHERE user_id = ? AND doc_id = ? "
+            "ORDER BY rowid DESC LIMIT 1",
+            (user_id, doc_id),
+        )
+        if not version_rows:
+            return 0
+        blocks = self._store.fetch_user_rows(
+            "SELECT text FROM blocks WHERE user_id = ? AND version_id = ?",
+            (user_id, str(version_rows[0]["id"])),
+        )
+        full_text = "\n".join(str(b["text"] or "") for b in blocks)
+        if not _RELATORIO_MATRICULA_RE.search(full_text):
+            return 0
+        schedule: dict[int, str] = {}
+        for match in _SCHEDULE_RE.finditer(full_text):
+            weekday = _weekday_of(match.group("day"))
+            hour = int(match.group("h"))
+            minute = int(match.group("m") or 0)
+            if weekday is None or hour > 23 or minute > 59:
+                continue
+            schedule.setdefault(weekday, f"{hour:02d}:{minute:02d}")
+        if not schedule:
+            return 0
+        updates: list[tuple[str, tuple[Any, ...]]] = []
+        for exam in self._pending_exam_facts(user_id, course_id=None, doc_id=None):
+            if exam.get("time"):
+                continue  # horário já sugerido/decidido — nada a melhorar
+            try:
+                weekday = date.fromisoformat(exam["normalized_value"]).weekday()
+            except (KeyError, ValueError):
+                continue
+            time_value = schedule.get(weekday)
+            if not time_value:
+                continue
+            fact_rows = self._store.fetch_user_rows(
+                "SELECT value_json FROM facts WHERE id = ? AND user_id = ?",
+                (str(exam["fact_id"]), user_id),
+            )
+            if not fact_rows:
+                continue
+            try:
+                payload = json.loads(str(fact_rows[0]["value_json"]))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict) or payload.get("time"):
+                continue
+            payload["time"] = time_value
+            payload["time_source"] = "relatorio_matricula"
+            updates.append(
+                (
+                    "UPDATE facts SET value_json = ? WHERE id = ? AND user_id = ?",
+                    (
+                        json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                        str(exam["fact_id"]),
+                        user_id,
+                    ),
+                )
+            )
+        if not updates:
+            return 0
+        self._store.execute_write(user_id, updates, bump_domain_revision=False)
+        return len(updates)
 
     def _node_exam_collect(self, state: dict) -> dict:
         """Coleta as datas de prova candidatas e PAUSA no card (§6.3: a

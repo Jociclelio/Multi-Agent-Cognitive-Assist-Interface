@@ -468,7 +468,18 @@ def _insert_exam_fact(
     course_id: str = COURSE,
     expression: str = "15/10/26",
     normalized: str = "2026-10-16",
+    label: str | None = None,
+    time: str | None = None,
 ) -> None:
+    value: dict[str, Any] = {
+        "original_expression": expression,
+        "normalized_value": normalized,
+        "precision": "day",
+    }
+    if label:
+        value["label"] = label
+    if time:
+        value["time"] = time
     store.execute_write(
         UID,
         [
@@ -484,13 +495,7 @@ def _insert_exam_fact(
                 (
                     fact_id,
                     UID,
-                    json.dumps(
-                        {
-                            "original_expression": expression,
-                            "normalized_value": normalized,
-                            "precision": "day",
-                        }
-                    ),
+                    json.dumps(value),
                     json.dumps([{"doc_id": doc_id, "physical_page": 3}]),
                 ),
             ),
@@ -502,11 +507,19 @@ def _insert_exam_fact(
 def test_pending_exam_facts_carry_course_title(tmp_path: Path) -> None:
     ctx = open_ui_runtime(tmp_path)
     try:
-        _insert_exam_fact(ctx.store, fact_id=str(uuid.uuid4()), doc_id=str(uuid.uuid4()))
+        _insert_exam_fact(
+            ctx.store,
+            fact_id=str(uuid.uuid4()),
+            doc_id=str(uuid.uuid4()),
+            label="Prova 1",
+            time="19:00",
+        )
         exams = ctx.graph._pending_exam_facts(UID, course_id=None, doc_id=None)
         assert len(exams) == 1
         assert exams[0]["course_id"] == COURSE
         assert exams[0]["course_title"] == "MO810"
+        assert exams[0]["label"] == "Prova 1"
+        assert exams[0]["time"] == "19:00"
         # Filtro por matéria continua funcionando; matéria desconhecida não
         # traz nada (o fato pertence a outra matéria).
         assert len(ctx.graph._pending_exam_facts(UID, course_id=COURSE, doc_id=None)) == 1
@@ -514,6 +527,125 @@ def test_pending_exam_facts_carry_course_title(tmp_path: Path) -> None:
             ctx.graph._pending_exam_facts(UID, course_id=str(uuid.uuid4()), doc_id=None)
             == []
         )
+    finally:
+        ctx.close()
+
+
+def test_exam_hints_labels_and_times() -> None:
+    hints = CuratorAgent._exam_hints
+    # "Três provas ... Datas: d1, d2, d3" → ordinais cronológicos
+    assert hints(
+        "CRITÉRIO DE AVALIAÇÃO: Três provas (pesos iguais). "
+        "Datas: 10/09/26, 15/10/26 e 26/11/26."
+    ) == {
+        "10/09/26": {"label": "Prova 1"},
+        "15/10/26": {"label": "Prova 2"},
+        "26/11/26": {"label": "Prova 3"},
+    }
+    # Pareamento direto com horário ("19h30", "19:00")
+    assert hints(
+        "Prova 1: 15/10/26 às 19h30. Prova 2: 20/10/26 as 19h. Exame: 15/12/26 19:00."
+    ) == {
+        "15/10/26": {"label": "Prova 1", "time": "19:30"},
+        "20/10/26": {"label": "Prova 2", "time": "19:00"},
+        "15/12/26": {"label": "Exame", "time": "19:00"},
+    }
+    # "exame" só rotula quando a data vem logo depois — "antes do exame.
+    # Datas: ..." não transforma as datas de prova em exame; "provas" sem
+    # quantidade (apenas menção) não gera rótulo.
+    assert hints(
+        "Se a média das provas for >= 2,5 e < 5,0, o aluno ficará de exame. "
+        "Datas: 10/09/26, 15/10/26 e 26/11/26."
+    ) == {}
+    # Horário isolado ("das 19h às 21h") é capturado mesmo sem rótulo
+    assert hints("A prova substitutiva será em 30/11/26 das 19h às 21h.") == {
+        "30/11/26": {"time": "19:00"}
+    }
+
+
+def _insert_relatorio_matricula(store: Any, *, doc_id: str, version_id: str) -> None:
+    store.execute_write(
+        UID,
+        [
+            (
+                "INSERT INTO documents(id, user_id, course_id) VALUES (?, ?, ?)",
+                (doc_id, UID, COURSE),
+            ),
+            (
+                "INSERT INTO doc_versions(id, user_id, doc_id, sha256, mime, "
+                "original_ref, extractor_manifest, status) "
+                "VALUES (?, ?, ?, ?, 'application/pdf', 'relatorio.pdf', '{}', 'indexed')",
+                (version_id, UID, doc_id, "b" * 64),
+            ),
+            (
+                "INSERT INTO blocks(id, user_id, version_id, page, order_index, "
+                "kind, text) VALUES (?, ?, ?, 1, 0, 'heading', ?)",
+                (
+                    str(uuid.uuid4()),
+                    UID,
+                    version_id,
+                    "UNICAMP — RELATÓRIO DE MATRÍCULA 2026",
+                ),
+            ),
+            (
+                "INSERT INTO blocks(id, user_id, version_id, page, order_index, "
+                "kind, text) VALUES (?, ?, ?, 1, 1, 'paragraph', ?)",
+                (
+                    str(uuid.uuid4()),
+                    UID,
+                    version_id,
+                    "MC832 - REDES DE COMPUTADORES  4ª feira 19:00-21:00  5ª 19:00-21:00",
+                ),
+            ),
+        ],
+        bump_domain_revision=False,
+    )
+
+
+def test_enrich_exam_times_from_relatorio_matricula(tmp_path: Path) -> None:
+    ctx = open_ui_runtime(tmp_path)
+    try:
+        # 02/12/2026 é quarta-feira (4ª) → horário sugerido 19:00.
+        _insert_exam_fact(
+            ctx.store,
+            fact_id=str(uuid.uuid4()),
+            doc_id=str(uuid.uuid4()),
+            expression="02/12/26",
+            normalized="2026-12-02",
+        )
+        relatorio_doc = str(uuid.uuid4())
+        _insert_relatorio_matricula(
+            ctx.store,
+            doc_id=relatorio_doc,
+            version_id=str(uuid.uuid4()),
+        )
+        enriched = ctx.graph.enrich_exam_times_from_document(UID, relatorio_doc)
+        assert enriched == 1
+        rows = ctx.store.fetch_user_rows(
+            "SELECT value_json FROM facts WHERE user_id = ?", (UID,)
+        )
+        payload = json.loads(str(rows[0]["value_json"]))
+        assert payload["time"] == "19:00"
+        assert payload["time_source"] == "relatorio_matricula"
+        assert payload["normalized_value"] == "2026-12-02"
+        # Documento que não é relatório de matrícula não enriquece nada.
+        outro_doc = str(uuid.uuid4())
+        _insert_relatorio_matricula(
+            ctx.store, doc_id=outro_doc, version_id=str(uuid.uuid4())
+        )
+        ctx.store.execute_write(
+            UID,
+            [
+                (
+                    "UPDATE blocks SET text = 'Programa da disciplina: avaliação "
+                    "em duas provas.' WHERE version_id = (SELECT id FROM "
+                    "doc_versions WHERE doc_id = ?)",
+                    (outro_doc,),
+                )
+            ],
+            bump_domain_revision=False,
+        )
+        assert ctx.graph.enrich_exam_times_from_document(UID, outro_doc) == 0
     finally:
         ctx.close()
 

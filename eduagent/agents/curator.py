@@ -95,6 +95,28 @@ _RELATIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*(?:em|daqui\s+a)\s+(\d{1,3})\s+dias?\s*$", re.IGNORECASE), "in_days"),
 ]
 
+#: Dicas de apresentação do card de provas (§6.3): nome da avaliação
+#: ("Prova 1", "Exame") e horário ("19h30", "19:00") próximos da data no
+#: texto de origem. São pistas de exibição — NUNCA alteram o valor
+#: normalizado nem o status do fato (a promoção segue exigindo o gate).
+_EXAM_HINT_LABEL_RE = re.compile(
+    r"\b(provas?|exames?|avaliação)\b\s*(?:n[º°.]?\s*)?(\d+)?", re.IGNORECASE
+)
+_EXAM_HINT_TIME_RE = re.compile(
+    r"\b(?:(?P<h1>\d{1,2})\s*[hH]\s*(?P<m1>\d{2})?|(?P<h2>\d{1,2}):(?P<m2>\d{2}))\b"
+)
+#: Distância máxima (caracteres) entre o rótulo e a data associada.
+_EXAM_HINT_LABEL_MAX_GAP = 120
+#: Janela de procura de horário em torno da data.
+_EXAM_HINT_TIME_WINDOW = 60
+#: Teto de provas num grupo sem número ("três provas" → Prova 1..k).
+_EXAM_HINT_MAX_ORDINALS = 6
+#: Quantidade escrita antes de "provas" que autoriza ordinais.
+_EXAM_HINT_QUANTITY_RE = re.compile(r"(?:três|quatro|cinco|duas|2|3|4|5)\s+$", re.IGNORECASE)
+#: Entre "Exame" e a data só pode haver pontuação (ex.: "Exame: 15/12/26");
+#: texto com palavras no meio ("antes do exame. Datas: 15/12") não rotula.
+_EXAM_HINT_STRICT_BETWEEN_RE = re.compile(r"^[\s:.,;–—-]*(?:de\s+)?$", re.IGNORECASE)
+
 
 def _strip_accents(text: str) -> str:
     return "".join(
@@ -127,6 +149,9 @@ class FactCandidate:
     fact: AcademicFact
     validation: str  # 'ok' | 'expression_not_in_source' | 'value_mismatch' | ...
     block_key: tuple[int, int] | None  # (page, order_index) do bloco de origem
+    #: Dicas de apresentação do card (§6.3), extraídas do texto de origem.
+    label: str | None = None  # "Prova 1", "Exame", ...
+    exam_time: str | None = None  # "HH:MM" próximo da data no texto
 
 
 @dataclass
@@ -393,10 +418,12 @@ class CuratorAgent:
             if not self._block_is_textual(row):
                 continue  # tabelas/equações não legíveis ficam pendentes (§6.2)
             source_text = str(row["text"])
+            exam_hints = self._exam_hints(source_text)
             for expression, kind, precision, normalized, validation in (
                 self._date_candidates(source_text)
                 + self._number_candidates(self._mask_dates(source_text))
             ):
+                hint = exam_hints.get(expression) or {}
                 source_refs = self._source_refs_for_block(
                     user_id, doc_id=doc_id, version_id=version_id, row=row
                 )
@@ -424,6 +451,8 @@ class CuratorAgent:
                         fact=fact,
                         validation=validation,
                         block_key=(int(row["page"]), int(row["order_index"])),
+                        label=hint.get("label"),
+                        exam_time=hint.get("time"),
                     )
                 )
 
@@ -438,6 +467,120 @@ class CuratorAgent:
                 user_id, extraction
             )
         return extraction
+
+    @staticmethod
+    def _exam_hints(source_text: str) -> dict[str, dict[str, str]]:
+        """Dicas de apresentação por expressão de data do bloco (§6.3):
+        nome da avaliação ("Prova 1", "Exame") e horário próximo da data.
+
+        Heurística determinística e conservadora — rótulo só é atribuído
+        quando a vizinhança no bloco sustenta a leitura:
+        - ``Prova N: <data>`` / ``Exame: <data>`` — pareamento direto;
+        - ``<quantidade> provas ... Datas: d1, d2, d3`` — ordinais por
+          ordem cronológica dentro do grupo ("Prova 1", "Prova 2", ...);
+        - texto entre "exame" e a data com outras palavras não rotula
+          (ex.: "antes do exame. Datas: ..." não é o exame).
+        Nunca altera o valor normalizado do fato; só o que o card mostra.
+        """
+        date_matches: list[tuple[int, int, str]] = []
+        seen_spans: list[tuple[int, int]] = []
+        for regex in (_DATE_ISO, _DATE_SLASH_FULL, _DATE_SLASH_YY, _DATE_SLASH_SHORT):
+            for match in regex.finditer(source_text):
+                start, end = match.span()
+                if any(start < s_end and s_start < end for s_start, s_end in seen_spans):
+                    continue
+                seen_spans.append((start, end))
+                date_matches.append((start, end, match.group(0)))
+        if not date_matches:
+            return {}
+        date_matches.sort()
+
+        label_matches = sorted(
+            (m.start(), m.end(), m.group(1).lower(), m.group(2))
+            for m in _EXAM_HINT_LABEL_RE.finditer(source_text)
+        )
+        time_matches = sorted(
+            (
+                m.start(),
+                m.end(),
+                int(m.group("h1") or m.group("h2")),
+                int(m.group("m1") or m.group("m2") or 0),
+            )
+            for m in _EXAM_HINT_TIME_RE.finditer(source_text)
+        )
+
+        # Grupo de datas por rótulo: datas logo após o rótulo, dentro da
+        # janela de distância e sem outro rótulo no meio.
+        groups: list[
+            tuple[tuple[int, int, str, str | None], list[tuple[int, int, str]]]
+        ] = []
+        for idx, label in enumerate(label_matches):
+            l_start, l_end, word, number = label
+            next_label_start = (
+                label_matches[idx + 1][0]
+                if idx + 1 < len(label_matches)
+                else len(source_text)
+            )
+            group = [
+                (d_start, d_end, expression)
+                for d_start, d_end, expression in date_matches
+                if l_end <= d_start
+                and d_start < next_label_start
+                and d_start - l_end <= _EXAM_HINT_LABEL_MAX_GAP
+            ]
+            if group:
+                groups.append((label, group))
+
+        hints: dict[str, dict[str, str]] = {}
+
+        def _assign(expression: str, *, label: str | None, time: str | None) -> None:
+            entry = hints.setdefault(expression, {})
+            if label and "label" not in entry:
+                entry["label"] = label
+            if time and "time" not in entry:
+                entry["time"] = time
+
+        for (_l_start, l_end, word, number), group in groups:
+            between = source_text[l_end : group[0][0]]
+            if number:
+                # "Prova 2: <data>" — só a primeira data do grupo é a Prova 2.
+                _assign(group[0][2], label=f"{word.capitalize()} {number}", time=None)
+            elif word.startswith("exame"):
+                if _EXAM_HINT_STRICT_BETWEEN_RE.match(between):
+                    _assign(group[0][2], label="Exame", time=None)
+            elif word == "provas" and _EXAM_HINT_QUANTITY_RE.search(
+                source_text[max(0, _l_start - 8) : _l_start]
+            ):
+                for ordinal, (_d_start, _d_end, expression) in enumerate(
+                    group[:_EXAM_HINT_MAX_ORDINALS], start=1
+                ):
+                    _assign(expression, label=f"Prova {ordinal}", time=None)
+
+        # Horário: match mais próximo da data (preferência para depois dela),
+        # sem sobrepor outra data.
+        for d_start, d_end, expression in date_matches:
+            near_times = [
+                (t_start, t_end, hour, minute)
+                for t_start, t_end, hour, minute in time_matches
+                if hour <= 23
+                and minute <= 59
+                and not any(
+                    t_start < p_end and p_start < t_end
+                    for p_start, p_end, _ in date_matches
+                )
+                and (
+                    d_end <= t_start <= d_end + _EXAM_HINT_TIME_WINDOW
+                    or d_start - _EXAM_HINT_TIME_WINDOW <= t_end <= d_start
+                )
+            ]
+            if not near_times:
+                continue
+            _t_start, _t_end, hour, minute = min(
+                near_times,
+                key=lambda item: (item[0] < d_end, abs(item[0] - d_end)),
+            )
+            _assign(expression, label=None, time=f"{hour:02d}:{minute:02d}")
+        return {key: value for key, value in hints.items() if value}
 
     @staticmethod
     def _block_is_textual(row: Any) -> bool:
@@ -691,17 +834,21 @@ class CuratorAgent:
         recorded_at = datetime.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         for candidate in extraction.facts:
             fact = candidate.fact
-            value_json = json.dumps(
-                {
-                    "entity_id": str(fact.entity_id),
-                    "original_expression": fact.original_expression,
-                    "normalized_value": fact.normalized_value,
-                    "precision": fact.precision.value,
-                    "timezone": fact.timezone,
-                    "validation": candidate.validation,
-                },
-                sort_keys=True,
-            )
+            value_payload: dict[str, Any] = {
+                "entity_id": str(fact.entity_id),
+                "original_expression": fact.original_expression,
+                "normalized_value": fact.normalized_value,
+                "precision": fact.precision.value,
+                "timezone": fact.timezone,
+                "validation": candidate.validation,
+            }
+            # Dicas de apresentação do card (§6.3): nome da prova e horário
+            # lidos do texto de origem. Nunca alteram o valor normalizado.
+            if candidate.label:
+                value_payload["label"] = candidate.label
+            if candidate.exam_time:
+                value_payload["time"] = candidate.exam_time
+            value_json = json.dumps(value_payload, sort_keys=True)
             fact_id = str(_uuid.uuid4())
             statements.append(
                 (

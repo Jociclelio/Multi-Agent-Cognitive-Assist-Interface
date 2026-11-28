@@ -2526,6 +2526,13 @@ class LoopbackAPI:
         já há interrupt pendente, o card atual continua valendo (a fila
         de Gates §6.3 segue operável). Best-effort por design."""
         graph = self.runtime.graph
+        # Relatório de Matrícula enviado antes da confirmação: extrai o
+        # horário de aula e sugere horário para as provas pendentes (§6.3).
+        # Best-effort — falha não impede o card.
+        try:
+            graph.enrich_exam_times_from_document(user_id, doc_id)
+        except Exception:  # noqa: BLE001 — enriquecimento é best-effort
+            pass
         pending = graph._pending_exam_facts(user_id, course_id=None, doc_id=None)
         if not pending:
             return None
