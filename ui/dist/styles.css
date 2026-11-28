@@ -1863,11 +1863,12 @@ a.nc-file-name:hover {
 }
 
 .exam-time-input {
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 0.15rem 0.3rem;
-  background: var(--surface, #fff);
-  color: inherit;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  color-scheme: dark light;
 }
 
 .exam-text-answer {
@@ -1878,11 +1879,31 @@ a.nc-file-name:hover {
 
 .exam-text-answer input[type="text"] {
   flex: 1;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 0.35rem 0.5rem;
-  background: var(--surface, #fff);
-  color: inherit;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.exam-text-answer input[type="text"]::placeholder {
+  color: var(--text-muted);
+}
+
+.exam-course-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.exam-gate-card.is-resolved {
+  opacity: 0.75;
 }
 
 /* Conversa Geral no rail (porta de entrada entre matérias) */

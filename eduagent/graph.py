@@ -2653,21 +2653,27 @@ class EduAgentGraph:
         self, user_id: str, *, course_id: str | None, doc_id: str | None
     ) -> list[dict[str, Any]]:
         """Fatos de data ``candidate`` pendentes de confirmação, com a fonte
-        (documento/página) resolvida para o card. Filtro por matéria via os
-        documentos de origem; ``doc_id`` restringe a um documento."""
+        (documento/página) e a **matéria de origem** resolvidas para o card.
+        Filtro por matéria via os documentos de origem; ``doc_id`` restringe
+        a um documento. Sem filtros, devolve a fila inteira do usuário
+        (usado pelo card da Conversa Geral)."""
         rows = self._store.fetch_user_rows(
             "SELECT id, value_json, source_refs_json, revision FROM facts "
             "WHERE user_id = ? AND kind = 'date' AND status = 'candidate' "
             "ORDER BY value_json",
             (user_id,),
         )
-        doc_course: dict[str, str] = {}
-        if course_id:
-            for d in self._store.fetch_user_rows(
-                "SELECT id FROM documents WHERE user_id = ? AND course_id = ?",
-                (user_id, course_id),
-            ):
-                doc_course[str(d["id"])] = course_id
+        doc_course: dict[str, tuple[str, str]] = {}
+        for d in self._store.fetch_user_rows(
+            "SELECT d.id AS doc_id, d.course_id AS course_id, c.title AS title "
+            "FROM documents d LEFT JOIN courses c ON c.id = d.course_id "
+            "WHERE d.user_id = ?",
+            (user_id,),
+        ):
+            doc_course[str(d["doc_id"])] = (
+                str(d["course_id"] or ""),
+                str(d["title"] or ""),
+            )
         exams: list[dict[str, Any]] = []
         for row in rows:
             value = _safe_json(row["value_json"])
@@ -2675,21 +2681,25 @@ class EduAgentGraph:
             first_doc = str(refs[0].get("doc_id")) if refs else None
             if doc_id and first_doc != doc_id:
                 continue
-            if course_id and first_doc and first_doc not in doc_course:
+            exam: dict[str, Any] = {
+                "fact_id": str(row["id"]),
+                "expression": str(value.get("original_expression", "")),
+                "normalized_value": str(value.get("normalized_value", "")),
+                "precision": str(value.get("precision", "day")),
+                "doc_id": first_doc,
+                "doc_name": self._doc_names.name(user_id, first_doc),
+                "page": refs[0].get("physical_page") if refs else None,
+                "revision": int(row["revision"]),
+            }
+            if first_doc and first_doc in doc_course:
+                src_course, src_title = doc_course[first_doc]
+                if course_id and src_course != course_id:
+                    continue
+                exam["course_id"] = src_course
+                exam["course_title"] = src_title
+            elif course_id:
                 continue
-            display_name = self._doc_names.name(user_id, first_doc)
-            exams.append(
-                {
-                    "fact_id": str(row["id"]),
-                    "expression": str(value.get("original_expression", "")),
-                    "normalized_value": str(value.get("normalized_value", "")),
-                    "precision": str(value.get("precision", "day")),
-                    "doc_id": first_doc,
-                    "doc_name": display_name,
-                    "page": refs[0].get("physical_page") if refs else None,
-                    "revision": int(row["revision"]),
-                }
-            )
+            exams.append(exam)
         return exams
 
     def _node_exam_collect(self, state: dict) -> dict:
@@ -2724,7 +2734,7 @@ class EduAgentGraph:
             "note": (
                 "Ainda não tenho informação sobre o horário em que as provas "
                 "acontecem. Se tiver um documento extra (cronograma detalhado, "
-                "relatório de matrícula), pode enviar na conversa da matéria."
+                "relatório de matrícula), pode enviar aqui na conversa."
             ),
         }
         result["exam_card"] = card

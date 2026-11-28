@@ -17,6 +17,7 @@ import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -27,7 +28,7 @@ from eduagent.agents.monitor import Monitor
 from eduagent.agents.planner import PlannerAgent
 from eduagent.agents.tutor import EventItemSink, Tutor
 from eduagent import api as api_mod
-from eduagent.api import LoopbackAPI, MAX_UPLOAD_BYTES
+from eduagent.api import GERAL_SESSION_ID, LoopbackAPI, MAX_UPLOAD_BYTES
 from eduagent.cli import build_parser, run
 from eduagent.contracts import EduAgentError, ErrorCode, MemoryPack
 from eduagent.graph import EduAgentGraph
@@ -452,6 +453,161 @@ def test_ui_api_03_graph_diagram_endpoint(tmp_path: Path) -> None:
         assert data["trace"] is None
     finally:
         server.stop()
+        ctx.close()
+
+
+# ============================================================================
+# UI-API-03b: card de provas (§6.3) — matéria de origem, gatilho na Geral
+# e marcação de cards resolvidos
+# ============================================================================
+def _insert_exam_fact(
+    store: Any,
+    *,
+    fact_id: str,
+    doc_id: str,
+    course_id: str = COURSE,
+    expression: str = "15/10/26",
+    normalized: str = "2026-10-16",
+) -> None:
+    store.execute_write(
+        UID,
+        [
+            (
+                "INSERT INTO documents(id, user_id, course_id) VALUES (?, ?, ?)",
+                (doc_id, UID, course_id),
+            ),
+            (
+                "INSERT INTO facts(id, user_id, kind, value_json, authority, "
+                "recorded_at, source_refs_json, status, revision) "
+                "VALUES (?, ?, 'date', ?, 'documento', '2026-11-28T10:00:00Z', "
+                "?, 'candidate', 1)",
+                (
+                    fact_id,
+                    UID,
+                    json.dumps(
+                        {
+                            "original_expression": expression,
+                            "normalized_value": normalized,
+                            "precision": "day",
+                        }
+                    ),
+                    json.dumps([{"doc_id": doc_id, "physical_page": 3}]),
+                ),
+            ),
+        ],
+        bump_domain_revision=False,
+    )
+
+
+def test_pending_exam_facts_carry_course_title(tmp_path: Path) -> None:
+    ctx = open_ui_runtime(tmp_path)
+    try:
+        _insert_exam_fact(ctx.store, fact_id=str(uuid.uuid4()), doc_id=str(uuid.uuid4()))
+        exams = ctx.graph._pending_exam_facts(UID, course_id=None, doc_id=None)
+        assert len(exams) == 1
+        assert exams[0]["course_id"] == COURSE
+        assert exams[0]["course_title"] == "MO810"
+        # Filtro por matéria continua funcionando; matéria desconhecida não
+        # traz nada (o fato pertence a outra matéria).
+        assert len(ctx.graph._pending_exam_facts(UID, course_id=COURSE, doc_id=None)) == 1
+        assert (
+            ctx.graph._pending_exam_facts(UID, course_id=str(uuid.uuid4()), doc_id=None)
+            == []
+        )
+    finally:
+        ctx.close()
+
+
+def test_exam_confirmation_trigger_targets_geral(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = open_ui_runtime(tmp_path)
+    try:
+        doc_id = str(uuid.uuid4())
+        _insert_exam_fact(ctx.store, fact_id=str(uuid.uuid4()), doc_id=doc_id)
+        calls: dict[str, Any] = {}
+
+        def fake_run_turn(**kwargs: Any) -> Any:
+            calls.update(kwargs)
+            state = SimpleNamespace(
+                session_id=kwargs.get("session_id"),
+                turn_id="turn-1",
+                trace_id="trace-1",
+                intent=SimpleNamespace(value="exam_confirm"),
+                errors=[],
+            )
+            return SimpleNamespace(
+                status="waiting",
+                state=state,
+                output={},
+                waiting_interrupt=True,
+                interrupt_payload={"kind": "exam_confirmation", "exams": []},
+            )
+        monkeypatch.setattr(ctx.graph, "run_turn", fake_run_turn)
+        server = LoopbackAPI(ctx, host="127.0.0.1", port=0)
+        serialized = server._maybe_trigger_exam_confirmation(UID, doc_id, COURSE)
+        assert serialized is not None
+        assert calls["session_id"] == GERAL_SESSION_ID
+        assert calls["message"] == "/exams"
+        # Histórico do card fica na sessão da Geral, não na da matéria.
+        rows = ctx.store.fetch_user_rows(
+            "SELECT session_id, role, content_json FROM chat_messages "
+            "WHERE user_id = ? AND session_id = ?",
+            (UID, GERAL_SESSION_ID),
+        )
+        assert len(rows) == 1 and rows[0]["role"] == "assistant"
+        content = json.loads(str(rows[0]["content_json"]))
+        assert content["question"]["kind"] == "exam_confirmation"
+    finally:
+        ctx.close()
+
+
+def test_exam_confirmation_trigger_skips_when_gate_waiting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = open_ui_runtime(tmp_path)
+    try:
+        _insert_exam_fact(ctx.store, fact_id=str(uuid.uuid4()), doc_id=str(uuid.uuid4()))
+
+        def fail_run_turn(**_kwargs: Any) -> Any:
+            raise AssertionError("não deveria empilhar segundo gate na Geral")
+
+        monkeypatch.setattr(ctx.graph, "run_turn", fail_run_turn)
+        monkeypatch.setattr(
+            ctx.checkpointer,
+            "list_waiting_sessions",
+            lambda: [{"session_id": GERAL_SESSION_ID}],
+        )
+        server = LoopbackAPI(ctx, host="127.0.0.1", port=0)
+        assert (
+            server._maybe_trigger_exam_confirmation(UID, str(uuid.uuid4()), COURSE)
+            is None
+        )
+    finally:
+        ctx.close()
+
+
+def test_mark_exam_gates_resolved(tmp_path: Path) -> None:
+    ctx = open_ui_runtime(tmp_path)
+    try:
+        server = LoopbackAPI(ctx, host="127.0.0.1", port=0)
+        server._record_chat_history(
+            UID,
+            GERAL_SESSION_ID,
+            user_message=None,
+            assistant_payload={
+                "status": "waiting",
+                "question": {"kind": "exam_confirmation", "exams": []},
+            },
+        )
+        server._mark_exam_gates_resolved(UID, GERAL_SESSION_ID)
+        rows = ctx.store.fetch_user_rows(
+            "SELECT content_json FROM chat_messages WHERE user_id = ?",
+            (UID,),
+        )
+        content = json.loads(str(rows[0]["content_json"]))
+        assert content["resolved"] is True
+    finally:
         ctx.close()
 
 

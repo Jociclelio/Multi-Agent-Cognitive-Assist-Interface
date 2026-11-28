@@ -62,6 +62,11 @@ DIAGNOSTIC = "eduagent/api.py"
 #: runtime do modelo, mapa §3.1).
 DEFAULT_PORT = 8094
 
+#: Sessão estável da Conversa Geral (porta principal entre matérias): os
+#: cards de confirmação de provas (§6.3) aparecem aqui, não no thread da
+#: matéria. Mesmo UUID canônico usado pela UI.
+GERAL_SESSION_ID = "00000000-0000-0000-0000-000000000099"
+
 LOOPBACK_HOSTS: frozenset[str] = frozenset({"127.0.0.1", "localhost", "::1"})
 AUTH_HEADER = "X-EduAgent-User"
 USER_HEADER = AUTH_HEADER
@@ -2487,9 +2492,9 @@ class LoopbackAPI:
         except Exception:  # noqa: BLE001
             pass
         # Mensagem proativa de confirmação de provas (§6.3): a ingestão
-        # produziu datas candidatas → a conversa da matéria recebe o card
-        # (turno sistema "/exams" no thread estável da matéria — o mesmo que
-        # a UI abre). Best-effort: falha aqui não falha a ingestão.
+        # produziu datas candidatas → a Conversa Geral recebe o card (turno
+        # sistema "/exams" no thread estável da Geral — a porta principal
+        # entre matérias). Best-effort: falha aqui não falha a ingestão.
         if turn_res.status == "completed" and doc_id:
             try:
                 self._maybe_trigger_exam_confirmation(
@@ -2512,30 +2517,80 @@ class LoopbackAPI:
     def _maybe_trigger_exam_confirmation(
         self, user_id: str, doc_id: str, course_id: str
     ) -> dict[str, Any] | None:
-        """Dispara o card de confirmação de provas na conversa da matéria
-        quando a ingestão acabou de produzir fatos de data ``candidate``.
-        Nunca dispara sem fatos novos; o turno roda no thread estável da
-        matéria (session_id = course_id, o mesmo que a UI usa)."""
+        """Dispara o card de confirmação de provas na **Conversa Geral**
+        (porta principal entre matérias) quando a ingestão acabou de
+        produzir fatos de data ``candidate``. O card lista **todos** os
+        fatos de data pendentes do usuário (fila única na Geral), com a
+        matéria de origem identificada em cada linha. Nunca dispara sem
+        fatos novos e não empilha um segundo gate no thread da Geral: se
+        já há interrupt pendente, o card atual continua valendo (a fila
+        de Gates §6.3 segue operável). Best-effort por design."""
         graph = self.runtime.graph
-        pending = graph._pending_exam_facts(
-            user_id, course_id=course_id, doc_id=doc_id
-        )
+        pending = graph._pending_exam_facts(user_id, course_id=None, doc_id=None)
         if not pending:
+            return None
+        try:
+            waiting = self.runtime.checkpointer.list_waiting_sessions()
+        except Exception:  # noqa: BLE001 —varredura de gates é best-effort
+            waiting = []
+        if any(
+            str(entry.get("session_id")) == GERAL_SESSION_ID for entry in waiting
+        ):
             return None
         exam_turn = graph.run_turn(
             user_id=user_id,
-            session_id=course_id,
+            session_id=GERAL_SESSION_ID,
             message="/exams",
-            payload={"course_id": course_id, "doc_id": doc_id},
+            payload={},
         )
-        serialized = _serialize_turn(exam_turn, course_id)
+        serialized = _serialize_turn(exam_turn, GERAL_SESSION_ID)
         self._record_chat_history(
             user_id,
-            course_id,
+            GERAL_SESSION_ID,
             user_message=None,
             assistant_payload=serialized,
         )
         return serialized
+
+    def _mark_exam_gates_resolved(self, user_id: str, session_id: str) -> None:
+        """Marca no histórico os cards de prova já respondidos desta sessão
+        (``resolved: true``) para a UI renderizá-los como encerrados, sem
+        botões. Best-effort: falha de histórico nunca derruba o turno."""
+        try:
+            rows = self.runtime.store.fetch_user_rows(
+                "SELECT id, content_json FROM chat_messages "
+                "WHERE user_id = ? AND session_id = ? AND role = 'assistant' "
+                "ORDER BY rowid DESC LIMIT 200",
+                (user_id, session_id),
+            )
+        except Exception:  # noqa: BLE001
+            return
+        updates: list[tuple[str, tuple[Any, ...]]] = []
+        for row in rows:
+            content = _safe_json_loads(row["content_json"])
+            if not isinstance(content, dict) or content.get("resolved"):
+                continue
+            question = content.get("question")
+            if (
+                isinstance(question, dict)
+                and question.get("kind") == "exam_confirmation"
+            ):
+                content["resolved"] = True
+                updates.append(
+                    (
+                        "UPDATE chat_messages SET content_json = ? WHERE id = ?",
+                        (
+                            json.dumps(content, ensure_ascii=False),
+                            str(row["id"]),
+                        ),
+                    )
+                )
+        if not updates:
+            return
+        try:
+            self.runtime.store.execute_write(user_id, updates)
+        except Exception:  # noqa: BLE001
+            return
 
     def _handle_get_course_suggestions(
         self,
@@ -3360,6 +3415,14 @@ class LoopbackAPI:
                     ),
                     assistant_payload=serialized,
                 )
+                # Gate consumido com decisão final (não waiting, não failed):
+                # cards de prova anteriores desta sessão viram "resolvidos".
+                if serialized.get("status") not in (
+                    "waiting",
+                    "waiting_student",
+                    "failed",
+                ):
+                    self._mark_exam_gates_resolved(user_id, session_id)
                 self._send_json(handler, HTTPStatus.OK, serialized)
                 return
 

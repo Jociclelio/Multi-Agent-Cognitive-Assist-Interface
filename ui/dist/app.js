@@ -720,10 +720,26 @@ function renderActiveCourseHeader() {
   const topicSelect = document.getElementById("topic-select");
 
   if (!course) {
-    if (titleEl) titleEl.textContent = "Selecione ou crie uma disciplina";
+    if (titleEl) {
+      titleEl.textContent =
+        appState.selectedCourseId === null && appState.activeSessionId === GERAL_SESSION_ID
+          ? "Conversa Geral"
+          : "Selecione ou crie uma disciplina";
+    }
+    if (readyBadge) readyBadge.style.display = "none";
+    if (domainBadge) domainBadge.style.display = "none";
+    if (subtitleEl) {
+      subtitleEl.textContent =
+        appState.activeSessionId === GERAL_SESSION_ID
+          ? "Porta principal entre matérias — cards de gates e perguntas gerais."
+          : "";
+    }
+    if (topicSelect) topicSelect.innerHTML = "";
     syncPracticeTopicGate();
     return;
   }
+  if (readyBadge) readyBadge.style.display = "";
+  if (domainBadge) domainBadge.style.display = "";
   if (titleEl) titleEl.textContent = course.title;
   if (readyBadge) {
     const ingesting = Boolean(course.ingesting_content);
@@ -857,8 +873,10 @@ function renderSessionTimelineAndDrawer() {
     }
     if (msg.role !== "assistant") continue;
     const q = msg.content?.question;
-    if (q && q.kind === "exam_confirmation" && !msg.content?.resolved) {
-      cardsHtml.push(renderExamConfirmationCard(msg.content, msg.created_at));
+    if (q && q.kind === "exam_confirmation") {
+      cardsHtml.push(
+        renderExamConfirmationCard(q, msg.created_at, msg.content?.resolved),
+      );
       continue;
     }
     const histText =
@@ -1295,8 +1313,12 @@ function removeApprovalGate() {
  * POST /turns/{id}/resume com decisões estruturadas ou texto. Retorna HTML
  * (os handlers são delegados em bindExamCardHandlers após o innerHTML).
  */
-function renderExamConfirmationCard(content, occurredAt) {
+function renderExamConfirmationCard(content, occurredAt, resolved = false) {
   const exams = Array.isArray(content.exams) ? content.exams : [];
+  const courseChip = (exam) =>
+    exam.course_title
+      ? `<span class="exam-course-chip" title="Matéria de origem do documento">${escapeHtml(String(exam.course_title))}</span>`
+      : "";
   const rows = exams
     .map(
       (exam) => `
@@ -1304,31 +1326,40 @@ function renderExamConfirmationCard(content, occurredAt) {
         <div class="exam-row-main">
           <strong>${escapeHtml(String(exam.expression))}</strong>
           <span>→ ${escapeHtml(String(exam.normalized_value))}</span>
+          ${courseChip(exam)}
           ${
             exam.doc_id
               ? `<a class="source-ref-btn" href="/documents/${encodeURIComponent(String(exam.doc_id))}/original${exam.page ? `#page=${exam.page}` : ""}" target="_blank" rel="noopener">[Fonte${exam.page ? ` p. ${escapeHtml(String(exam.page))}` : ""}]</a>`
               : ""
           }
         </div>
-        <div class="exam-row-actions">
+        ${
+          resolved
+            ? ""
+            : `<div class="exam-row-actions">
           <label class="exam-time-label">⏰ <input type="time" class="exam-time-input" aria-label="Horário da prova (opcional)" /></label>
           <button type="button" class="btn-primary btn-compact" data-exam-action="confirm">✅ Confirmar</button>
           <button type="button" class="btn-ghost btn-compact" data-exam-action="correct">✏️ Corrigir</button>
           <button type="button" class="btn-ghost btn-compact" data-exam-action="reject">✖ Não é prova</button>
-        </div>
+        </div>`
+        }
       </div>`,
     )
     .join("");
   return `
-    <article class="timeline-card role-tutor approval-gate exam-gate-card" data-exam-gate="1">
-      <div class="card-header-meta"><strong>📅 Datas de prova encontradas</strong><span>${escapeHtml(String(occurredAt || "").slice(0, 16).replace("T", " "))}</span></div>
+    <article class="timeline-card role-tutor approval-gate exam-gate-card${resolved ? " is-resolved" : ""}" data-exam-gate="1">
+      <div class="card-header-meta"><strong>${resolved ? "📅 Datas de prova — decisões registradas" : "📅 Datas de prova encontradas"}</strong><span>${escapeHtml(String(occurredAt || "").slice(0, 16).replace("T", " "))}</span></div>
       <div class="approval-question">${escapeHtml(String(content.question || "Confirma essas datas de prova?"))}</div>
       <div class="exam-rows">${rows}</div>
-      <p class="muted-note">${escapeHtml(String(content.note || ""))}</p>
+      ${
+        resolved
+          ? `<p class="muted-note">✔ Card encerrado — sem pendências nestas datas.</p>`
+          : `<p class="muted-note">${escapeHtml(String(content.note || ""))}</p>
       <div class="exam-text-answer">
         <input type="text" class="exam-free-text" placeholder="…ou responda por escrito (ex.: &quot;confirmo a primeira e a última, a do meio mudou para 30/11&quot;)" aria-label="Resposta em linguagem natural" />
         <button type="button" class="btn-ghost btn-compact" data-exam-text-send="1">Enviar</button>
-      </div>
+      </div>`
+      }
       <div class="exam-status muted-note" hidden></div>
     </article>`;
 }
@@ -1623,7 +1654,9 @@ async function selectGeralConversation() {
   appState.selectedCourseId = null;
   appState.selectedCourseTitle = "Conversa Geral";
   appState.activeSessionId = GERAL_SESSION_ID;
-  appState.pomodoro = null;
+  // A Geral não tem bloco de plano: timer volta ao estado idle (nunca null —
+  // o intervalo global do Pomodoro lê appState.pomodoro a cada segundo).
+  appState.pomodoro = createPomodoroState(null);
   savePomodoroToStorage();
   renderCoursesList();
   renderActiveCourseHeader();
